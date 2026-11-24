@@ -4332,6 +4332,510 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/hosting/sites/{id}/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which tools work for this website
+         * @description The capability report of the website tools (files, cron, logs, FTP, protection, PHP, business email) for THIS website, panel version, caller role, plan and connection state: each tool is available or unavailable with a reason (role, site_state, connection, panel_version, panel_service, plan). Every tool is NOT VERIFIED until a human-run probe on a real node.
+         */
+        get: operations["getHostingSiteTools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/cron-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the scheduled jobs
+         * @description Read from the panel (v-list-cron-jobs) for the site account, with the plan limit.
+         */
+        get: operations["listHostingCronJobs"];
+        put?: never;
+        /**
+         * Create a scheduled job
+         * @description Validates the five-field schedule (digits and * , / - only) and the minimum interval (default 5 minutes), counts the plan limit under a per-site lock, and runs v-add-cron-job for the site account; a lost answer is reconciled against v-list-cron-jobs before any retry. The command runs as the sites own unprivileged account. Needs Idempotency-Key.
+         */
+        post: operations["createHostingCronJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/cron-jobs/{job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a scheduled job
+         * @description v-change-cron-job USER JOB MIN HOUR DAY MONTH WDAY CMD, with the same validation as creation.
+         */
+        put: operations["updateHostingCronJob"];
+        post?: never;
+        /**
+         * Delete a scheduled job
+         * @description v-delete-cron-job. A job that is already gone is 404.
+         */
+        delete: operations["deleteHostingCronJob"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the web logs of a domain
+         * @description The last N lines (1 to 500, default 100) of the access or error log of a domain of the site (v-list-web-domain-accesslog / -errorlog, plain format). The answer is cut again to N lines and every line to a bounded length.
+         */
+        get: operations["getHostingSiteLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/ftp-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the FTP accounts
+         * @description Read from the web domains of the site account on the panel (FTP_USER, FTP_PATH of v-list-web-domains), with the plan limit. Offered only when the node reports an FTP service.
+         */
+        get: operations["listHostingFtpAccounts"];
+        put?: never;
+        /**
+         * Create an FTP account
+         * @description v-add-web-domain-ftp USER DOMAIN FTP_USER FTP_PASSWORD [FTP_PATH]. The plan limit is counted under a per-site lock; the password is sent to the panel once and never stored, logged or audited; the account name is read back from the panel. Needs Idempotency-Key.
+         */
+        post: operations["createHostingFtpAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/ftp-accounts/{domain}/{user}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change an FTP password
+         * @description v-change-web-domain-ftp-password. The password is never stored, logged or audited.
+         */
+        put: operations["setHostingFtpPassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/ftp-accounts/{domain}/{user}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an FTP account
+         * @description v-delete-web-domain-ftp.
+         */
+        delete: operations["deleteHostingFtpAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/protection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List password-protected domains
+         * @description Read from the web domains of the site account (AUTH_USER), with the plan limit.
+         */
+        get: operations["listHostingProtection"];
+        put?: never;
+        /**
+         * Protect a domain with a password
+         * @description v-add-web-domain-httpauth USER DOMAIN AUTH_USER AUTH_PASSWORD. The password is never stored, logged or audited. Needs Idempotency-Key.
+         */
+        post: operations["createHostingProtectionUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/protection/{domain}/{user}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a protection user
+         * @description v-delete-web-domain-httpauth.
+         */
+        delete: operations["deleteHostingProtectionUser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse the website folder
+         * @description Lists a folder of the website over SFTP as the site account. The path is relative and proven to stay inside the website folder; links are shown and never followed. At most 1000 entries.
+         */
+        get: operations["listHostingFiles"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a file or folder
+         * @description Deletes a file, a link (the link only) or a folder (recursive=true for a non-empty one, bounded entries). Never follows a link.
+         */
+        delete: operations["deleteHostingFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a file
+         * @description The file bytes as an attachment (up to 50 MB). Links are not followed.
+         */
+        get: operations["downloadHostingFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open a text file for editing
+         * @description UTF-8 text up to 1 MB with its SHA-256; other files are refused.
+         */
+        get: operations["readHostingTextFile"];
+        /**
+         * Save a text file
+         * @description Replaces the file only when expectedSha256 is the hash of the content that was opened (409 conflict otherwise); written through a temporary file and a rename.
+         */
+        put: operations["saveHostingTextFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload a file
+         * @description The raw bytes (application/octet-stream) up to the plan upload limit (default 25 MB, at most 60 MB); an existing file is replaced only with overwrite=true. The disk quota of the plan is checked first.
+         */
+        put: operations["uploadHostingFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a folder
+         * @description Creates a folder inside the website folder. Needs Idempotency-Key.
+         */
+        post: operations["createHostingFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/files/renames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename or move
+         * @description Both paths are proven to be inside the website folder; the target must not exist. Needs Idempotency-Key.
+         */
+        post: operations["renameHostingFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Business email of the website
+         * @description Mail domains that can be enabled, mailboxes with quota and aliases (read from the panel), the plan limits, the webmail availability and the IMAP/SMTP settings. Offered only on a plan that includes mailboxes and a node that reports a mail service. NOT VERIFIED against a real node.
+         */
+        get: operations["getHostingMail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/dns-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check the mail DNS records
+         * @description Reads MX, SPF, DKIM, DMARC, the mail and webmail hosts and the PTR of the mail server. Records are NEVER written; an MX that points to another provider is reported as external and kept.
+         */
+        get: operations["checkHostingMailDns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable mail for a domain
+         * @description v-add-mail-domain (and webmail when the node has it). Never changes DNS. Needs Idempotency-Key.
+         */
+        post: operations["enableHostingMailDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a mailbox
+         * @description v-add-mail-account USER DOMAIN ACCOUNT PASSWORD QUOTA. The plan mailbox count and quota are enforced under a per-site lock; the password is never stored, logged or audited. Needs Idempotency-Key.
+         */
+        post: operations["createHostingMailbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a mailbox password
+         * @description v-change-mail-account-password.
+         */
+        put: operations["setHostingMailboxPassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a mailbox quota
+         * @description v-change-mail-account-quota, at most the plan mailbox quota.
+         */
+        put: operations["setHostingMailboxQuota"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a mailbox
+         * @description v-delete-mail-account.
+         */
+        delete: operations["deleteHostingMailbox"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an alias
+         * @description v-add-mail-account-alias, within the plan alias limit. Needs Idempotency-Key.
+         */
+        post: operations["createHostingMailAlias"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/aliases/{alias}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an alias
+         * @description v-delete-mail-account-alias.
+         */
+        delete: operations["deleteHostingMailAlias"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/hosting/sites/{id}/migrations": {
         parameters: {
             query?: never;
@@ -12197,6 +12701,224 @@ export interface components {
             /** Format: uuid */
             operationId: string;
             site: components["schemas"]["HostingSite"];
+        };
+        HostingToolCapability: {
+            /** @enum {string} */
+            id: "files" | "cron" | "logs" | "ftp" | "protection" | "php" | "mail";
+            /** @enum {string} */
+            state: "available" | "unavailable";
+            /** @enum {string} */
+            reason?: "role" | "site_state" | "connection" | "panel_version" | "panel_service" | "plan";
+            limits?: {
+                [key: string]: number;
+            };
+            versions?: string[];
+            /** @enum {string} */
+            verification: "not_verified";
+        };
+        HostingToolsReport: {
+            panel: {
+                version: string | null;
+                /** @enum {string} */
+                connection: "connected" | "not_configured" | "unhealthy";
+            };
+            tools: components["schemas"]["HostingToolCapability"][];
+        };
+        HostingCronJobInput: {
+            min: string;
+            hour: string;
+            day: string;
+            month: string;
+            wday: string;
+            command: string;
+        };
+        HostingCronJob: {
+            id: string;
+            min: string;
+            hour: string;
+            day: string;
+            month: string;
+            wday: string;
+            command: string;
+        };
+        HostingCronList: {
+            items: components["schemas"]["HostingCronJob"][];
+            limit: number;
+        };
+        HostingLogs: {
+            domain: string;
+            /** @enum {string} */
+            kind: "access" | "error";
+            lines: string[];
+            truncated: boolean;
+            requested: number;
+        };
+        HostingFtpAccount: {
+            domain: string;
+            user: string;
+            path: string;
+        };
+        HostingFtpList: {
+            items: components["schemas"]["HostingFtpAccount"][];
+            limit: number;
+        };
+        CreateHostingFtpAccount: {
+            domain?: string;
+            name: string;
+            password: string;
+            path?: string;
+        };
+        SetHostingPassword: {
+            password: string;
+        };
+        HostingProtectionUser: {
+            domain: string;
+            user: string;
+        };
+        HostingProtectionList: {
+            items: components["schemas"]["HostingProtectionUser"][];
+            domains: string[];
+            limit: number;
+        };
+        CreateHostingProtectionUser: {
+            domain?: string;
+            user: string;
+            password: string;
+        };
+        HostingFileEntry: {
+            name: string;
+            /** @enum {string} */
+            type: "file" | "dir" | "symlink";
+            size: number;
+            /** Format: date-time */
+            modifiedAt: string | null;
+        };
+        HostingFileList: {
+            domain: string;
+            path: string;
+            items: components["schemas"]["HostingFileEntry"][];
+            truncated: boolean;
+        };
+        HostingFileText: {
+            path: string;
+            content: string;
+            size: number;
+            sha256: string;
+        };
+        HostingFileWritten: {
+            path: string;
+            size: number;
+            sha256: string;
+        };
+        EditHostingFile: {
+            content: string;
+            expectedSha256: string;
+        };
+        HostingFilePath: {
+            path: string;
+        };
+        HostingFileRemoved: {
+            removed: number;
+        };
+        CreateHostingFolder: {
+            domain?: string;
+            path: string;
+        };
+        RenameHostingFile: {
+            domain?: string;
+            from: string;
+            to: string;
+        };
+        HostingMailbox: {
+            domain: string;
+            name: string;
+            address: string;
+            quotaMb: number | null;
+            usedMb: number;
+            aliases: string[];
+        };
+        HostingMailOverview: {
+            limits: {
+                mailboxes: number;
+                aliasesPerMailbox: number;
+                mailboxQuotaMb: number;
+            };
+            used: number;
+            domains: {
+                domain: string;
+                enabled: boolean;
+            }[];
+            mailboxes: components["schemas"]["HostingMailbox"][];
+            webmail: string | null;
+            settings: {
+                domain: string;
+                webmailUrl: string | null;
+                imap: components["schemas"]["HostingMailEndpoint"];
+                smtp: components["schemas"]["HostingMailEndpoint"];
+                username: string;
+                /** @enum {string} */
+                verification: "not_verified";
+            }[];
+        };
+        HostingMailEndpoint: {
+            host: string;
+            ssl: number;
+            startTls: number;
+        };
+        EnableHostingMailDomain: {
+            domain: string;
+        };
+        HostingMailEnableResult: {
+            domain: string;
+            created: boolean;
+            webmail: boolean;
+        };
+        CreateHostingMailbox: {
+            domain: string;
+            name: string;
+            password: string;
+            quotaMb?: number;
+        };
+        HostingMailboxCreated: {
+            domain: string;
+            name: string;
+            address: string;
+            quotaMb: number;
+        };
+        SetHostingMailboxQuota: {
+            quotaMb: number;
+        };
+        HostingMailboxQuota: {
+            quotaMb: number;
+        };
+        CreateHostingMailAlias: {
+            alias: string;
+        };
+        HostingMailAlias: {
+            alias: string;
+            address: string;
+        };
+        HostingMailDnsCheck: {
+            /** @enum {string} */
+            id: "mx" | "spf" | "dkim" | "dmarc" | "mail_host" | "webmail_host" | "ptr";
+            /** @enum {string} */
+            state: "ok" | "missing" | "mismatch" | "external";
+            expected: {
+                type?: string;
+                name?: string;
+                value?: string;
+            } | null;
+            found: string[];
+        };
+        HostingMailDnsReport: {
+            domain: string;
+            mailEnabled: boolean;
+            mailHostingMoved: boolean;
+            serverIp: string | null;
+            checks: components["schemas"]["HostingMailDnsCheck"][];
+            note: string;
+            /** @enum {string} */
+            verification: "not_verified";
         };
         HostingDomainBinding: {
             /** Format: uuid */
@@ -24000,6 +24722,1075 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    getHostingSiteTools: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingToolsReport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listHostingCronJobs: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingCronList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingCronJob: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostingCronJobInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingCronJob"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    updateHostingCronJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                job: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostingCronJobInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingCronJob"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingCronJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                job: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getHostingSiteLogs: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description access or error (default error) */
+                kind?: "access" | "error";
+                /** @description 1 to 500 */
+                lines?: number;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingLogs"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingFtpAccounts: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFtpList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingFtpAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingFtpAccount"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFtpAccount"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    setHostingFtpPassword: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHostingPassword"];
+            };
+        };
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingFtpAccount: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingProtection: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingProtectionList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingProtectionUser: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingProtectionUser"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingProtectionUser"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingProtectionUser: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listHostingFiles: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileList"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+                recursive?: boolean;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileRemoved"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    downloadHostingFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file bytes (attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    readHostingTextFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileText"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    saveHostingTextFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditHostingFile"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileWritten"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    uploadHostingFile: {
+        parameters: {
+            query?: {
+                /** @description One of the site domains; default the primary one */
+                domain?: string;
+                /** @description A path relative to the website folder; never absolute, never with .. */
+                path?: string;
+                overwrite?: boolean;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFileWritten"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingFolder: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingFolder"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFilePath"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    renameHostingFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameHostingFile"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingFilePath"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    getHostingMail: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailOverview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    checkHostingMailDns: {
+        parameters: {
+            query: {
+                domain: string;
+            };
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailDnsReport"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    enableHostingMailDomain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnableHostingMailDomain"];
+            };
+        };
+        responses: {
+            /** @description Enabled */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailEnableResult"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingMailbox: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingMailbox"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailboxCreated"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    setHostingMailboxPassword: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHostingPassword"];
+            };
+        };
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    setHostingMailboxQuota: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHostingMailboxQuota"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailboxQuota"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingMailbox: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    createHostingMailAlias: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHostingMailAlias"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostingMailAlias"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    deleteHostingMailAlias: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+                domain: string;
+                name: string;
+                alias: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
         };
     };
     listHostingSiteMigrations: {

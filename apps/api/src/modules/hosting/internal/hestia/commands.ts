@@ -25,7 +25,15 @@ export type ArgKind =
   | 'phpbin' // the PHP CLI of a pinned version
   | 'wpbin' // the WP-CLI that `v-add-user-wp-cli` puts in the site user's home
   | 'wparg' // one WP-CLI argument: no space, quote, `$`, backtick, `;`, `|`, `&`, `<` or `>`
-  | 'text'; // short free text without control characters (names)
+  | 'text' // short free text without control characters (names)
+  // S05 (sources: https://hestiacp.com/docs/reference/cli, read 2026-11-24)
+  | 'cronField' // minute / hour / day / month / weekday: digits and `* , / -` only
+  | 'cronCommand' // printable ASCII, one line; it runs as the site's own unprivileged account
+  | 'userPassword' // a customer-chosen password for a mailbox / FTP / HTTP-auth user (12..64)
+  | 'ftpUser'
+  | 'ftpPath' // relative to the web domain, never `..`
+  | 'mailLocal' // mailbox / alias local part
+  | 'format'; // `json` | `plain`
 
 const ARG: Record<ArgKind, RegExp> = {
   /** the on-node account name: `s-` + the token-derived part (the site name of the hosting contract) */
@@ -46,6 +54,13 @@ const ARG: Record<ArgKind, RegExp> = {
   phpbin: /^\/usr\/bin\/php[5-9]\.[0-9]{1,2}$/,
   wpbin: /^\/home\/s-[a-z0-9]{12,40}\/\.wp-cli\/wp$/,
   wparg: /^[A-Za-z0-9_.:/@=+,%-]{1,200}$/,
+  cronField: /^[0-9*,/-]{1,40}$/,
+  cronCommand: /^[\x20-\x7e]{1,512}$/,
+  userPassword: /^[A-Za-z0-9!@#%^*_+=.:-]{12,64}$/,
+  ftpUser: /^[a-z0-9_]{3,24}$/,
+  ftpPath: /^(?!.*\.\.)\/[A-Za-z0-9._/-]{0,200}$/,
+  mailLocal: /^[a-z0-9][a-z0-9._-]{0,63}$/,
+  format: /^(json|plain)$/,
   // eslint-disable-next-line no-control-regex -- control characters are exactly what this pattern refuses
   text: /^[^\x00-\x1f\x7f'"`\\$;|&<>]{1,100}$/,
 };
@@ -58,6 +73,8 @@ export interface HestiaCommandDef {
   mutating: boolean;
   /** a list command answers JSON when its last argument is `json` (documented: "all v-list-* calls support json, shell and plain") */
   json?: boolean;
+  /** a read whose answer is plain text lines (`plain` format): the logs. Never parsed as JSON. */
+  plain?: boolean;
 }
 
 const a = (name: string, kind: ArgKind, optional = false) => ({ name, kind, optional });
@@ -66,7 +83,14 @@ const def = (
   args: HestiaCommandDef['args'],
   mutating: boolean,
   json = false,
-): HestiaCommandDef => ({ cmd, args, mutating, ...(json ? { json } : {}) });
+  plain = false,
+): HestiaCommandDef => ({
+  cmd,
+  args,
+  mutating,
+  ...(json ? { json } : {}),
+  ...(plain ? { plain } : {}),
+});
 
 const user = a('user', 'user');
 const dom = a('domain', 'domain');
@@ -168,6 +192,113 @@ export const HESTIA_COMMANDS = {
   ),
   // TLS (Let's Encrypt)
   addLetsEncrypt: def('v-add-letsencrypt-domain', [user, dom, a('aliases', 'text', true)], true),
+
+  // ---- S05 site tools. Argument order is the documented one (CLI reference, read 2026-11-24); NOT VERIFIED against a real panel. ------------------
+  sysConfig: def('v-list-sys-config', [], false, true),
+  // cron: v-add-cron-job USER MIN HOUR DAY MONTH WDAY CRON_COMMAND [JOB] [RESTART]; v-change-cron-job USER JOB MIN HOUR DAY MONTH WDAY CRON_COMMAND; v-delete-cron-job USER JOB
+  listCronJobs: def('v-list-cron-jobs', [user], false, true),
+  addCronJob: def(
+    'v-add-cron-job',
+    [
+      user,
+      a('min', 'cronField'),
+      a('hour', 'cronField'),
+      a('day', 'cronField'),
+      a('month', 'cronField'),
+      a('wday', 'cronField'),
+      a('command', 'cronCommand'),
+      a('job', 'int', true),
+    ],
+    true,
+  ),
+  changeCronJob: def(
+    'v-change-cron-job',
+    [
+      user,
+      a('job', 'int'),
+      a('min', 'cronField'),
+      a('hour', 'cronField'),
+      a('day', 'cronField'),
+      a('month', 'cronField'),
+      a('wday', 'cronField'),
+      a('command', 'cronCommand'),
+    ],
+    true,
+  ),
+  deleteCronJob: def('v-delete-cron-job', [user, a('job', 'int')], true),
+  // logs: v-list-web-domain-accesslog USER DOMAIN [LINES] [FORMAT] (the same for errorlog); asked as `plain` text
+  accessLog: def('v-list-web-domain-accesslog', [user, dom, a('lines', 'int')], false, false, true),
+  errorLog: def('v-list-web-domain-errorlog', [user, dom, a('lines', 'int')], false, false, true),
+  // FTP: v-add-web-domain-ftp USER DOMAIN FTP_USER FTP_PASSWORD [FTP_PATH]; v-delete-web-domain-ftp USER DOMAIN FTP_USER; v-change-web-domain-ftp-password USER DOMAIN FTP_USER FTP_PASSWORD
+  addFtp: def(
+    'v-add-web-domain-ftp',
+    [user, dom, a('ftpUser', 'ftpUser'), a('password', 'userPassword'), a('path', 'ftpPath', true)],
+    true,
+  ),
+  deleteFtp: def('v-delete-web-domain-ftp', [user, dom, a('ftpUser', 'ftpUser')], true),
+  changeFtpPassword: def(
+    'v-change-web-domain-ftp-password',
+    [user, dom, a('ftpUser', 'ftpUser'), a('password', 'userPassword')],
+    true,
+  ),
+  // password protection: v-add-web-domain-httpauth USER DOMAIN AUTH_USER AUTH_PASSWORD [RESTART]; v-delete-web-domain-httpauth USER DOMAIN AUTH_USER [RESTART]
+  addHttpAuth: def(
+    'v-add-web-domain-httpauth',
+    [
+      user,
+      dom,
+      a('authUser', 'ftpUser'),
+      a('password', 'userPassword'),
+      a('restart', 'flag', true),
+    ],
+    true,
+  ),
+  deleteHttpAuth: def(
+    'v-delete-web-domain-httpauth',
+    [user, dom, a('authUser', 'ftpUser'), a('restart', 'flag', true)],
+    true,
+  ),
+  // SFTP: v-add-user-sftp-jail USER [RESTART] ("enables sftp jailed environment")
+  addSftpJail: def('v-add-user-sftp-jail', [user, a('restart', 'flag', true)], true),
+  // mail: every signature as documented; all list commands answer JSON
+  listMailDomains: def('v-list-mail-domains', [user], false, true),
+  listMailDomain: def('v-list-mail-domain', [user, dom], false, true),
+  addMailDomain: def('v-add-mail-domain', [user, dom], true),
+  deleteMailDomain: def('v-delete-mail-domain', [user, dom], true),
+  addMailWebmail: def(
+    'v-add-mail-domain-webmail',
+    [user, dom, a('webmail', 'template', true)],
+    true,
+  ),
+  listMailDkim: def('v-list-mail-domain-dkim', [user, dom], false, true),
+  listMailDkimDns: def('v-list-mail-domain-dkim-dns', [user, dom], false, true),
+  listMailAccounts: def('v-list-mail-accounts', [user, dom], false, true),
+  addMailAccount: def(
+    'v-add-mail-account',
+    [user, dom, a('account', 'mailLocal'), a('password', 'userPassword'), a('quota', 'int', true)],
+    true,
+  ),
+  deleteMailAccount: def('v-delete-mail-account', [user, dom, a('account', 'mailLocal')], true),
+  changeMailPassword: def(
+    'v-change-mail-account-password',
+    [user, dom, a('account', 'mailLocal'), a('password', 'userPassword')],
+    true,
+  ),
+  changeMailQuota: def(
+    'v-change-mail-account-quota',
+    [user, dom, a('account', 'mailLocal'), a('quota', 'int')],
+    true,
+  ),
+  addMailAlias: def(
+    'v-add-mail-account-alias',
+    [user, dom, a('account', 'mailLocal'), a('alias', 'mailLocal')],
+    true,
+  ),
+  deleteMailAlias: def(
+    'v-delete-mail-account-alias',
+    [user, dom, a('account', 'mailLocal'), a('alias', 'mailLocal')],
+    true,
+  ),
 } as const satisfies Record<string, HestiaCommandDef>;
 export type HestiaCommandId = keyof typeof HESTIA_COMMANDS;
 

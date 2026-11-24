@@ -240,6 +240,10 @@ export class HestiaHostingAdapter implements HostingAdapter {
     const si = obj(obj(info.data).sysinfo);
     const users = await this.run(node, ctx, 'listUsers', {});
     const probe = await this.probe(ctx, node);
+    // which optional services the panel installed (documented hestia.conf keys); best effort: a failure leaves `services` unreported, never guessed
+    const conf = await this.run(node, ctx, 'sysConfig', {});
+    const c = conf.ok ? obj(obj(conf.data).config) : null;
+    const svc = (k: string) => (str(c?.[k]) ? str(c?.[k]) : null);
     const cap = (await this.o.capacityOf?.(node)) ?? { cpuMillicores: 0, memoryMb: 0, diskMb: 0 };
     // LOADAVERAGE is "1m / 5m / 15m"
     const la = Number(str(si.LOADAVERAGE).split('/')[0]?.trim());
@@ -261,6 +265,16 @@ export class HestiaHostingAdapter implements HostingAdapter {
           sites: siteCount,
         },
         runtimes: probe.runtimes,
+        ...(c
+          ? {
+              services: {
+                ftp: svc('FTP_SYSTEM'),
+                mail: svc('MAIL_SYSTEM'),
+                imap: svc('IMAP_SYSTEM'),
+                webmail: svc('WEBMAIL_SYSTEM'),
+              },
+            }
+          : {}),
       },
       raw: this.ev('inventory', info.summary),
     };

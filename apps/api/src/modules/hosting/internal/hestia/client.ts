@@ -144,9 +144,15 @@ export class HestiaClient {
       };
     }
     const asJson = !!def.json;
-    const form = new URLSearchParams({ hash, returncode: asJson ? 'no' : 'yes', cmd: def.cmd });
+    const asPlain = !!('plain' in def && def.plain);
+    const form = new URLSearchParams({
+      hash,
+      returncode: asJson || asPlain ? 'no' : 'yes',
+      cmd: def.cmd,
+    });
     args.forEach((v, i) => form.set(`arg${i + 1}`, v));
     if (asJson) form.set(`arg${args.length + 1}`, 'json');
+    if (asPlain) form.set(`arg${args.length + 1}`, 'plain');
     try {
       const res = await this.channel.post(conn, form.toString(), deadlineMs);
       if (res.status === 401 || res.status === 403)
@@ -164,6 +170,24 @@ export class HestiaClient {
           'the panel had a server error',
         );
       const text = res.text.trim();
+      if (asPlain) {
+        // plain text lines (the logs): a bare number is a return code (an error); anything else is the text itself, kept as the panel sent it
+        if (/^\d{1,3}$/.test(text) && text !== '0') {
+          const code = Number(text);
+          const r = HESTIA_RETURN[code];
+          return {
+            ok: false,
+            uncertain: false,
+            summary,
+            error: normalizedError(
+              r?.category ?? 'unknown',
+              r?.name ?? `code_${code}`,
+              `the panel returned ${r?.name ?? code}`,
+            ),
+          };
+        }
+        return { ok: true, code: 0, data: res.text, summary };
+      }
       if (!asJson) {
         const code = /^\d{1,3}$/.test(text) ? Number(text) : NaN;
         if (Number.isNaN(code))

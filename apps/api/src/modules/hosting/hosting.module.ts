@@ -26,6 +26,16 @@ import { AdminHostingOpsController } from './admin-ops.controller';
 import { SiteDatabasesController } from './site-databases.controller';
 import { SiteDomainsController } from './site-domains.controller';
 import { SiteSslController } from './site-ssl.controller';
+import { SiteToolsController } from './site-tools.controller';
+import { SiteFilesController } from './site-files.controller';
+import { SiteMailController } from './site-mail.controller';
+import { ToolContext } from './internal/tools/tool-context';
+import { SiteToolsService } from './internal/tools/site-tools.service';
+import { FilesService } from './internal/tools/files.service';
+import { MailService } from './internal/tools/mail.service';
+import { MAIL_DNS, SystemMailDns, type MailDns } from './internal/tools/dns';
+import { SFTP_CONNECTOR, Ssh2SftpConnector, type SftpConnector } from './internal/tools/sftp';
+import { TOOLS_CONFIG, loadToolsConfig, type ToolsConfig } from './internal/tools/tools-config';
 import { SitesController } from './sites.controller';
 import { SealedVault } from '../../common/sealed-vault';
 import { SecretStore } from '../../common/secrets';
@@ -83,11 +93,11 @@ import { SiteWorkflow } from './internal/site-workflow';
 import { KIND, SitesService } from './internal/sites.service';
 import { SslService } from './internal/ssl.service';
 import {
+  HESTIA_CLIENT,
   HOSTING_ADAPTER,
   HOSTING_CONFIG,
   HOSTING_KICK,
   HOSTING_WORKER_DB,
-  HESTIA_CLIENT,
 } from './internal/tokens';
 
 const prod = () => process.env.NODE_ENV === 'production';
@@ -132,6 +142,9 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
     SiteDomainsController,
     SiteSslController,
     SiteDatabasesController,
+    SiteToolsController,
+    SiteFilesController,
+    SiteMailController,
     SiteBackupsController,
     SiteWordPressController,
     AdminHostingOpsController,
@@ -216,6 +229,37 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
             )?.panel_host ?? null,
         }),
       inject: [DB],
+    },
+    { provide: TOOLS_CONFIG, useFactory: () => loadToolsConfig() },
+    { provide: SFTP_CONNECTOR, useFactory: () => new Ssh2SftpConnector() },
+    { provide: MAIL_DNS, useFactory: () => new SystemMailDns() },
+    {
+      provide: ToolContext,
+      useFactory: (db: Db, s: SitesService, c: HestiaClient, cfg: ToolsConfig) =>
+        new ToolContext(db, s, c, cfg),
+      inject: [DB, SitesService, HESTIA_CLIENT, TOOLS_CONFIG],
+    },
+    {
+      provide: SiteToolsService,
+      useFactory: (c: ToolContext, a: AuditSink) => new SiteToolsService(c, a),
+      inject: [ToolContext, AuditSink],
+    },
+    {
+      provide: FilesService,
+      useFactory: (
+        c: ToolContext,
+        t: SiteToolsService,
+        a: AuditSink,
+        sftp: SftpConnector,
+        v: VaultPort,
+      ) => new FilesService(c, t, a, sftp, v),
+      inject: [ToolContext, SiteToolsService, AuditSink, SFTP_CONNECTOR, VAULT_PORT],
+    },
+    {
+      provide: MailService,
+      useFactory: (c: ToolContext, t: SiteToolsService, a: AuditSink, d: MailDns) =>
+        new MailService(c, t, a, d),
+      inject: [ToolContext, SiteToolsService, AuditSink, MAIL_DNS],
     },
     { provide: COMPUTE_PROVISIONING, useFactory: () => new InMemoryComputeProvisioning() },
     {
@@ -646,6 +690,7 @@ class UnverifiedDomains extends MockDomainOwnershipVerifier {
     WordPressService,
     RestoreDrillService,
     MonitorService,
+    SiteToolsService,
     AbuseService,
     HostingMetering,
     DunningHook,

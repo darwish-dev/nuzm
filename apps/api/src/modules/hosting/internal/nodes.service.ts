@@ -359,7 +359,12 @@ export class NodesService {
           d.panelVersion,
           JSON.stringify(probe.runtimes.length ? probe.runtimes : d.runtimes),
           d.health.state,
-          JSON.stringify({ usage: d.usage, panelKind: d.panelKind, capacity: d.capacity }),
+          JSON.stringify({
+            usage: d.usage,
+            panelKind: d.panelKind,
+            capacity: d.capacity,
+            ...(d.services ? { services: d.services } : {}),
+          }),
         ],
       );
       return dto(await this.load(c, nodeId), await this.pending(c, nodeId));

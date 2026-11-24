@@ -7295,6 +7295,798 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/tools:
+    get:
+      operationId: getHostingSiteTools
+      tags: [hosting]
+      summary: Which tools work for this website
+      description: 'The capability report of the website tools (files, cron, logs, FTP, protection, PHP, business email) for THIS website, panel version, caller role, plan and connection state: each tool is available or unavailable with a reason (role, site_state, connection, panel_version, panel_service, plan). Every tool is NOT VERIFIED until a human-run probe on a real node.'
+      x-nuzm-permission: hosting:site:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingToolsReport' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/cron-jobs:
+    get:
+      operationId: listHostingCronJobs
+      tags: [hosting]
+      summary: List the scheduled jobs
+      description: 'Read from the panel (v-list-cron-jobs) for the site account, with the plan limit.'
+      x-nuzm-permission: hosting:cron:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingCronList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createHostingCronJob
+      tags: [hosting]
+      summary: Create a scheduled job
+      description: 'Validates the five-field schedule (digits and * , / - only) and the minimum interval (default 5 minutes), counts the plan limit under a per-site lock, and runs v-add-cron-job for the site account; a lost answer is reconciled against v-list-cron-jobs before any retry. The command runs as the sites own unprivileged account. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:cron:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HostingCronJobInput' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingCronJob' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/cron-jobs/{job}:
+    put:
+      operationId: updateHostingCronJob
+      tags: [hosting]
+      summary: Change a scheduled job
+      description: 'v-change-cron-job USER JOB MIN HOUR DAY MONTH WDAY CMD, with the same validation as creation.'
+      x-nuzm-permission: hosting:cron:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: job, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HostingCronJobInput' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingCronJob' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteHostingCronJob
+      tags: [hosting]
+      summary: Delete a scheduled job
+      description: 'v-delete-cron-job. A job that is already gone is 404.'
+      x-nuzm-permission: hosting:cron:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: job, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/logs:
+    get:
+      operationId: getHostingSiteLogs
+      tags: [hosting]
+      summary: Read the web logs of a domain
+      description: 'The last N lines (1 to 500, default 100) of the access or error log of a domain of the site (v-list-web-domain-accesslog / -errorlog, plain format). The answer is cut again to N lines and every line to a bounded length.'
+      x-nuzm-permission: hosting:logs:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: kind, in: query, required: false, schema: { type: string, enum: [access, error] }, description: 'access or error (default error)' }
+        - { name: lines, in: query, required: false, schema: { type: integer }, description: '1 to 500' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingLogs' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/ftp-accounts:
+    get:
+      operationId: listHostingFtpAccounts
+      tags: [hosting]
+      summary: List the FTP accounts
+      description: 'Read from the web domains of the site account on the panel (FTP_USER, FTP_PATH of v-list-web-domains), with the plan limit. Offered only when the node reports an FTP service.'
+      x-nuzm-permission: hosting:ftp:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFtpList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createHostingFtpAccount
+      tags: [hosting]
+      summary: Create an FTP account
+      description: 'v-add-web-domain-ftp USER DOMAIN FTP_USER FTP_PASSWORD [FTP_PATH]. The plan limit is counted under a per-site lock; the password is sent to the panel once and never stored, logged or audited; the account name is read back from the panel. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:ftp:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingFtpAccount' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFtpAccount' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/ftp-accounts/{domain}/{user}/password:
+    put:
+      operationId: setHostingFtpPassword
+      tags: [hosting]
+      summary: Change an FTP password
+      description: 'v-change-web-domain-ftp-password. The password is never stored, logged or audited.'
+      x-nuzm-permission: hosting:ftp:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: user, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetHostingPassword' }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/ftp-accounts/{domain}/{user}:
+    delete:
+      operationId: deleteHostingFtpAccount
+      tags: [hosting]
+      summary: Delete an FTP account
+      description: 'v-delete-web-domain-ftp.'
+      x-nuzm-permission: hosting:ftp:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: user, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/protection:
+    get:
+      operationId: listHostingProtection
+      tags: [hosting]
+      summary: List password-protected domains
+      description: 'Read from the web domains of the site account (AUTH_USER), with the plan limit.'
+      x-nuzm-permission: hosting:protection:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingProtectionList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createHostingProtectionUser
+      tags: [hosting]
+      summary: Protect a domain with a password
+      description: 'v-add-web-domain-httpauth USER DOMAIN AUTH_USER AUTH_PASSWORD. The password is never stored, logged or audited. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:protection:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingProtectionUser' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingProtectionUser' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/protection/{domain}/{user}:
+    delete:
+      operationId: deleteHostingProtectionUser
+      tags: [hosting]
+      summary: Remove a protection user
+      description: 'v-delete-web-domain-httpauth.'
+      x-nuzm-permission: hosting:protection:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: user, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files:
+    get:
+      operationId: listHostingFiles
+      tags: [hosting]
+      summary: Browse the website folder
+      description: 'Lists a folder of the website over SFTP as the site account. The path is relative and proven to stay inside the website folder; links are shown and never followed. At most 1000 entries.'
+      x-nuzm-permission: hosting:files:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileList' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteHostingFile
+      tags: [hosting]
+      summary: Delete a file or folder
+      description: 'Deletes a file, a link (the link only) or a folder (recursive=true for a non-empty one, bounded entries). Never follows a link.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - { name: recursive, in: query, required: false, schema: { type: boolean } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileRemoved' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/download:
+    get:
+      operationId: downloadHostingFile
+      tags: [hosting]
+      summary: Download a file
+      description: 'The file bytes as an attachment (up to 50 MB). Links are not followed.'
+      x-nuzm-permission: hosting:files:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+      responses:
+        '200':
+          description: 'The file bytes (attachment)'
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/text:
+    get:
+      operationId: readHostingTextFile
+      tags: [hosting]
+      summary: Open a text file for editing
+      description: 'UTF-8 text up to 1 MB with its SHA-256; other files are refused.'
+      x-nuzm-permission: hosting:files:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileText' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+    put:
+      operationId: saveHostingTextFile
+      tags: [hosting]
+      summary: Save a text file
+      description: 'Replaces the file only when expectedSha256 is the hash of the content that was opened (409 conflict otherwise); written through a temporary file and a rename.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditHostingFile' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileWritten' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/content:
+    put:
+      operationId: uploadHostingFile
+      tags: [hosting]
+      summary: Upload a file
+      description: 'The raw bytes (application/octet-stream) up to the plan upload limit (default 25 MB, at most 60 MB); an existing file is replaced only with overwrite=true. The disk quota of the plan is checked first.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
+        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - { name: overwrite, in: query, required: false, schema: { type: boolean } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFileWritten' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/folders:
+    post:
+      operationId: createHostingFolder
+      tags: [hosting]
+      summary: Create a folder
+      description: 'Creates a folder inside the website folder. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingFolder' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFilePath' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/files/renames:
+    post:
+      operationId: renameHostingFile
+      tags: [hosting]
+      summary: Rename or move
+      description: 'Both paths are proven to be inside the website folder; the target must not exist. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:files:write
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RenameHostingFile' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingFilePath' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail:
+    get:
+      operationId: getHostingMail
+      tags: [hosting]
+      summary: Business email of the website
+      description: 'Mail domains that can be enabled, mailboxes with quota and aliases (read from the panel), the plan limits, the webmail availability and the IMAP/SMTP settings. Offered only on a plan that includes mailboxes and a node that reports a mail service. NOT VERIFIED against a real node.'
+      x-nuzm-permission: hosting:mail:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailOverview' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/dns-checks:
+    get:
+      operationId: checkHostingMailDns
+      tags: [hosting]
+      summary: Check the mail DNS records
+      description: 'Reads MX, SPF, DKIM, DMARC, the mail and webmail hosts and the PTR of the mail server. Records are NEVER written; an MX that points to another provider is reported as external and kept.'
+      x-nuzm-permission: hosting:mail:read
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailDnsReport' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/domains:
+    post:
+      operationId: enableHostingMailDomain
+      tags: [hosting]
+      summary: Enable mail for a domain
+      description: 'v-add-mail-domain (and webmail when the node has it). Never changes DNS. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EnableHostingMailDomain' }
+      responses:
+        '201':
+          description: 'Enabled'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailEnableResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes:
+    post:
+      operationId: createHostingMailbox
+      tags: [hosting]
+      summary: Create a mailbox
+      description: 'v-add-mail-account USER DOMAIN ACCOUNT PASSWORD QUOTA. The plan mailbox count and quota are enforced under a per-site lock; the password is never stored, logged or audited. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingMailbox' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailboxCreated' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/password:
+    put:
+      operationId: setHostingMailboxPassword
+      tags: [hosting]
+      summary: Change a mailbox password
+      description: 'v-change-mail-account-password.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetHostingPassword' }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/quota:
+    put:
+      operationId: setHostingMailboxQuota
+      tags: [hosting]
+      summary: Change a mailbox quota
+      description: 'v-change-mail-account-quota, at most the plan mailbox quota.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetHostingMailboxQuota' }
+      responses:
+        '200':
+          description: 'Success'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailboxQuota' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}:
+    delete:
+      operationId: deleteHostingMailbox
+      tags: [hosting]
+      summary: Delete a mailbox
+      description: 'v-delete-mail-account.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/aliases:
+    post:
+      operationId: createHostingMailAlias
+      tags: [hosting]
+      summary: Add an alias
+      description: 'v-add-mail-account-alias, within the plan alias limit. Needs Idempotency-Key.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHostingMailAlias' }
+      responses:
+        '201':
+          description: 'Created'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostingMailAlias' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/hosting/sites/{id}/mail/mailboxes/{domain}/{name}/aliases/{alias}:
+    delete:
+      operationId: deleteHostingMailAlias
+      tags: [hosting]
+      summary: Remove an alias
+      description: 'v-delete-mail-account-alias.'
+      x-nuzm-permission: hosting:mail:manage
+      security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrgHeader' }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: domain, in: path, required: true, schema: { type: string } }
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: alias, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 'Done' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /v1/admin/hosting/sites/{id}/migrations:
     post:
       operationId: migrateHostingSite
@@ -20229,6 +21021,293 @@ components:
       properties:
         operationId: { type: string, format: uuid }
         site: { $ref: '#/components/schemas/HostingSite' }
+    HostingToolCapability:
+      type: object
+      required: [id, state, verification]
+      properties:
+        id: { type: string, enum: [files, cron, logs, ftp, protection, php, mail] }
+        state: { type: string, enum: [available, unavailable] }
+        reason: { type: string, enum: [role, site_state, connection, panel_version, panel_service, plan] }
+        limits: { type: object, additionalProperties: { type: number } }
+        versions: { type: array, items: { type: string } }
+        verification: { type: string, enum: [not_verified] }
+    HostingToolsReport:
+      type: object
+      required: [panel, tools]
+      properties:
+        panel:
+          type: object
+          required: [version, connection]
+          properties:
+            version: { type: [string, 'null'] }
+            connection: { type: string, enum: [connected, not_configured, unhealthy] }
+        tools: { type: array, items: { $ref: '#/components/schemas/HostingToolCapability' } }
+    HostingCronJobInput:
+      type: object
+      required: [min, hour, day, month, wday, command]
+      properties:
+        min: { type: string, maxLength: 40 }
+        hour: { type: string, maxLength: 40 }
+        day: { type: string, maxLength: 40 }
+        month: { type: string, maxLength: 40 }
+        wday: { type: string, maxLength: 40 }
+        command: { type: string, minLength: 1, maxLength: 512 }
+    HostingCronJob:
+      type: object
+      required: [id, min, hour, day, month, wday, command]
+      properties:
+        id: { type: string }
+        min: { type: string }
+        hour: { type: string }
+        day: { type: string }
+        month: { type: string }
+        wday: { type: string }
+        command: { type: string }
+    HostingCronList:
+      type: object
+      required: [items, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingCronJob' } }
+        limit: { type: integer }
+    HostingLogs:
+      type: object
+      required: [domain, kind, lines, truncated, requested]
+      properties:
+        domain: { type: string }
+        kind: { type: string, enum: [access, error] }
+        lines: { type: array, items: { type: string } }
+        truncated: { type: boolean }
+        requested: { type: integer }
+    HostingFtpAccount:
+      type: object
+      required: [domain, user, path]
+      properties:
+        domain: { type: string }
+        user: { type: string }
+        path: { type: string }
+    HostingFtpList:
+      type: object
+      required: [items, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingFtpAccount' } }
+        limit: { type: integer }
+    CreateHostingFtpAccount:
+      type: object
+      required: [name, password]
+      properties:
+        domain: { type: string }
+        name: { type: string, pattern: '^[a-z0-9_]{3,24}$' }
+        password: { type: string, minLength: 12, maxLength: 64, writeOnly: true }
+        path: { type: string, maxLength: 201 }
+    SetHostingPassword:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, minLength: 12, maxLength: 64, writeOnly: true }
+    HostingProtectionUser:
+      type: object
+      required: [domain, user]
+      properties:
+        domain: { type: string }
+        user: { type: string }
+    HostingProtectionList:
+      type: object
+      required: [items, domains, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HostingProtectionUser' } }
+        domains: { type: array, items: { type: string } }
+        limit: { type: integer }
+    CreateHostingProtectionUser:
+      type: object
+      required: [user, password]
+      properties:
+        domain: { type: string }
+        user: { type: string, pattern: '^[a-z0-9_]{3,24}$' }
+        password: { type: string, minLength: 12, maxLength: 64, writeOnly: true }
+    HostingFileEntry:
+      type: object
+      required: [name, type, size, modifiedAt]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [file, dir, symlink] }
+        size: { type: integer }
+        modifiedAt: { type: [string, 'null'], format: date-time }
+    HostingFileList:
+      type: object
+      required: [domain, path, items, truncated]
+      properties:
+        domain: { type: string }
+        path: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/HostingFileEntry' } }
+        truncated: { type: boolean }
+    HostingFileText:
+      type: object
+      required: [path, content, size, sha256]
+      properties:
+        path: { type: string }
+        content: { type: string }
+        size: { type: integer }
+        sha256: { type: string }
+    HostingFileWritten:
+      type: object
+      required: [path, size, sha256]
+      properties:
+        path: { type: string }
+        size: { type: integer }
+        sha256: { type: string }
+    EditHostingFile:
+      type: object
+      required: [content, expectedSha256]
+      properties:
+        content: { type: string }
+        expectedSha256: { type: string }
+    HostingFilePath:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string }
+    HostingFileRemoved:
+      type: object
+      required: [removed]
+      properties:
+        removed: { type: integer }
+    CreateHostingFolder:
+      type: object
+      required: [path]
+      properties:
+        domain: { type: string }
+        path: { type: string }
+    RenameHostingFile:
+      type: object
+      required: [from, to]
+      properties:
+        domain: { type: string }
+        from: { type: string }
+        to: { type: string }
+    HostingMailbox:
+      type: object
+      required: [domain, name, address, quotaMb, usedMb, aliases]
+      properties:
+        domain: { type: string }
+        name: { type: string }
+        address: { type: string }
+        quotaMb: { type: [integer, 'null'] }
+        usedMb: { type: number }
+        aliases: { type: array, items: { type: string } }
+    HostingMailOverview:
+      type: object
+      required: [limits, used, domains, mailboxes, webmail, settings]
+      properties:
+        limits:
+          type: object
+          required: [mailboxes, aliasesPerMailbox, mailboxQuotaMb]
+          properties:
+            mailboxes: { type: integer }
+            aliasesPerMailbox: { type: integer }
+            mailboxQuotaMb: { type: integer }
+        used: { type: integer }
+        domains:
+          type: array
+          items:
+            type: object
+            required: [domain, enabled]
+            properties:
+              domain: { type: string }
+              enabled: { type: boolean }
+        mailboxes: { type: array, items: { $ref: '#/components/schemas/HostingMailbox' } }
+        webmail: { type: [string, 'null'] }
+        settings:
+          type: array
+          items:
+            type: object
+            required: [domain, webmailUrl, imap, smtp, username, verification]
+            properties:
+              domain: { type: string }
+              webmailUrl: { type: [string, 'null'] }
+              imap: { $ref: '#/components/schemas/HostingMailEndpoint' }
+              smtp: { $ref: '#/components/schemas/HostingMailEndpoint' }
+              username: { type: string }
+              verification: { type: string, enum: [not_verified] }
+    HostingMailEndpoint:
+      type: object
+      required: [host, ssl, startTls]
+      properties:
+        host: { type: string }
+        ssl: { type: integer }
+        startTls: { type: integer }
+    EnableHostingMailDomain:
+      type: object
+      required: [domain]
+      properties:
+        domain: { type: string }
+    HostingMailEnableResult:
+      type: object
+      required: [domain, created, webmail]
+      properties:
+        domain: { type: string }
+        created: { type: boolean }
+        webmail: { type: boolean }
+    CreateHostingMailbox:
+      type: object
+      required: [domain, name, password]
+      properties:
+        domain: { type: string }
+        name: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$' }
+        password: { type: string, minLength: 12, maxLength: 64, writeOnly: true }
+        quotaMb: { type: integer, minimum: 1 }
+    HostingMailboxCreated:
+      type: object
+      required: [domain, name, address, quotaMb]
+      properties:
+        domain: { type: string }
+        name: { type: string }
+        address: { type: string }
+        quotaMb: { type: integer }
+    SetHostingMailboxQuota:
+      type: object
+      required: [quotaMb]
+      properties:
+        quotaMb: { type: integer, minimum: 1 }
+    HostingMailboxQuota:
+      type: object
+      required: [quotaMb]
+      properties:
+        quotaMb: { type: integer }
+    CreateHostingMailAlias:
+      type: object
+      required: [alias]
+      properties:
+        alias: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$' }
+    HostingMailAlias:
+      type: object
+      required: [alias, address]
+      properties:
+        alias: { type: string }
+        address: { type: string }
+    HostingMailDnsCheck:
+      type: object
+      required: [id, state, expected, found]
+      properties:
+        id: { type: string, enum: [mx, spf, dkim, dmarc, mail_host, webmail_host, ptr] }
+        state: { type: string, enum: [ok, missing, mismatch, external] }
+        expected:
+          type: [object, 'null']
+          properties:
+            type: { type: string }
+            name: { type: string }
+            value: { type: string }
+        found: { type: array, items: { type: string } }
+    HostingMailDnsReport:
+      type: object
+      required: [domain, mailEnabled, mailHostingMoved, serverIp, checks, note, verification]
+      properties:
+        domain: { type: string }
+        mailEnabled: { type: boolean }
+        mailHostingMoved: { type: boolean }
+        serverIp: { type: [string, 'null'] }
+        checks: { type: array, items: { $ref: '#/components/schemas/HostingMailDnsCheck' } }
+        note: { type: string }
+        verification: { type: string, enum: [not_verified] }
     HostingDomainBinding:
       type: object
       required: [id, domain, state, primary, createdAt]

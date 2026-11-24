@@ -68,6 +68,13 @@ export interface NodeState {
   capacity: { cpuMillicores: number; memoryMb: number; diskMb: number };
   usage: { loadAvg1: number; memoryUsedMb: number; diskUsedMb: number; sites: number };
   runtimes: string[];
+  /** Services the panel reports as installed (`v-list-sys-config`: FTP_SYSTEM, MAIL_SYSTEM, IMAP_SYSTEM, WEBMAIL_SYSTEM); a name, or null when absent. Absent = the panel did not say. */
+  services?: {
+    ftp: string | null;
+    mail: string | null;
+    imap: string | null;
+    webmail: string | null;
+  };
 }
 export interface SiteLimits {
   diskMb: number;

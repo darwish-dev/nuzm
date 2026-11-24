@@ -3,7 +3,7 @@ import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, isLocale, t, tDynamic } from '@nuzm/i18n';
 import { Badge, Banner, ForbiddenState, Icon, Ltr, PageTitle, type IconName } from '@nuzm/ui';
 import { HostingInsights } from '../../../../../../components/HostingInsights';
-import { PLANNED_TOOLS } from '../../../../../../lib/hosting-tools';
+import { REASON_KEY, SITE_TOOLS, type ToolReason } from '../../../../../../lib/hosting-tools';
 import { DeleteSiteForm } from '../../../../../../components/HostingControls';
 import { requireSession } from '../../../../../../lib/server';
 import { view } from '../../../../../../lib/view';
@@ -39,8 +39,12 @@ export default async function Site({
     locale,
     async () => ({
       site: await unwrap(s.api.GET('/v1/hosting/sites/{id}', { params: { path: { id } } })),
+      // the API's own answer to "which tools work for this website, role, plan, panel version and connection now?" (a failure shows every tool as unavailable, never as open)
+      tools: await unwrap(
+        s.api.GET('/v1/hosting/sites/{id}/tools', { params: { path: { id } } }),
+      ).catch(() => null),
     }),
-    ({ site }) => {
+    ({ site, tools }) => {
       const used: Record<string, number | undefined> = {
         disk_mb: site.usageSummary?.diskMb,
         inodes: site.usageSummary?.inodes,
@@ -152,16 +156,37 @@ export default async function Site({
               {t(locale, 'host.ov.tools')}
             </h2>
             <div className="nzc-tool-tiles">
-              {PLANNED_TOOLS.map((tool) => (
-                <div key={tool.title} className="nzc-tool-tile">
-                  <span className="nzc-site-tile-ico" aria-hidden="true">
-                    <Icon name={tool.icon} size={20} />
-                  </span>
-                  <strong>{t(locale, tool.title)}</strong>
-                  <span className="nz-muted">{t(locale, tool.desc)}</span>
-                  <Badge>{t(locale, 'host.tool.soon')}</Badge>
-                </div>
-              ))}
+              {SITE_TOOLS.map((tool) => {
+                const cap = tools?.tools.find((c) => c.id === tool.id);
+                const open = cap?.state === 'available';
+                const inner = (
+                  <>
+                    <span className="nzc-site-tile-ico" aria-hidden="true">
+                      <Icon name={tool.icon} size={20} />
+                    </span>
+                    <strong>{t(locale, tool.title)}</strong>
+                    <span className="nz-muted">{t(locale, tool.desc)}</span>
+                    {open ? (
+                      <span className="nzc-site-tile-go">
+                        {t(locale, 'ht.open')} <Icon name="arrow" size={14} />
+                      </span>
+                    ) : (
+                      <Badge tone="warn">
+                        {t(locale, REASON_KEY[(cap?.reason ?? 'connection') as ToolReason])}
+                      </Badge>
+                    )}
+                  </>
+                );
+                return open ? (
+                  <a key={tool.id} className="nzc-tool-tile" href={`${base}/${tool.path}`}>
+                    {inner}
+                  </a>
+                ) : (
+                  <div key={tool.id} className="nzc-tool-tile" aria-disabled="true">
+                    {inner}
+                  </div>
+                );
+              })}
             </div>
           </section>
 

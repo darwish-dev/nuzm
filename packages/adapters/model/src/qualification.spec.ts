@@ -8,6 +8,7 @@ import {
   extractCode,
   runQualification,
   trackWorstCase,
+  syntheticReadNote,
   validateEvidence,
   type QualificationEvidence,
   type QualificationTrack,
@@ -20,7 +21,7 @@ import { ModelAdapterError, type CallContext, type CompleteRequest } from './typ
 import { MockModelAdapter } from './mock';
 
 // SYNTHETIC approval, evidence and prices: nothing here is a real decision or a real price.
-const TRACKS: QualificationTrack[] = ['A', 'B', 'C'];
+const TRACKS: QualificationTrack[] = ['A', 'B', 'C', 'D', 'E'];
 const approvalFor = (
   t: QualificationTrack,
   over: Partial<LiveSuiteApproval> = {},
@@ -54,6 +55,8 @@ const CONTENT = [
   'let total',
   'echo',
   'alpha',
+  'PELICAN',
+  'read_note',
 ];
 
 describe('worst cases (shown to the approver)', () => {
@@ -76,7 +79,7 @@ describe('worst cases (shown to the approver)', () => {
       return formatNano(tokenCostNano(w.inputTokens, w.outputTokens, TWIN_PRICING));
     };
     expect([cost('A'), cost('B'), cost('C')]).toEqual(['0.006400', '0.080720', '0.030400']);
-    expect(Object.keys(QUALIFICATION_TRACKS)).toEqual(['A', 'B', 'C']);
+    expect(Object.keys(QUALIFICATION_TRACKS)).toEqual(['A', 'B', 'C', 'D', 'E']);
   });
 });
 
@@ -84,7 +87,9 @@ describe('every track runs against the mock twin and says SIMULATED', () => {
   it.each(TRACKS)(
     'track %s: verdict SIMULATED, a valid evidence record, within the caps, no content',
     async (t) => {
-      const { target } = twinTarget();
+      const { target, primary } = twinTarget();
+      if (t === 'D')
+        primary.failNext(new ModelAdapterError('invalid_request', 'twin refusal', false), 1);
       const ev = await runQualification(t, target, approvalFor(t));
       expect(
         ev.checks.filter((c) => !(c.ok && c.ran)),
@@ -289,5 +294,59 @@ describe('static checks of generated code (the code is never executed)', () => {
     expect(bracketsBalanced('f(')).toBe(false);
     expect(bracketsBalanced('f(]')).toBe(false);
     expect(bracketsBalanced("'unterminated")).toBe(false);
+  });
+});
+
+describe('track D (controlled error mapping) and track E (agent tool loop)', () => {
+  const run = (t: QualificationTrack, prep: (p: MockModelAdapter) => void) => {
+    const { target, primary } = twinTarget();
+    prep(primary);
+    return runQualification(t, target, approvalFor(t));
+  };
+  it('D: a refusal mapped to a non-retryable invalid_request passes, with zero tokens charged', async () => {
+    const ev = await run('D', (p) =>
+      p.failNext(new ModelAdapterError('invalid_request', 'x', false), 1),
+    );
+    expect(ev.verdict).toBe('SIMULATED');
+    expect(ev.totals).toMatchObject({ requests: 1, tokensIn: 0, tokensOut: 0, costNano: '0' });
+  });
+  it('D: a vendor that ACCEPTS the oversized ceiling is FAIL (nothing to map), a retryable or other code is FAIL', async () => {
+    expect((await run('D', () => undefined)).verdict).toBe('FAIL');
+    expect(
+      (await run('D', (p) => p.failNext(new ModelAdapterError('rate_limited', 'x', true), 1)))
+        .verdict,
+    ).toBe('FAIL');
+    expect(
+      (await run('D', (p) => p.failNext(new ModelAdapterError('unavailable', 'x', true), 1)))
+        .verdict,
+    ).toBe('FAIL');
+  });
+  it('E: the loop passes only when the answer contains the word that was in the tool result', async () => {
+    const ev = await run('E', () => undefined);
+    expect(ev.verdict).toBe('SIMULATED');
+    expect(ev.requests.map((r) => r.step)).toEqual(['agent_call', 'agent_answer']);
+  });
+  it('E: a model that does not call the tool, or answers without using the result, is FAIL', async () => {
+    const noCall = await run('E', (p) => {
+      p.toolHandler = () => ({ text: 'I do not need a tool.' });
+    });
+    expect(noCall.verdict).toBe('FAIL');
+    expect(noCall.requests).toHaveLength(1);
+    const wrong = await run('E', (p) => {
+      p.toolHandler = (req) =>
+        req.messages.some((m) => m.blocks?.some((b) => b.type === 'tool_result'))
+          ? { text: 'banana' }
+          : { calls: [{ name: 'read_note', args: { id: 'alpha' } }] };
+    });
+    expect(wrong.verdict).toBe('FAIL');
+    const wrongId = await run('E', (p) => {
+      p.toolHandler = () => ({ calls: [{ name: 'read_note', args: { id: 'zeta' } }] });
+    });
+    expect(wrongId.verdict).toBe('FAIL');
+  });
+  it('E: the synthetic tool is a pure function of constants', () => {
+    expect(syntheticReadNote({ id: 'alpha' })).toContain('PELICAN-4821');
+    expect(syntheticReadNote({ id: '../../etc/passwd' })).toBe('No note with that id exists.');
+    expect(syntheticReadNote(null)).toBe('No note with that id exists.');
   });
 });

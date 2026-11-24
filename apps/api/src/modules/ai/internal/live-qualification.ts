@@ -1,6 +1,7 @@
 import {
   AnthropicModelAdapter,
   CLAUDE_MODEL_ID,
+  ModelAdapterError,
   CLAUDE_PROVIDER_ID,
   QUALIFICATION_TRACKS,
   evidenceFileName,
@@ -48,17 +49,25 @@ export type QualifyResult =
     }
   | { kind: 'ran'; evidence: QualificationEvidence; fileName: string };
 
-export const isTrack = (x: unknown): x is QualificationTrack => x === 'A' || x === 'B' || x === 'C';
+export const isTrack = (x: unknown): x is QualificationTrack =>
+  x === 'A' || x === 'B' || x === 'C' || x === 'D' || x === 'E';
 
 export async function runQualificationCommand(
   a: QualifyArgs,
   d: SmokeDeps,
 ): Promise<QualifyResult> {
-  if (!isTrack(a.track)) return { kind: 'refused', problems: ['the track must be A, B or C'] };
+  if (!isTrack(a.track))
+    return { kind: 'refused', problems: ['the track must be A, B, C, D or E'] };
   const w = trackWorstCase(a.track);
   // ---- the mock twin: nothing leaves the process, no gate applies; the approval is a synthetic one that covers exactly the track's worst case
   if (a.twin) {
-    const { target } = twinTarget();
+    const { target, primary } = twinTarget();
+    // track D needs a refusal to map: the twin stands in for the vendor's 400 (SIMULATED: nothing real is verified)
+    if (a.track === 'D')
+      primary.failNext(
+        new ModelAdapterError('invalid_request', 'the twin refused the oversized ceiling', false),
+        1,
+      );
     const approval: LiveSuiteApproval = {
       ref: 'twin-synthetic',
       approvedBy: 'twin',

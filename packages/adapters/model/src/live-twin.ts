@@ -39,6 +39,17 @@ export function createLiveTwin(id = 'mock-live-twin'): MockModelAdapter {
     },
     toolHandler: (req) => {
       const t = lastText(req);
+      // track E (agent loop): call the read tool, then answer with the code word that the tool RESULT contained
+      if (req.tools?.some((x) => x.name === 'read_note')) {
+        const res = req.messages
+          .flatMap((m) => m.blocks ?? [])
+          .find((b) => b.type === 'tool_result');
+        if (!res) return { calls: [{ name: 'read_note', args: { id: 'alpha' } }] };
+        const word = /code word is ([A-Z0-9-]+)/.exec(
+          res.type === 'tool_result' ? res.content : '',
+        );
+        return { text: word ? word[1]! : 'no code word' };
+      }
       if (hasToolResult(req)) return { text: 'The tool returned probe.' };
       if (req.maxTokens <= 16)
         return { calls: [{ name: 'echo', args: { text: 'y'.repeat(400) } }] }; // cut off at the ceiling: the mock drops the call

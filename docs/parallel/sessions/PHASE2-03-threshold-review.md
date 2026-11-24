@@ -1,6 +1,6 @@
 # Phase 2 · S03 — review of the PROPOSED acceptance thresholds (version `2-proposed`)
 
-Status: **RECOMMENDATIONS FOR THE OWNER AND THE REVIEWERS. Nothing here is accepted and nothing in the code changed because of this review** (`PROPOSED_THRESHOLDS` and `THRESHOLDS_VERSION` are untouched; a change of the list is a new version and a new acceptance). Author: Session 03 · 2026-11-24 · Dataset 2.0.0 (83 tasks, 23 categories). Decision AC-AG-10 (see `PHASE2-03-approval-inputs.md` decision 1).
+Status: **RECOMMENDATIONS FOR THE OWNER AND THE REVIEWERS. Nothing here is accepted and nothing in the code changed because of this review** (`PROPOSED_THRESHOLDS` and `THRESHOLDS_VERSION` are untouched; a change of the list is a new version and a new acceptance). Author: Session 03 · 2026-11-24 · Dataset 2.1.0 (83 tasks, 23 categories). Decision AC-AG-10 (see `PHASE2-03-approval-inputs.md` decision 1).
 
 ## 0. The finding that matters most
 **The pass-rate thresholds, as proposed, are close to "never fail a single task", because the categories are small and every task is pass/fail.** The suite has 3 tasks in 17 of its 23 categories, 4–6 in the others. A category floor of 0.70 on 3 tasks needs 3 of 3 (2 of 3 is 0.67). T08 (tool-calling ≥ 0.90 on 6 tasks) needs 6 of 6. T18 (security remediation ≥ 0.90 on 4 tasks) needs 4 of 4; T19 and T20 (≥ 0.85 on 3 tasks) need 3 of 3.

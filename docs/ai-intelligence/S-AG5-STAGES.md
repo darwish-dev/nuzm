@@ -1,6 +1,6 @@
 # S-AG5 — staged qualification strategy (A–E)
 
-Status: **PLAN, offline-complete. Nothing in this document has been run live.** Owner: Session 03. Date: 2026-11-24. Code: `packages/domain/src/ai/benchmarks/stages.ts` (the tables below are generated from it, and `stages.spec.ts` checks the arithmetic against an independent sum). Dataset: `2.0.0`, 83 synthetic tasks, 23 categories. Thresholds: `2-proposed` (see `docs/parallel/sessions/PHASE2-03-threshold-review.md`).
+Status: **PLAN, offline-complete. Nothing in this document has been run live.** Owner: Session 03. Date: 2026-11-24. Code: `packages/domain/src/ai/benchmarks/stages.ts` (the tables below are generated from it, and `stages.spec.ts` checks the arithmetic against an independent sum). Dataset: `2.1.0`, 83 synthetic tasks, 23 categories. Thresholds: `2-proposed` (see `docs/parallel/sessions/PHASE2-03-threshold-review.md`).
 
 Labels used here: **LIST PRICE** = the vendor's public pricing page, read 2026-11-24, not confirmed against any contract (inputs "to be confirmed by S02/D6"); **ASSUMPTION** = a number nobody has measured yet; **MAXIMUM** = what the budget ledger will not let the stage exceed, independent of any assumption.
 

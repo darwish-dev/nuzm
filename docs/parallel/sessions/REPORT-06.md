@@ -74,6 +74,14 @@ Own Postgres: `NUZM_PGPORT=54346 pnpm services:start` (Postgres started; redis n
 **Local-only, uncommitted change**: `spec/db/ownership.yaml` carries the migration-range patch of CONTRACT-2 in my worktree so the runner accepts migration 1980. It is Master-owned and must NOT be merged from my branch (I never `git add` it). If the Master applies it first, my working copy is identical.
 Note: workspace package `dist` folders did not exist in the fresh worktree; `turbo run build --filter=@nuzm/api^...` restored them from the turbo cache before the typecheck.
 
+### 8b. After the Master's authorization (merge of integration/ai-engine, CONTRACT-2 applied by me)
+- Merged `integration/ai-engine` twice (second time resolved one conflict in `spec/db/ownership.yaml`: kept the Master's `S06-DEPLOY` key and my `DEP` key, both `1980-1999`, plus both `extended_by` entries and every other range).
+- `spec/openapi/openapi.yaml`: added `/v1/deployments/{id}/cancel`, `cancelled` in the `Deployment.state` enum, `simulated`. I did not touch `packages/sdk` (the Master regenerates).
+- `pnpm spec:lint`: exit 0. `pnpm spec:drift`: exit 1, but ONLY three Session 03 routes (`GET/POST /v1/admin/ai/benchmarks`, `GET /v1/admin/ai/benchmarks/runs/{id}`); my cancel route is no longer reported.
+- `npx vitest run --config vitest.integration.config.mts src/modules/deploy` on the merged tree: 2 files, **22 passed**.
+- `pnpm --filter @nuzm/api typecheck`: 1 error, `cloud/internal/adapter-registry.ts(69,33)` (pre-existing, not mine).
+- E2E leg: still NOT RUN: load average 24 (limit 6 for this run) and CONTRACT-1 (delegated to Session 05) was not on the branch yet (`grep SimulatedHealthProbe appbuilder.module.ts` empty).
+
 ## 9. Security findings
 - **DEFECT-4 (from Session 07, medium) FIXED**: confirming a publish approval (`POST /v1/deployments` with `approvalId`) now requires a signed-in person (`actor.kind === 'session'`); an API key may ask for the approval but its confirmation answers 403 `forbidden`, creates nothing and leaves the approval `pending`. Test: `deploy-s06.int.spec.ts` "DEFECT-4 …" (passes). Session 07's `it.fails` test in `qa-deploy-approval.int.spec.ts` should now turn red and lose `.fails`; their "CONFIRMED TODAY" control must be deleted. Not changed, **owner decision needed**: (a) a `developer` role holds `deploy:write` and can self-confirm a production publish, whereas the M10 engine requires owner/admin for `production_deploy`; (b) rollback reuses the earlier approval and needs no new one (M10 has a separate `production_rollback`).
 - No new secret handling. The cancel route needs `deploy:write`; cross-tenant ids answer 404; a cancellation never touches the live site; a viewer cannot cancel (tests written).

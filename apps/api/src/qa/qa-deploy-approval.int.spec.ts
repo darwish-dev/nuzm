@@ -83,7 +83,10 @@ describe('QA deploy: tenant isolation (org B cannot reach org A through any depl
   it('another organization cannot ask for, confirm or read a deployment of org A, and nothing is created', async () => {
     const p = await mkProject('QA Iso');
     const site = await mkSite(A(), 'alice', 'qa-iso');
-    const first = await asUser({ projectId: p.id, target: site, environment: 'production' }, 'alice');
+    const first = await asUser(
+      { projectId: p.id, target: site, environment: 'production' },
+      'alice',
+    );
     expect(first.statusCode, first.body).toBe(403);
     const approvalId = first.json().approvalId as string;
 
@@ -109,12 +112,16 @@ describe('QA deploy: tenant isolation (org B cannot reach org A through any depl
     expect([403, 404]).toContain(a3.statusCode);
     expect(await deployCount()).toBe(0);
     // the approval is untouched (still pending, not decided by bob)
-    const ap = (await e.sql(`SELECT state, decided_by FROM ai.approvals WHERE id=$1`, [approvalId]))[0]!;
+    const ap = (
+      await e.sql(`SELECT state, decided_by FROM ai.approvals WHERE id=$1`, [approvalId])
+    )[0]!;
     expect(ap.state).toBe('pending');
     expect(ap.decided_by).toBeNull();
     // listing and reading are scoped too
     expect(j(await e.call('bob', 'GET', '/v1/deployments', undefined, B())).items).toEqual([]);
-    expect((await e.call('bob', 'GET', `/v1/deployments/${randomUUID()}`, undefined, B())).statusCode).toBe(404);
+    expect(
+      (await e.call('bob', 'GET', `/v1/deployments/${randomUUID()}`, undefined, B())).statusCode,
+    ).toBe(404);
   });
 });
 
@@ -133,9 +140,17 @@ describe('QA deploy: roles', () => {
   it('a viewer cannot confirm an approval that someone else requested', async () => {
     const p = await mkProject('QA Roles 2');
     const site = await mkSite(A(), 'alice', 'qa-roles-2');
-    const first = await asUser({ projectId: p.id, target: site, environment: 'production' }, 'alice');
+    const first = await asUser(
+      { projectId: p.id, target: site, environment: 'production' },
+      'alice',
+    );
     const r = await asUser(
-      { projectId: p.id, target: site, environment: 'production', approvalId: first.json().approvalId },
+      {
+        projectId: p.id,
+        target: site,
+        environment: 'production',
+        approvalId: first.json().approvalId,
+      },
       'carol',
     );
     expect(r.statusCode).toBe(403);
@@ -153,7 +168,11 @@ describe('QA deploy: the human approval of a publish', () => {
     const second = await asUser({ ...body, approvalId: first.json().approvalId }, 'dave');
     // documents today's behaviour; the product decision (is "a human with a write role" enough?) belongs to the owner: see DEFECT-4 section "Developer role"
     expect(second.statusCode, second.body).toBe(202);
-    const ap = (await e.sql(`SELECT state, requested_by, decided_by FROM ai.approvals WHERE id=$1`, [first.json().approvalId]))[0]!;
+    const ap = (
+      await e.sql(`SELECT state, requested_by, decided_by FROM ai.approvals WHERE id=$1`, [
+        first.json().approvalId,
+      ])
+    )[0]!;
     expect(ap.requested_by).toBe(ap.decided_by);
   });
 
@@ -180,7 +199,11 @@ describe('QA deploy: the human approval of a publish', () => {
     const first = await asKey(body, key);
     const second = await asKey({ ...body, approvalId: first.json().approvalId }, key);
     expect(second.statusCode, second.body).toBe(202);
-    const ap = (await e.sql(`SELECT state, decided_by FROM ai.approvals WHERE id=$1`, [first.json().approvalId]))[0]!;
+    const ap = (
+      await e.sql(`SELECT state, decided_by FROM ai.approvals WHERE id=$1`, [
+        first.json().approvalId,
+      ])
+    )[0]!;
     expect(ap.state).toBe('approved');
     expect(ap.decided_by).toBe(e.ids.alice);
   });
@@ -192,7 +215,9 @@ describe('QA deploy: the human approval of a publish', () => {
     const body = { projectId: p.id, target: site, environment: 'staging' };
     const first = await asUser(body, 'alice');
     const approvalId = first.json().approvalId as string;
-    expect((await asUser({ ...body, environment: 'production', approvalId }, 'alice')).statusCode).toBe(409);
+    expect(
+      (await asUser({ ...body, environment: 'production', approvalId }, 'alice')).statusCode,
+    ).toBe(409);
     expect((await asUser({ ...body, target: other, approvalId }, 'alice')).statusCode).toBe(409);
     const ok = await asUser({ ...body, approvalId }, 'alice');
     expect(ok.statusCode, ok.body).toBe(202);

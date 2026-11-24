@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isBlockedAddress, safeFetch, SsrfError, type SafeFetchDeps } from '@nuzm/domain';
+// eslint-disable-next-line no-restricted-imports -- QA white-box test of a private, pure policy module that has no public export
 import {
   EgressPolicy,
   classifyIpLiteral,

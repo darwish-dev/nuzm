@@ -1,6 +1,6 @@
 # DEFECT-1 — Execution Gateway policy throws on prototype-chain profile names
 
-Reporter: Session 07 (QA) · Owner: Session 04 (Sandbox + Execution Gateway) · cc Master · Severity: **LOW-MEDIUM** (fails closed by accident, but a refusal becomes an uncaught exception) · Status: OPEN · Found: 2026-11-24 on baseline `f81872d5`
+Reporter: Session 07 (QA) · Owner: Session 04 (Sandbox + Execution Gateway) · cc Master · Severity: **LOW-MEDIUM** (fails closed by accident, but a refusal becomes an uncaught exception) · Status: FIXED, RE-TESTED (Session 07, merged integration 4af0920c) (2026-11-24) · Found: 2026-11-24 on baseline `f81872d5`
 
 ## Where
 `packages/domain/src/ai/execution-gateway/index.ts:139` (`const profile = typeof req.profile === 'string' ? EXEC_PROFILES[req.profile] : undefined;`) and `:155` (`if (profile.params.script)`).
@@ -25,3 +25,6 @@ Look the profile up with an own-property check: `Object.hasOwn(EXEC_PROFILES, re
 
 ## Tests
 `apps/api/src/qa/qa-exec-gateway.int.spec.ts` → `describe('DEFECT-1 …')`: five `it.fails` cases state the secure expectation and currently fail (so the suite is green while the defect exists). When fixed they start failing ("expected to fail but passed"): remove the `.fails` marker then. A companion case proves the profile is never ALLOWED today.
+
+## Re-test result (2026-11-24, branch merged with integration/ai-engine 4af0920c)
+FIXED and RE-TESTED (Session 07, merged integration 4af0920c): the 5 former `it.fails` cases are ordinary tests and pass; the "never allowed" control is now strict (no try/catch).

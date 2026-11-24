@@ -1,6 +1,6 @@
 # DEFECT-3 — sandbox egress policy misses the SIIT form `::ffff:0:a.b.c.d` and 100::/64
 
-Reporter: Session 07 (QA) · Owner: Session 04 (`apps/api/src/modules/appbuilder/internal/sandbox/egress.ts`) · Severity: **LOW** (defence in depth) · Status: OPEN · Found 2026-11-24, baseline `f81872d5`
+Reporter: Session 07 (QA) · Owner: Session 04 (`apps/api/src/modules/appbuilder/internal/sandbox/egress.ts`) · Severity: **LOW** (defence in depth) · Status: FIXED, RE-TESTED (2026-11-24) · Found 2026-11-24, baseline `f81872d5`
 
 ## Where
 `egress.ts:139` in `blockedV6`: `g.slice(0,5).every(x => x===0) && (g[5]===0xffff || g[5]===0)` handles `::ffff:a.b.c.d` (group 5) and `::a.b.c.d`, but the SIIT form `::ffff:0:a.b.c.d` carries `ffff` in group 4 and `0` in group 5.
@@ -16,3 +16,6 @@ Add `g.slice(0,4).every(x=>x===0) && g[4]===0xffff && g[5]===0` → `embedded(g[
 
 ## Tests
 `apps/api/src/qa/qa-ssrf-egress.int.spec.ts` → `DEFECT-3` (2 `it.fails` cases). The other 14 embedded forms (compatible, 6to4, NAT64, mapped, Teredo, metadata) pass.
+
+## Re-test result (2026-11-24, branch merged with integration/ai-engine 4af0920c)
+FIXED and RE-TESTED: the 2 former `it.fails` cases are ordinary tests and pass.

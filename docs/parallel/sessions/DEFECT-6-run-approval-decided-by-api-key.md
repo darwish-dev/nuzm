@@ -1,6 +1,6 @@
 # DEFECT-6 — an AI run's approval can be decided by an API key holding only `ai:write`
 
-Reporter: Session 07 (QA) · Owner: Session 02 (`apps/api/src/modules/ai/**`, run engine) · cc Master, Session 05 (builder kinds that request approvals) · Severity: **MEDIUM** · Status: OPEN · Found 2026-11-24, baseline `f81872d5`
+Reporter: Session 07 (QA) · Owner: Session 02 (`apps/api/src/modules/ai/**`, run engine) · cc Master, Session 05 (builder kinds that request approvals) · Severity: **MEDIUM** · Status: FIXED, RE-TESTED (2026-11-24) · Found 2026-11-24, baseline `f81872d5`
 
 ## Where
 `apps/api/src/modules/ai/ai-runs.controller.ts:130-132` (`@RequirePermission('ai:write')` on `POST /v1/ai/runs/{id}/approvals`) and `apps/api/src/modules/ai/internal/run.service.ts:444-505` `decide()`. The comment on the route says "the approver is always a human member"; `decide()` never looks at the actor kind or at the permission `ai:approve`.
@@ -21,3 +21,6 @@ In `decide()` (or the controller): require `a.actor.kind === 'session'`; require
 
 ## Tests
 `qa-run-approval.int.spec.ts` → `5 passed | 1 expected fail`. Passing controls: viewer/billing admin 403 and approval stays pending; another organization 404; an approval id does not move to another run; a decided approval is final (409). `it.fails('DEFECT-6 …')` states the secure expectation (fails today); the `CONFIRMED TODAY` test proves it fails for the right reason and must be deleted with the fix.
+
+## Re-test result (2026-11-24, branch merged with integration/ai-engine 4af0920c)
+FIXED and RE-TESTED: the `it.fails` is an ordinary test and passes; the CONFIRMED TODAY control was deleted.

@@ -62,7 +62,7 @@ if [ -n "$JSON_OUT" ]; then
   python3 - "$JSON_OUT" "$CLAIM" "${RESULTS[@]}" <<'PY'
 import json,sys
 out,claim=sys.argv[1],sys.argv[2]
-d={"claim":claim,"checkedAt":__import__("datetime").datetime.utcnow().isoformat()+"Z"}
+d={"claim":claim,"checkedAt":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()+"Z"}
 for kv in sys.argv[3:]:
     k,_,v=kv.partition("="); d[k]=v
 json.dump(d,open(out,"w"),indent=2); open(out,"a").write("\n")

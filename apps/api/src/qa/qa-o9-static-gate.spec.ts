@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CONTENT_AREAS, CONTENT_WORDS, hasGuard, loadClassification, scoped } from './gates/o9-static';
+import {
+  CONTENT_AREAS,
+  CONTENT_WORDS,
+  hasGuard,
+  loadClassification,
+  scoped,
+} from './gates/o9-static';
 import { has, key, routes } from './qa-route-scan';
 
 /**
@@ -45,7 +51,9 @@ describe('O-9 static gate: every customer-content route is classified', () => {
 
 describe('O-9 static gate: content routes carry the shared guard', () => {
   it('every route classified as content has @ContentRead or an explicit content-access assert in its handler', () => {
-    const unguarded = mine.filter((r) => cls.content.includes(key(r)) && !hasGuard(r)).map((r) => `${key(r)} (${r.file})`);
+    const unguarded = mine
+      .filter((r) => cls.content.includes(key(r)) && !hasGuard(r))
+      .map((r) => `${key(r)} (${r.file})`);
     expect(unguarded).toEqual([]);
   });
   it('the guard detector is not vacuous: a metadata route without the guard is seen as unguarded', () => {
@@ -103,18 +111,29 @@ describe('O-9 static gate: agrees with the dynamic audit document', () => {
     expect(rows.length).toBeGreaterThan(45);
   });
   it('every route the audit shows as 403 under deny is classified content here', () => {
-    const missing = rows.filter((r) => r.underDeny.includes('**403**') && !cls.content.includes(r.route)).map((r) => r.route);
+    const missing = rows
+      .filter((r) => r.underDeny.includes('**403**') && !cls.content.includes(r.route))
+      .map((r) => r.route);
     expect(missing).toEqual([]);
   });
   it('every route the audit shows as readable (200/409) under deny is classified metadata here, or is outside the static scope', () => {
-    const wrong = rows.filter((r) => /^(200|409)$/.test(r.underDeny) && cls.content.includes(r.route)).map((r) => r.route);
+    const wrong = rows
+      .filter((r) => /^(200|409)$/.test(r.underDeny) && cls.content.includes(r.route))
+      .map((r) => r.route);
     expect(wrong).toEqual([]);
   });
 });
 
 describe('O-9 static gate: scope sanity', () => {
   it('the content areas regex covers the AI, builder, deployment, execution, benchmark and (Phase 3) mobile routes', () => {
-    for (const p of ['/v1/ai/runs', '/v1/builder/projects', '/v1/deployments', '/v1/execution/jobs', '/v1/benchmarks/runs', '/v1/mobile/builds'])
+    for (const p of [
+      '/v1/ai/runs',
+      '/v1/builder/projects',
+      '/v1/deployments',
+      '/v1/execution/jobs',
+      '/v1/benchmarks/runs',
+      '/v1/mobile/builds',
+    ])
       expect(CONTENT_AREAS.test(p), p).toBe(true);
   });
   it('public and platform routes are out of scope (their own gates pin them)', () => {

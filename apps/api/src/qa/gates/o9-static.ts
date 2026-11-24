@@ -19,11 +19,19 @@ export interface Classification {
   metadata: Record<string, string>;
 }
 export const loadClassification = (root = join(process.cwd(), '../..')): Classification =>
-  JSON.parse(readFileSync(join(root, 'docs/security/O9-ROUTE-CLASSIFICATION.json'), 'utf8')) as Classification;
+  JSON.parse(
+    readFileSync(join(root, 'docs/security/O9-ROUTE-CLASSIFICATION.json'), 'utf8'),
+  ) as Classification;
 
 /** organization-scoped GET routes (not public, not platform/admin) */
 export const orgGets = (all: Route[] = routes()): Route[] =>
-  all.filter((r) => r.method === 'GET' && !has(r, 'Public') && !has(r, 'RequirePlatformPermission') && !r.path.startsWith('/v1/admin/'));
+  all.filter(
+    (r) =>
+      r.method === 'GET' &&
+      !has(r, 'Public') &&
+      !has(r, 'RequirePlatformPermission') &&
+      !r.path.startsWith('/v1/admin/'),
+  );
 
 /** the routes the gate cares about */
 export const scoped = (all: Route[] = routes()): Route[] =>
@@ -42,8 +50,12 @@ export function hasGuard(r: Route, srcRoot = join(process.cwd(), 'src')): boolea
     void mm;
     const group: string[] = [];
     for (let k = i - 1; k >= 0 && /^\s*@/.test(lines[k]!); k--) group.push(lines[k]!.trim());
-    for (let k = i + 1; k < lines.length && /^\s*@/.test(lines[k]!); k++) group.push(lines[k]!.trim());
-    return r.decos.filter((d) => d.startsWith('@Get(')).every((d) => d === t) && group.every((g) => r.decos.includes(g));
+    for (let k = i + 1; k < lines.length && /^\s*@/.test(lines[k]!); k++)
+      group.push(lines[k]!.trim());
+    return (
+      r.decos.filter((d) => d.startsWith('@Get(')).every((d) => d === t) &&
+      group.every((g) => r.decos.includes(g))
+    );
   });
   if (idx < 0) return false;
   // body: until the next line that starts a decorated member at the same indentation as the handler decorator
@@ -51,9 +63,19 @@ export function hasGuard(r: Route, srcRoot = join(process.cwd(), 'src')): boolea
   let end = idx + 1;
   while (end < lines.length) {
     const l = lines[end]!;
-    if (l.trim().startsWith('@') && /^\s*/.exec(l)![0].length === indent && !/^\s*@(Get|Query|Param|Org|Access|Res|Req)\b/.test(l) && end > idx + 1) {
+    if (
+      l.trim().startsWith('@') &&
+      /^\s*/.exec(l)![0].length === indent &&
+      !/^\s*@(Get|Query|Param|Org|Access|Res|Req)\b/.test(l) &&
+      end > idx + 1
+    ) {
       // a decorator of the NEXT handler (class members decorated at the same level)
-      if (/^\s*@(RequirePermission|ContentRead|Get|Post|Put|Patch|Delete|Idempotent|HttpCode|Public)\(/.test(l)) break;
+      if (
+        /^\s*@(RequirePermission|ContentRead|Get|Post|Put|Patch|Delete|Idempotent|HttpCode|Public)\(/.test(
+          l,
+        )
+      )
+        break;
     }
     end++;
   }

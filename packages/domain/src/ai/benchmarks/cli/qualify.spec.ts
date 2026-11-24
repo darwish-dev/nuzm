@@ -191,11 +191,12 @@ describe('Track H command: live REFUSES without every approval', () => {
       expect(calls).toEqual([]);
     });
   it('refuses a security review that is present but not passed, a single reviewer, and production', async () => {
-    for (const patch of [
+    const patches: Record<string, string>[] = [
       { NUZM_BENCH_SECURITY_REVIEW_PASSED: 'false' },
       { NUZM_BENCH_REVIEWERS: 'r1:Only One' },
       { NUZM_ENV: 'production' },
-    ]) {
+    ];
+    for (const patch of patches) {
       const r = await run(
         ['--mode', 'live', '--stage', 'A', '--confirm-max', '440'],
         { ...LIVE_A, ...patch },

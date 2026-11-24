@@ -41,7 +41,7 @@ No platform migration in 2340–2349 yet: the managed-DB ledger DDL is proposed 
 | `eslint` + `prettier --check` on every changed file | clean |
 **Final targeted run** (`P3_S05_PG_URL=… P3_S05_PG_BIN=… vitest run src/modules/appbuilder/internal`, all unit specs of the builder's internal tree incl. Phase 2 `gen/project.spec`, `gen/sql.spec`): **34 test files, 375 tests passed, exit 0.**
 
-**Not run:** the Phase 2 integration suites `generated-app.int.spec.ts` and `webapp-pipeline.int.spec.ts` (they spawn the generated scaffold on the host and hold the heavy lock); `pnpm verify`; OpenAPI/SDK checks (no spec change). F5 is therefore **NOT VERIFIED** (see G).
+**Not run by this session:** the Phase 2 integration suites `generated-app.int.spec.ts` and `webapp-pipeline.int.spec.ts`. They spawn the generated scaffold on the host, which this task forbids (generated apps run only in P3-S02's qualified runtime), and the permission layer denied the attempt; it was not retried. Also not run: `pnpm verify`; OpenAPI/SDK checks (no spec change). **F5 baseline (not our run):** the Master's serialized regression on `integration/ai-engine`, before this branch point, reported apps/api integration 126 files passed, 2819 tests, 0 failed, including both suites (label: template-local, executed by the Master, not isolation evidence). That baseline does not cover this branch's changes (new `app_revoked_sessions` table in the generated migration; the `generated-app.int.spec.ts` line 104 table list needs the update in CONTRACT-P3-S05-2 §7), so F5 stays NOT VERIFIED for this branch (see G).
 
 ## F. Security, tenant isolation, billing, residency
 - **Tenant isolation**: proven at SQL level on a real PostgreSQL (policies, fail-closed, no cross-tenant write/move, composite FKs, superuser bypass demonstrated and excluded) and at engine level (13 template tests + probe `cross-user-isolation`). Single-tenant apps keep owner/team row scope with 404-not-403.
@@ -64,7 +64,7 @@ No platform migration in 2340–2349 yet: the managed-DB ledger DDL is proposed 
 | F2 static gates, repair within limits | gates **PASS (local)**; repair rounds **SIMULATED** | `static-gates.spec.ts` (34), `repairBrief`, 3-round scripted convergence |
 | F3 DB isolation: no platform credentials, destroyed with workspace, no network path to platform DBs | design + in-sandbox bootstrap **PASS (local)** on a real PostgreSQL 16; managed mode **SIMULATED**; "no network path" **NOT VERIFIED** (runtime profile is S02's) | `pg-sandbox.test.ts` (3rd test), `db-provisioning.spec.ts`, `checkAppEnvironment`, `verifySandboxIsolation` |
 | F4 forward-only, re-runnable migrations; synthetic seeds only | **PASS (local)** | `migrations-pg.spec.ts` (15); fixtures use `example.test` |
-| F5 Phase 2 suites unchanged and green | **NOT VERIFIED** (integration suites not run; unit suites `project.spec`, `sql.spec` pass) | section E |
+| F5 Phase 2 suites unchanged and green | **NOT VERIFIED** for this branch (baseline before the branch point: Master's run, 126 files / 2819 tests / 0 failed, template-local, not our run; `project.spec`, `sql.spec` unit suites pass here; the line-104 table-list expectation must change per CONTRACT-P3-S05-2 §7) | section E |
 | Product generators CRM/ERP/SaaS/e-commerce | **PASS (local)** for spec validity, gates, type-check, SQL on PostgreSQL; behaviour of the generated apps **NOT VERIFIED** (never executed) | `product-specs.spec.ts`, `migrations-pg.spec.ts` |
 
 ## I. Next-milestone handoff and open decisions

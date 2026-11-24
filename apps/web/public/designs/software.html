@@ -1,455 +1,1136 @@
-<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=1200">
-<title>nuzm — Software</title>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1200" />
+    <title>nuzm — Software</title>
+  </head>
+  <body>
+    <style>
+      /* cyrillic-ext */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/45272ab2-1691-41a7-88df-830d295899e0.woff2') format('woff2');
+        unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+      }
+      /* cyrillic */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/01f9c99e-03c4-41af-b3d7-d24414676e3d.woff2') format('woff2');
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      /* greek */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/09937696-77cf-4526-9d13-d65794f0bc10.woff2') format('woff2');
+        unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+      }
+      /* vietnamese */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/131040c4-e1fa-4aa3-91cb-5ebd4aad12f9.woff2') format('woff2');
+        unicode-range:
+          U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301,
+          U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+      }
+      /* latin-ext */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/8f63d090-fbc9-47aa-9ef5-acef293a445b.woff2') format('woff2');
+        unicode-range:
+          U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+          U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+          U+2C60-2C7F, U+A720-A7FF;
+      }
+      /* latin */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/4c048e31-b32b-4537-9201-f079d9561513.woff2') format('woff2');
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      /* cyrillic-ext */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/45272ab2-1691-41a7-88df-830d295899e0.woff2') format('woff2');
+        unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+      }
+      /* cyrillic */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/01f9c99e-03c4-41af-b3d7-d24414676e3d.woff2') format('woff2');
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      /* greek */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/09937696-77cf-4526-9d13-d65794f0bc10.woff2') format('woff2');
+        unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+      }
+      /* vietnamese */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/131040c4-e1fa-4aa3-91cb-5ebd4aad12f9.woff2') format('woff2');
+        unicode-range:
+          U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301,
+          U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+      }
+      /* latin-ext */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/8f63d090-fbc9-47aa-9ef5-acef293a445b.woff2') format('woff2');
+        unicode-range:
+          U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+          U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+          U+2C60-2C7F, U+A720-A7FF;
+      }
+      /* latin */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/4c048e31-b32b-4537-9201-f079d9561513.woff2') format('woff2');
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      /* cyrillic-ext */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/111c9fec-0456-43ea-b971-ca09103c3457.woff2') format('woff2');
+        unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+      }
+      /* cyrillic */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/b8c09031-c736-455e-b77b-42a97f6ab264.woff2') format('woff2');
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      /* greek */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/7e7d80fd-7dda-4bea-9ca7-0eb1f4a79e5d.woff2') format('woff2');
+        unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+      }
+      /* vietnamese */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/28d55a15-0b69-4169-aefb-3f16f2b269d4.woff2') format('woff2');
+        unicode-range:
+          U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301,
+          U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+      }
+      /* latin-ext */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/ab181dda-8994-4f81-86ba-9e1a888d0a3e.woff2') format('woff2');
+        unicode-range:
+          U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+          U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+          U+2C60-2C7F, U+A720-A7FF;
+      }
+      /* latin */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/designs/927c0df0-6268-4173-a401-6db86eb523a0.woff2') format('woff2');
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      /* cyrillic-ext */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/111c9fec-0456-43ea-b971-ca09103c3457.woff2') format('woff2');
+        unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+      }
+      /* cyrillic */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/b8c09031-c736-455e-b77b-42a97f6ab264.woff2') format('woff2');
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      /* greek */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/7e7d80fd-7dda-4bea-9ca7-0eb1f4a79e5d.woff2') format('woff2');
+        unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+      }
+      /* vietnamese */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/28d55a15-0b69-4169-aefb-3f16f2b269d4.woff2') format('woff2');
+        unicode-range:
+          U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301,
+          U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+      }
+      /* latin-ext */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/ab181dda-8994-4f81-86ba-9e1a888d0a3e.woff2') format('woff2');
+        unicode-range:
+          U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+          U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+          U+2C60-2C7F, U+A720-A7FF;
+      }
+      /* latin */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/designs/927c0df0-6268-4173-a401-6db86eb523a0.woff2') format('woff2');
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      /* cyrillic-ext */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/designs/111c9fec-0456-43ea-b971-ca09103c3457.woff2') format('woff2');
+        unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+      }
+      /* cyrillic */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/designs/b8c09031-c736-455e-b77b-42a97f6ab264.woff2') format('woff2');
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      /* greek */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/designs/7e7d80fd-7dda-4bea-9ca7-0eb1f4a79e5d.woff2') format('woff2');
+        unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+      }
+      /* vietnamese */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/designs/28d55a15-0b69-4169-aefb-3f16f2b269d4.woff2') format('woff2');
+        unicode-range:
+          U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301,
+          U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+      }
+      /* latin-ext */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/designs/ab181dda-8994-4f81-86ba-9e1a888d0a3e.woff2') format('woff2');
+        unicode-range:
+          U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+          U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+          U+2C60-2C7F, U+A720-A7FF;
+      }
+      /* latin */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/designs/927c0df0-6268-4173-a401-6db86eb523a0.woff2') format('woff2');
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      /* cyrillic-ext */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/designs/111c9fec-0456-43ea-b971-ca09103c3457.woff2') format('woff2');
+        unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+      }
+      /* cyrillic */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/designs/b8c09031-c736-455e-b77b-42a97f6ab264.woff2') format('woff2');
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      /* greek */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/designs/7e7d80fd-7dda-4bea-9ca7-0eb1f4a79e5d.woff2') format('woff2');
+        unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+      }
+      /* vietnamese */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/designs/28d55a15-0b69-4169-aefb-3f16f2b269d4.woff2') format('woff2');
+        unicode-range:
+          U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301,
+          U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+      }
+      /* latin-ext */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/designs/ab181dda-8994-4f81-86ba-9e1a888d0a3e.woff2') format('woff2');
+        unicode-range:
+          U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+          U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+          U+2C60-2C7F, U+A720-A7FF;
+      }
+      /* latin */
+      @font-face {
+        font-family: 'Manrope';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/designs/927c0df0-6268-4173-a401-6db86eb523a0.woff2') format('woff2');
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+    </style>
+    <style>
+      body {
+        margin: 0;
+        font-family: Manrope, system-ui, sans-serif;
+      }
+      a {
+        color: #3f656c;
+      }
+      a:hover {
+        color: #22262d;
+      }
+    </style>
 
-</head>
-<body>
+    <div
+      style="
+        width: 1200px;
+        height: 900px;
+        box-sizing: border-box;
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(60% 50% at 90% 100%, #d7ece1 0%, rgba(215, 236, 225, 0) 70%),
+          linear-gradient(180deg, #f6f5f1 0%, #efeee9 100%);
+        font-family: Manrope, sans-serif;
+        color: #22262d;
+      "
+    >
+      <img
+        src="/designs/127bb0e5-f4f0-4747-9970-8b8f1b95308a.png"
+        alt="nuzm"
+        style="position: absolute; left: 48px; top: 46px; height: 28px; width: auto"
+      />
 
+      <div
+        style="
+          position: absolute;
+          left: 96px;
+          top: 120px;
+          width: 1008px;
+          display: grid;
+          grid-template-columns: 330px 330px 316px;
+          grid-template-rows: 352px 268px;
+          gap: 16px;
+        "
+      >
+        <!-- Card 1: Custom software -->
+        <div
+          style="
+            grid-column: 1;
+            grid-row: 1;
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow:
+              0 1px 0 rgba(0, 0, 0, 0.04),
+              0 12px 32px -18px rgba(34, 38, 45, 0.25);
+            overflow: hidden;
+            position: relative;
+          "
+        >
+          <div style="padding: 26px 26px 0 26px">
+            <h2 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.03em">
+              Custom builds
+            </h2>
+            <p style="margin: 10px 0 0 0; font-size: 14px; line-height: 1.5; color: #5d6870">
+              Software shaped around <strong style="color: #22262d">how your team works</strong> —
+              not the other way round.
+            </p>
+          </div>
+          <div
+            style="
+              position: absolute;
+              left: 22px;
+              right: -30px;
+              bottom: 58px;
+              height: 168px;
+              background: #22262d;
+              border-radius: 16px;
+              box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.5);
+              padding: 14px 16px;
+              box-sizing: border-box;
+              font-family: 'JetBrains Mono', monospace;
+              font-size: 11.5px;
+              line-height: 1.75;
+              color: #c9d3d0;
+            "
+          >
+            <div style="display: flex; gap: 6px; margin-bottom: 10px">
+              <span style="width: 9px; height: 9px; border-radius: 50%; background: #475b66"></span
+              ><span style="width: 9px; height: 9px; border-radius: 50%; background: #93b5b1"></span
+              ><span style="width: 9px; height: 9px; border-radius: 50%; background: #c8e6d6"></span
+              ><span style="margin-left: 10px; font-size: 10.5px; color: #84918f"
+                >orders.service.ts</span
+              >
+            </div>
+            <div>
+              <span style="color: #93b5b1">export async function</span>
+              <span style="color: #c8e6d6">approveOrder</span>(id) {
+            </div>
+            <div style="padding-left: 16px">
+              <span style="color: #93b5b1">const</span> order =
+              <span style="color: #93b5b1">await</span> db.orders.<span style="color: #c8e6d6"
+                >find</span
+              >(id);
+            </div>
+            <div style="padding-left: 16px">
+              <span style="color: #93b5b1">await</span> erp.<span style="color: #c8e6d6">sync</span
+              >(order, { stock: <span style="color: #efebe4">true</span> });
+            </div>
+            <div style="padding-left: 16px">
+              <span style="color: #93b5b1">return</span> notify(order.owner,
+              <span style="color: #efebe4">'approved'</span>);
+            </div>
+            <div>}</div>
+          </div>
+          <div style="position: absolute; left: 14px; bottom: 16px; display: flex; gap: 8px">
+            <span
+              style="
+                padding: 9px 16px;
+                border-radius: 999px;
+                background: #efebe4;
+                font-size: 15px;
+                font-weight: 500;
+                transform: rotate(-3deg);
+                box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.3);
+              "
+              >Web</span
+            >
+            <span
+              style="
+                padding: 9px 16px;
+                border-radius: 999px;
+                background: #efebe4;
+                font-size: 15px;
+                font-weight: 500;
+                box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.3);
+              "
+              >Mobile</span
+            >
+            <span
+              style="
+                padding: 7px;
+                border-radius: 999px;
+                background: #ffffff;
+                display: flex;
+                align-items: center;
+                transform: rotate(4deg);
+                box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.3);
+              "
+              ><img
+                src="/designs/fd309b24-7bf2-41e8-91ae-c0b470c2a36b.png"
+                alt=""
+                style="height: 26px; width: auto"
+            /></span>
+            <span
+              style="
+                padding: 9px 16px;
+                border-radius: 999px;
+                background: #efebe4;
+                font-size: 15px;
+                font-weight: 500;
+                box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.3);
+              "
+              >ERP</span
+            >
+          </div>
+        </div>
 
+        <!-- Card 2: Team -->
+        <div
+          style="
+            grid-column: 2;
+            grid-row: 1;
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow:
+              0 1px 0 rgba(0, 0, 0, 0.04),
+              0 12px 32px -18px rgba(34, 38, 45, 0.25);
+            overflow: hidden;
+            position: relative;
+          "
+        >
+          <div style="padding: 26px 26px 0 26px">
+            <h2 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.03em">
+              One squad
+            </h2>
+            <p style="margin: 10px 0 0 0; font-size: 14px; line-height: 1.5; color: #5d6870">
+              Product, design and engineering in <strong style="color: #22262d">one team</strong>,
+              shipping every sprint.
+            </p>
+          </div>
+          <svg
+            width="330"
+            height="200"
+            sc-camel-view-box="0 0 330 200"
+            style="position: absolute; left: 0; bottom: 0"
+            aria-hidden="true"
+          >
+            <g fill="none" stroke="#D3DCD9" stroke-width="1.4" stroke-dasharray="5 6">
+              <path d="M165 46 C 120 80, 70 100, 20 120"></path>
+              <path d="M165 46 C 140 100, 110 130, 82 150"></path>
+              <path d="M165 46 C 165 100, 165 130, 165 166"></path>
+              <path d="M165 46 C 190 100, 220 130, 248 150"></path>
+              <path d="M165 46 C 210 80, 260 100, 310 120"></path>
+            </g>
+          </svg>
+          <div
+            style="
+              position: absolute;
+              left: 137px;
+              top: 130px;
+              width: 56px;
+              height: 56px;
+              border-radius: 50%;
+              background: #22262d;
+              border: 4px solid #fff;
+              box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <img
+              src="/designs/9f944334-9ee8-49f3-9558-74b96b6fa2cd.png"
+              alt=""
+              style="height: 26px; width: auto"
+            />
+          </div>
+          <div
+            style="
+              position: absolute;
+              left: 44px;
+              top: 238px;
+              width: 42px;
+              height: 42px;
+              border-radius: 50%;
+              background: #c8e6d6;
+              border: 3px solid #fff;
+              box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.35);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 700;
+              font-size: 13px;
+              color: #22262d;
+            "
+          >
+            UX
+          </div>
+          <div
+            style="
+              position: absolute;
+              left: 92px;
+              top: 280px;
+              width: 46px;
+              height: 46px;
+              border-radius: 50%;
+              background: #93b5b1;
+              border: 3px solid #fff;
+              box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.35);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 700;
+              font-size: 13px;
+              color: #22262d;
+            "
+          >
+            FE
+          </div>
+          <div
+            style="
+              position: absolute;
+              left: 192px;
+              top: 280px;
+              width: 46px;
+              height: 46px;
+              border-radius: 50%;
+              background: #475b66;
+              border: 3px solid #fff;
+              box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.35);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 700;
+              font-size: 13px;
+              color: #ffffff;
+            "
+          >
+            BE
+          </div>
+          <div
+            style="
+              position: absolute;
+              left: 250px;
+              top: 238px;
+              width: 42px;
+              height: 42px;
+              border-radius: 50%;
+              background: #efebe4;
+              border: 3px solid #fff;
+              box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.35);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 700;
+              font-size: 13px;
+              color: #22262d;
+            "
+          >
+            QA
+          </div>
+          <div
+            style="
+              position: absolute;
+              left: 196px;
+              top: 128px;
+              padding: 5px 10px;
+              border-radius: 999px;
+              background: #4e7880;
+              color: #fff;
+              font-size: 11px;
+              font-weight: 600;
+            "
+          >
+            Sprint review · Thu
+          </div>
+        </div>
 
-<style>/* cyrillic-ext */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/45272ab2-1691-41a7-88df-830d295899e0.woff2") format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/01f9c99e-03c4-41af-b3d7-d24414676e3d.woff2") format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* greek */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/09937696-77cf-4526-9d13-d65794f0bc10.woff2") format('woff2');
-  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/131040c4-e1fa-4aa3-91cb-5ebd4aad12f9.woff2") format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/8f63d090-fbc9-47aa-9ef5-acef293a445b.woff2") format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/4c048e31-b32b-4537-9201-f079d9561513.woff2") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* cyrillic-ext */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/45272ab2-1691-41a7-88df-830d295899e0.woff2") format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/01f9c99e-03c4-41af-b3d7-d24414676e3d.woff2") format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* greek */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/09937696-77cf-4526-9d13-d65794f0bc10.woff2") format('woff2');
-  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/131040c4-e1fa-4aa3-91cb-5ebd4aad12f9.woff2") format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/8f63d090-fbc9-47aa-9ef5-acef293a445b.woff2") format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/4c048e31-b32b-4537-9201-f079d9561513.woff2") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/111c9fec-0456-43ea-b971-ca09103c3457.woff2") format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/b8c09031-c736-455e-b77b-42a97f6ab264.woff2") format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* greek */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/7e7d80fd-7dda-4bea-9ca7-0eb1f4a79e5d.woff2") format('woff2');
-  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/28d55a15-0b69-4169-aefb-3f16f2b269d4.woff2") format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/ab181dda-8994-4f81-86ba-9e1a888d0a3e.woff2") format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/designs/927c0df0-6268-4173-a401-6db86eb523a0.woff2") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/111c9fec-0456-43ea-b971-ca09103c3457.woff2") format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/b8c09031-c736-455e-b77b-42a97f6ab264.woff2") format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* greek */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/7e7d80fd-7dda-4bea-9ca7-0eb1f4a79e5d.woff2") format('woff2');
-  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/28d55a15-0b69-4169-aefb-3f16f2b269d4.woff2") format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/ab181dda-8994-4f81-86ba-9e1a888d0a3e.woff2") format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/designs/927c0df0-6268-4173-a401-6db86eb523a0.woff2") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/designs/111c9fec-0456-43ea-b971-ca09103c3457.woff2") format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/designs/b8c09031-c736-455e-b77b-42a97f6ab264.woff2") format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* greek */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/designs/7e7d80fd-7dda-4bea-9ca7-0eb1f4a79e5d.woff2") format('woff2');
-  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/designs/28d55a15-0b69-4169-aefb-3f16f2b269d4.woff2") format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/designs/ab181dda-8994-4f81-86ba-9e1a888d0a3e.woff2") format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/designs/927c0df0-6268-4173-a401-6db86eb523a0.woff2") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/designs/111c9fec-0456-43ea-b971-ca09103c3457.woff2") format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/designs/b8c09031-c736-455e-b77b-42a97f6ab264.woff2") format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* greek */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/designs/7e7d80fd-7dda-4bea-9ca7-0eb1f4a79e5d.woff2") format('woff2');
-  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/designs/28d55a15-0b69-4169-aefb-3f16f2b269d4.woff2") format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/designs/ab181dda-8994-4f81-86ba-9e1a888d0a3e.woff2") format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'Manrope';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/designs/927c0df0-6268-4173-a401-6db86eb523a0.woff2") format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-</style>
-<style>
-body{margin:0;font-family:Manrope,system-ui,sans-serif}
-a{color:#3F656C}a:hover{color:#22262D}
-</style>
+        <!-- Card 3: tall site preview -->
+        <div
+          style="
+            grid-column: 3;
+            grid-row: 1 / span 2;
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow:
+              0 1px 0 rgba(0, 0, 0, 0.04),
+              0 12px 32px -18px rgba(34, 38, 45, 0.25);
+            overflow: hidden;
+            position: relative;
+          "
+        >
+          <div
+            style="
+              margin: 12px;
+              height: 40px;
+              border-radius: 14px;
+              border: 1px solid #ecedea;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 0 14px;
+            "
+          >
+            <img
+              src="/designs/127bb0e5-f4f0-4747-9970-8b8f1b95308a.png"
+              alt="nuzm"
+              style="height: 14px; width: auto"
+            />
+            <svg
+              width="18"
+              height="18"
+              sc-camel-view-box="0 0 24 24"
+              fill="none"
+              stroke="#8A9497"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </div>
+          <div style="display: flex; justify-content: center; margin-top: 40px">
+            <span
+              style="
+                padding: 4px 10px;
+                border-radius: 999px;
+                border: 1px solid #e3e5e1;
+                font-size: 11.5px;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+              "
+              >Now booking Q1
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: #4e7880"></span
+            ></span>
+          </div>
+          <h1
+            style="
+              margin: 18px 22px 0 22px;
+              text-align: center;
+              font-size: 29px;
+              font-weight: 600;
+              letter-spacing: -0.03em;
+              line-height: 1.12;
+            "
+          >
+            Build what your business runs on
+          </h1>
+          <p
+            style="
+              margin: 12px 30px 0 30px;
+              text-align: center;
+              font-size: 14px;
+              line-height: 1.5;
+              color: #5d6870;
+            "
+          >
+            From first sketch to launch — with the
+            <strong style="color: #22262d">source code yours</strong> from day one.
+          </p>
+          <div
+            style="
+              margin: 26px 34px 0 34px;
+              height: 46px;
+              border-radius: 999px;
+              background: #fff;
+              box-shadow:
+                0 10px 28px -12px rgba(34, 38, 45, 0.35),
+                0 0 0 1px #eef0ec;
+              display: flex;
+              align-items: center;
+              padding: 0 6px 0 18px;
+              justify-content: space-between;
+            "
+          >
+            <label for="idea" style="position: absolute; left: -9999px">Describe your idea</label>
+            <input
+              id="idea"
+              placeholder="Describe your idea…"
+              style="
+                border: 0;
+                outline: none;
+                font: inherit;
+                font-size: 13px;
+                color: #22262d;
+                width: 160px;
+                background: transparent;
+              "
+            />
+            <button
+              aria-label="Start"
+              style="
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                border: 0;
+                background: #4e7880;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+              "
+            >
+              <svg
+                width="15"
+                height="15"
+                sc-camel-view-box="0 0 24 24"
+                fill="none"
+                stroke="#fff"
+                stroke-width="2.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14"></path>
+                <path d="m13 6 6 6-6 6"></path>
+              </svg>
+            </button>
+          </div>
+          <svg
+            width="316"
+            height="400"
+            sc-camel-view-box="0 0 316 400"
+            style="position: absolute; left: 0; bottom: 0"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="sw-g" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"></stop>
+                <stop offset="0.35" stop-color="#C8E6D6"></stop>
+                <stop offset="0.7" stop-color="#6E8E94"></stop>
+                <stop offset="1" stop-color="#2E3741"></stop>
+              </linearGradient>
+              <path
+                id="sw-w"
+                d="M-20 0 C 30 -26, 70 18, 120 -6 S 210 -30, 250 -2 S 320 14, 340 -10"
+              ></path>
+            </defs>
+            <rect x="0" y="80" width="316" height="320" fill="url(#sw-g)"></rect>
+            <g fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.8">
+              <use href="#sw-w" y="120"></use>
+              <use href="#sw-w" y="136" transform="translate(-8 0)"></use>
+              <use href="#sw-w" y="152"></use>
+              <use href="#sw-w" y="168" transform="translate(6 0)"></use>
+              <use href="#sw-w" y="184"></use>
+              <use href="#sw-w" y="200" transform="translate(-10 0)"></use>
+              <use href="#sw-w" y="216"></use>
+              <use href="#sw-w" y="232" transform="translate(8 0)"></use>
+              <use href="#sw-w" y="248"></use>
+              <use href="#sw-w" y="264" transform="translate(-6 0)"></use>
+              <use href="#sw-w" y="280"></use>
+              <use href="#sw-w" y="296" transform="translate(10 0)"></use>
+              <use href="#sw-w" y="312"></use>
+              <use href="#sw-w" y="328" transform="translate(-4 0)"></use>
+              <use href="#sw-w" y="344"></use>
+              <use href="#sw-w" y="360" transform="translate(6 0)"></use>
+              <use href="#sw-w" y="376"></use>
+            </g>
+          </svg>
+          <div
+            style="
+              position: absolute;
+              left: 0;
+              right: 0;
+              bottom: 18px;
+              display: flex;
+              justify-content: space-around;
+              font-size: 11px;
+              font-weight: 700;
+              letter-spacing: 0.14em;
+              color: rgba(239, 235, 228, 0.9);
+            "
+          >
+            <span>WEB APPS</span><span>ERP</span><span>MOBILE</span><span>APIS</span>
+          </div>
+        </div>
 
-<div style="width: 1200px; height: 900px; box-sizing: border-box; position: relative; overflow: hidden; background: radial-gradient(60% 50% at 90% 100%, #D7ECE1 0%, rgba(215,236,225,0) 70%), linear-gradient(180deg, #F6F5F1 0%, #EFEEE9 100%); font-family: Manrope, sans-serif; color: #22262D">
+        <!-- Card 4: brand gradient -->
+        <div
+          style="
+            grid-column: 1 / span 2;
+            grid-row: 2;
+            border-radius: 28px;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(100deg, #22262d 0%, #3b4a55 34%, #6e8e94 66%, #c8e6d6 100%);
+            box-shadow: 0 12px 32px -18px rgba(34, 38, 45, 0.45);
+          "
+        >
+          <div style="position: absolute; left: 34px; top: 30px; width: 300px">
+            <h2
+              style="
+                margin: 0;
+                font-weight: 600;
+                font-size: 44px;
+                line-height: 1.02;
+                color: #efebe4;
+                letter-spacing: -0.035em;
+              "
+            >
+              Engineered<br />to last
+            </h2>
+            <p
+              style="
+                margin: 14px 0 0 0;
+                font-size: 14px;
+                line-height: 1.5;
+                color: rgba(239, 235, 228, 0.82);
+              "
+            >
+              Clean architecture, tested releases and documentation your next hire can
+              <strong style="color: #efebe4">actually read</strong>.
+            </p>
+            <div style="display: flex; gap: 10px; margin-top: 22px">
+              <a
+                href="#"
+                style="
+                  text-decoration: none;
+                  padding: 10px 18px;
+                  border-radius: 999px;
+                  background: #efebe4;
+                  color: #22262d;
+                  font-size: 13px;
+                  font-weight: 600;
+                "
+                >Start a project</a
+              >
+              <a
+                href="#"
+                style="
+                  text-decoration: none;
+                  padding: 10px 18px;
+                  border-radius: 999px;
+                  box-shadow: inset 0 0 0 1px rgba(239, 235, 228, 0.5);
+                  color: #efebe4;
+                  font-size: 13px;
+                  font-weight: 600;
+                "
+                >See our work</a
+              >
+            </div>
+          </div>
+          <div
+            style="
+              position: absolute;
+              left: 370px;
+              top: 40px;
+              width: 230px;
+              height: 260px;
+              background: #ffffff;
+              border-radius: 14px;
+              transform: rotate(-7deg);
+              box-shadow: 0 24px 40px -18px rgba(0, 0, 0, 0.45);
+              padding: 18px;
+              box-sizing: border-box;
+            "
+          >
+            <div style="font-size: 12px; font-weight: 700">Requirements — Inventory v2</div>
+            <div style="font-size: 10px; color: #6e787c; margin-top: 4px">
+              Scope · Users · Integrations
+            </div>
+            <div
+              style="
+                margin-top: 14px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                font-size: 10.5px;
+                color: #3a4248;
+              "
+            >
+              <div style="display: flex; gap: 6px; align-items: center">
+                <span
+                  style="width: 12px; height: 12px; border-radius: 4px; background: #4e7880"
+                ></span
+                >Multi-branch stock
+              </div>
+              <div style="display: flex; gap: 6px; align-items: center">
+                <span
+                  style="width: 12px; height: 12px; border-radius: 4px; background: #4e7880"
+                ></span
+                >ZATCA e-invoicing
+              </div>
+              <div style="display: flex; gap: 6px; align-items: center">
+                <span
+                  style="
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 4px;
+                    border: 1.5px solid #b3bdba;
+                    box-sizing: border-box;
+                  "
+                ></span
+                >Supplier portal
+              </div>
+              <div style="display: flex; gap: 6px; align-items: center">
+                <span
+                  style="
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 4px;
+                    border: 1.5px solid #b3bdba;
+                    box-sizing: border-box;
+                  "
+                ></span
+                >Arabic / English UI
+              </div>
+            </div>
+            <div style="margin-top: 14px; height: 6px; border-radius: 3px; background: #eef0ec">
+              <div
+                style="
+                  width: 55%;
+                  height: 6px;
+                  border-radius: 3px;
+                  background: linear-gradient(90deg, #4e7880, #93b5b1);
+                "
+              ></div>
+            </div>
+          </div>
+          <div
+            style="
+              position: absolute;
+              left: 520px;
+              top: 70px;
+              width: 140px;
+              height: 190px;
+              border-radius: 16px;
+              background: #fff;
+              transform: rotate(5deg);
+              box-shadow: 0 24px 40px -18px rgba(0, 0, 0, 0.5);
+              padding: 12px;
+              box-sizing: border-box;
+            "
+          >
+            <div style="font-size: 10px; font-weight: 700; color: #6e787c; letter-spacing: 0.08em">
+              IN REVIEW
+            </div>
+            <div
+              style="
+                margin-top: 10px;
+                padding: 10px;
+                border-radius: 10px;
+                background: #eef5f1;
+                font-size: 10.5px;
+                line-height: 1.4;
+              "
+            >
+              Checkout flow — payment retries
+            </div>
+            <div
+              style="
+                margin-top: 8px;
+                padding: 10px;
+                border-radius: 10px;
+                background: #eef5f1;
+                font-size: 10.5px;
+                line-height: 1.4;
+              "
+            >
+              Role permissions
+            </div>
+            <div style="margin-top: 10px; display: flex">
+              <span
+                style="
+                  width: 22px;
+                  height: 22px;
+                  border-radius: 50%;
+                  background: #93b5b1;
+                  border: 2px solid #fff;
+                "
+              ></span
+              ><span
+                style="
+                  width: 22px;
+                  height: 22px;
+                  border-radius: 50%;
+                  background: #475b66;
+                  border: 2px solid #fff;
+                  margin-left: -7px;
+                "
+              ></span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-<img src="/designs/127bb0e5-f4f0-4747-9970-8b8f1b95308a.png" alt="nuzm" style="position: absolute; left: 48px; top: 46px; height: 28px; width: auto">
-
-<div style="position: absolute; left: 96px; top: 120px; width: 1008px; display: grid; grid-template-columns: 330px 330px 316px; grid-template-rows: 352px 268px; gap: 16px">
-
-<!-- Card 1: Custom software -->
-<div style="grid-column: 1; grid-row: 1; background: #FFFFFF; border-radius: 28px; box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 12px 32px -18px rgba(34,38,45,0.25); overflow: hidden; position: relative">
-<div style="padding: 26px 26px 0 26px">
-<h2 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.03em">Custom builds</h2>
-<p style="margin: 10px 0 0 0; font-size: 14px; line-height: 1.5; color: #5D6870">Software shaped around <strong style="color: #22262D">how your team works</strong> — not the other way round.</p>
-</div>
-<div style="position: absolute; left: 22px; right: -30px; bottom: 58px; height: 168px; background: #22262D; border-radius: 16px; box-shadow: 0 18px 40px -16px rgba(0,0,0,0.5); padding: 14px 16px; box-sizing: border-box; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.75; color: #C9D3D0">
-<div style="display: flex; gap: 6px; margin-bottom: 10px"><span style="width: 9px; height: 9px; border-radius: 50%; background: #475B66"></span><span style="width: 9px; height: 9px; border-radius: 50%; background: #93B5B1"></span><span style="width: 9px; height: 9px; border-radius: 50%; background: #C8E6D6"></span><span style="margin-left: 10px; font-size: 10.5px; color: #84918F">orders.service.ts</span></div>
-<div><span style="color: #93B5B1">export async function</span> <span style="color: #C8E6D6">approveOrder</span>(id) {</div>
-<div style="padding-left: 16px"><span style="color: #93B5B1">const</span> order = <span style="color: #93B5B1">await</span> db.orders.<span style="color: #C8E6D6">find</span>(id);</div>
-<div style="padding-left: 16px"><span style="color: #93B5B1">await</span> erp.<span style="color: #C8E6D6">sync</span>(order, { stock: <span style="color: #EFEBE4">true</span> });</div>
-<div style="padding-left: 16px"><span style="color: #93B5B1">return</span> notify(order.owner, <span style="color: #EFEBE4">'approved'</span>);</div>
-<div>}</div>
-</div>
-<div style="position: absolute; left: 14px; bottom: 16px; display: flex; gap: 8px">
-<span style="padding: 9px 16px; border-radius: 999px; background: #EFEBE4; font-size: 15px; font-weight: 500; transform: rotate(-3deg); box-shadow: 0 6px 14px -8px rgba(0,0,0,0.3)">Web</span>
-<span style="padding: 9px 16px; border-radius: 999px; background: #EFEBE4; font-size: 15px; font-weight: 500; box-shadow: 0 6px 14px -8px rgba(0,0,0,0.3)">Mobile</span>
-<span style="padding: 7px; border-radius: 999px; background: #FFFFFF; display: flex; align-items: center; transform: rotate(4deg); box-shadow: 0 6px 14px -8px rgba(0,0,0,0.3)"><img src="/designs/fd309b24-7bf2-41e8-91ae-c0b470c2a36b.png" alt="" style="height: 26px; width: auto"></span>
-<span style="padding: 9px 16px; border-radius: 999px; background: #EFEBE4; font-size: 15px; font-weight: 500; box-shadow: 0 6px 14px -8px rgba(0,0,0,0.3)">ERP</span>
-</div>
-</div>
-
-<!-- Card 2: Team -->
-<div style="grid-column: 2; grid-row: 1; background: #FFFFFF; border-radius: 28px; box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 12px 32px -18px rgba(34,38,45,0.25); overflow: hidden; position: relative">
-<div style="padding: 26px 26px 0 26px">
-<h2 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.03em">One squad</h2>
-<p style="margin: 10px 0 0 0; font-size: 14px; line-height: 1.5; color: #5D6870">Product, design and engineering in <strong style="color: #22262D">one team</strong>, shipping every sprint.</p>
-</div>
-<svg width="330" height="200" sc-camel-view-box="0 0 330 200" style="position: absolute; left: 0; bottom: 0" aria-hidden="true">
-<g fill="none" stroke="#D3DCD9" stroke-width="1.4" stroke-dasharray="5 6">
-<path d="M165 46 C 120 80, 70 100, 20 120"></path>
-<path d="M165 46 C 140 100, 110 130, 82 150"></path>
-<path d="M165 46 C 165 100, 165 130, 165 166"></path>
-<path d="M165 46 C 190 100, 220 130, 248 150"></path>
-<path d="M165 46 C 210 80, 260 100, 310 120"></path>
-</g>
-</svg>
-<div style="position: absolute; left: 137px; top: 130px; width: 56px; height: 56px; border-radius: 50%; background: #22262D; border: 4px solid #fff; box-shadow: 0 10px 24px -10px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center"><img src="/designs/9f944334-9ee8-49f3-9558-74b96b6fa2cd.png" alt="" style="height: 26px; width: auto"></div>
-<div style="position: absolute; left: 44px; top: 238px; width: 42px; height: 42px; border-radius: 50%; background: #C8E6D6; border: 3px solid #fff; box-shadow: 0 8px 18px -8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #22262D">UX</div>
-<div style="position: absolute; left: 92px; top: 280px; width: 46px; height: 46px; border-radius: 50%; background: #93B5B1; border: 3px solid #fff; box-shadow: 0 8px 18px -8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #22262D">FE</div>
-<div style="position: absolute; left: 192px; top: 280px; width: 46px; height: 46px; border-radius: 50%; background: #475B66; border: 3px solid #fff; box-shadow: 0 8px 18px -8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #FFFFFF">BE</div>
-<div style="position: absolute; left: 250px; top: 238px; width: 42px; height: 42px; border-radius: 50%; background: #EFEBE4; border: 3px solid #fff; box-shadow: 0 8px 18px -8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #22262D">QA</div>
-<div style="position: absolute; left: 196px; top: 128px; padding: 5px 10px; border-radius: 999px; background: #4E7880; color: #fff; font-size: 11px; font-weight: 600">Sprint review · Thu</div>
-</div>
-
-<!-- Card 3: tall site preview -->
-<div style="grid-column: 3; grid-row: 1 / span 2; background: #FFFFFF; border-radius: 28px; box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 12px 32px -18px rgba(34,38,45,0.25); overflow: hidden; position: relative">
-<div style="margin: 12px; height: 40px; border-radius: 14px; border: 1px solid #ECEDEA; display: flex; align-items: center; justify-content: space-between; padding: 0 14px">
-<img src="/designs/127bb0e5-f4f0-4747-9970-8b8f1b95308a.png" alt="nuzm" style="height: 14px; width: auto">
-<svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="#8A9497" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
-</div>
-<div style="display: flex; justify-content: center; margin-top: 40px"><span style="padding: 4px 10px; border-radius: 999px; border: 1px solid #E3E5E1; font-size: 11.5px; font-weight: 600; display: flex; align-items: center; gap: 6px">Now booking Q1 <span style="width: 7px; height: 7px; border-radius: 50%; background: #4E7880"></span></span></div>
-<h1 style="margin: 18px 22px 0 22px; text-align: center; font-size: 29px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.12">Build what your business runs on</h1>
-<p style="margin: 12px 30px 0 30px; text-align: center; font-size: 14px; line-height: 1.5; color: #5D6870">From first sketch to launch — with the <strong style="color: #22262D">source code yours</strong> from day one.</p>
-<div style="margin: 26px 34px 0 34px; height: 46px; border-radius: 999px; background: #fff; box-shadow: 0 10px 28px -12px rgba(34,38,45,0.35), 0 0 0 1px #EEF0EC; display: flex; align-items: center; padding: 0 6px 0 18px; justify-content: space-between">
-<label for="idea" style="position: absolute; left: -9999px">Describe your idea</label>
-<input id="idea" placeholder="Describe your idea…" style="border: 0; outline: none; font: inherit; font-size: 13px; color: #22262D; width: 160px; background: transparent">
-<button aria-label="Start" style="width: 34px; height: 34px; border-radius: 50%; border: 0; background: #4E7880; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></button>
-</div>
-<svg width="316" height="400" sc-camel-view-box="0 0 316 400" style="position: absolute; left: 0; bottom: 0" aria-hidden="true">
-<defs>
-<linearGradient id="sw-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0"></stop><stop offset="0.35" stop-color="#C8E6D6"></stop><stop offset="0.7" stop-color="#6E8E94"></stop><stop offset="1" stop-color="#2E3741"></stop></linearGradient>
-<path id="sw-w" d="M-20 0 C 30 -26, 70 18, 120 -6 S 210 -30, 250 -2 S 320 14, 340 -10"></path>
-</defs>
-<rect x="0" y="80" width="316" height="320" fill="url(#sw-g)"></rect>
-<g fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.8">
-<use href="#sw-w" y="120"></use><use href="#sw-w" y="136" transform="translate(-8 0)"></use><use href="#sw-w" y="152"></use><use href="#sw-w" y="168" transform="translate(6 0)"></use><use href="#sw-w" y="184"></use><use href="#sw-w" y="200" transform="translate(-10 0)"></use><use href="#sw-w" y="216"></use><use href="#sw-w" y="232" transform="translate(8 0)"></use><use href="#sw-w" y="248"></use><use href="#sw-w" y="264" transform="translate(-6 0)"></use><use href="#sw-w" y="280"></use><use href="#sw-w" y="296" transform="translate(10 0)"></use><use href="#sw-w" y="312"></use><use href="#sw-w" y="328" transform="translate(-4 0)"></use><use href="#sw-w" y="344"></use><use href="#sw-w" y="360" transform="translate(6 0)"></use><use href="#sw-w" y="376"></use>
-</g>
-</svg>
-<div style="position: absolute; left: 0; right: 0; bottom: 18px; display: flex; justify-content: space-around; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; color: rgba(239,235,228,0.9)"><span>WEB APPS</span><span>ERP</span><span>MOBILE</span><span>APIS</span></div>
-</div>
-
-<!-- Card 4: brand gradient -->
-<div style="grid-column: 1 / span 2; grid-row: 2; border-radius: 28px; overflow: hidden; position: relative; background: linear-gradient(100deg, #22262D 0%, #3B4A55 34%, #6E8E94 66%, #C8E6D6 100%); box-shadow: 0 12px 32px -18px rgba(34,38,45,0.45)">
-<div style="position: absolute; left: 34px; top: 30px; width: 300px">
-<h2 style="margin: 0; font-weight: 600; font-size: 44px; line-height: 1.02; color: #EFEBE4; letter-spacing: -0.035em">Engineered<br>to last</h2>
-<p style="margin: 14px 0 0 0; font-size: 14px; line-height: 1.5; color: rgba(239,235,228,0.82)">Clean architecture, tested releases and documentation your next hire can <strong style="color: #EFEBE4">actually read</strong>.</p>
-<div style="display: flex; gap: 10px; margin-top: 22px">
-<a href="#" style="text-decoration: none; padding: 10px 18px; border-radius: 999px; background: #EFEBE4; color: #22262D; font-size: 13px; font-weight: 600">Start a project</a>
-<a href="#" style="text-decoration: none; padding: 10px 18px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(239,235,228,0.5); color: #EFEBE4; font-size: 13px; font-weight: 600">See our work</a>
-</div>
-</div>
-<div style="position: absolute; left: 370px; top: 40px; width: 230px; height: 260px; background: #FFFFFF; border-radius: 14px; transform: rotate(-7deg); box-shadow: 0 24px 40px -18px rgba(0,0,0,0.45); padding: 18px; box-sizing: border-box">
-<div style="font-size: 12px; font-weight: 700">Requirements — Inventory v2</div>
-<div style="font-size: 10px; color: #6E787C; margin-top: 4px">Scope · Users · Integrations</div>
-<div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 10.5px; color: #3A4248">
-<div style="display: flex; gap: 6px; align-items: center"><span style="width: 12px; height: 12px; border-radius: 4px; background: #4E7880"></span>Multi-branch stock</div>
-<div style="display: flex; gap: 6px; align-items: center"><span style="width: 12px; height: 12px; border-radius: 4px; background: #4E7880"></span>ZATCA e-invoicing</div>
-<div style="display: flex; gap: 6px; align-items: center"><span style="width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid #B3BDBA; box-sizing: border-box"></span>Supplier portal</div>
-<div style="display: flex; gap: 6px; align-items: center"><span style="width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid #B3BDBA; box-sizing: border-box"></span>Arabic / English UI</div>
-</div>
-<div style="margin-top: 14px; height: 6px; border-radius: 3px; background: #EEF0EC"><div style="width: 55%; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #4E7880, #93B5B1)"></div></div>
-</div>
-<div style="position: absolute; left: 520px; top: 70px; width: 140px; height: 190px; border-radius: 16px; background: #fff; transform: rotate(5deg); box-shadow: 0 24px 40px -18px rgba(0,0,0,0.5); padding: 12px; box-sizing: border-box">
-<div style="font-size: 10px; font-weight: 700; color: #6E787C; letter-spacing: 0.08em">IN REVIEW</div>
-<div style="margin-top: 10px; padding: 10px; border-radius: 10px; background: #EEF5F1; font-size: 10.5px; line-height: 1.4">Checkout flow — payment retries</div>
-<div style="margin-top: 8px; padding: 10px; border-radius: 10px; background: #EEF5F1; font-size: 10.5px; line-height: 1.4">Role permissions</div>
-<div style="margin-top: 10px; display: flex"><span style="width: 22px; height: 22px; border-radius: 50%; background: #93B5B1; border: 2px solid #fff"></span><span style="width: 22px; height: 22px; border-radius: 50%; background: #475B66; border: 2px solid #fff; margin-left: -7px"></span></div>
-</div>
-</div>
-</div>
-
-<div style="position: absolute; right: 56px; bottom: 36px; display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #8A9497"><img src="/designs/fd309b24-7bf2-41e8-91ae-c0b470c2a36b.png" alt="" style="height: 18px; width: auto; opacity: 0.5">Software</div>
-</div>
-
-
-
-
-</body></html>
+      <div
+        style="
+          position: absolute;
+          right: 56px;
+          bottom: 36px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #8a9497;
+        "
+      >
+        <img
+          src="/designs/fd309b24-7bf2-41e8-91ae-c0b470c2a36b.png"
+          alt=""
+          style="height: 18px; width: auto; opacity: 0.5"
+        />Software
+      </div>
+    </div>
+  </body>
+</html>

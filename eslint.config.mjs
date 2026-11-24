@@ -47,6 +47,25 @@ export default tseslint.config(
     },
   },
   {
+    // Design render/export scripts: Node drivers whose page.evaluate callbacks run in the browser.
+    files: ['design/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        fetch: 'readonly',
+        performance: 'readonly',
+        setTimeout: 'readonly',
+        Blob: 'readonly',
+        btoa: 'readonly',
+        Buffer: 'readonly',
+        MediaRecorder: 'readonly',
+        createImageBitmap: 'readonly',
+      },
+    },
+  },
+  {
     // Module boundaries (docs/02 §3, ADR-001): import only a module's public index and
     // a package's public entry, never internals. Violations must fail lint (bootstrap B6).
     rules: {

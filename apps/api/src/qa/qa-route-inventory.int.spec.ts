@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
  *  5. no route of the AI engine areas is public (except the pinned webhooks).
  * A reviewer who adds an entry must say WHY in the pull request. Removing an entry (a fix) is always welcome: a stale entry fails the suite so the list never rots.
  */
-import { has, key, routes, type Route } from './qa-route-scan';
+import { has, key, routes } from './qa-route-scan';
 const diff = (actual: string[], pinned: string[]) => ({
   added: actual.filter((x) => !pinned.includes(x)).sort(),
   stale: pinned.filter((x) => !actual.includes(x)).sort(),

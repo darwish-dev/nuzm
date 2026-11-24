@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { executionGateway as eg } from '@nuzm/domain';
 import { createLoopbackHttpServer, createMetricsServer, createNodeHttpsServer } from './server';
 import { createAgentRig, RIG_IMAGE, type AgentRig } from './testing';

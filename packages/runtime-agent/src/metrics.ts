@@ -20,12 +20,13 @@ export class Metrics {
     const lines: string[] = [];
     for (const [k, v] of [...this.c].sort()) lines.push(`${k} ${v}`);
     for (const [k, f] of [...this.g].sort()) {
-      let v = 0;
-      try {
-        v = f();
-      } catch {
-        v = Number.NaN;
-      }
+      const v = ((): number => {
+        try {
+          return f();
+        } catch {
+          return Number.NaN;
+        }
+      })();
       lines.push(`${k} ${v}`);
     }
     return `${lines.join('\n')}\n`;

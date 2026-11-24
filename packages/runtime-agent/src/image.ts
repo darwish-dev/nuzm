@@ -48,12 +48,7 @@ export async function verifyImages(images: Readonly<Record<string, string>>): Pr
   const verified: Record<string, string> = {};
   const mismatched: string[] = [];
   for (const [digest, dir] of Object.entries(images)) {
-    let actual: string | null = null;
-    try {
-      actual = await treeDigest(dir);
-    } catch {
-      actual = null;
-    }
+    const actual = await treeDigest(dir).catch(() => null);
     if (actual === digest) verified[digest] = dir;
     else mismatched.push(digest);
   }

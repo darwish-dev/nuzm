@@ -155,12 +155,13 @@ export function verifyRequestToken(i: VerifyInput): TokenVerdict {
     return { ok: false, reason: 'token_malformed' };
   const pem = Object.prototype.hasOwnProperty.call(i.trusted, payload.kid) ? i.trusted[payload.kid] : undefined;
   if (!pem) return { ok: false, reason: 'token_key_unknown' };
-  let sigOk = false;
-  try {
-    sigOk = edVerify(null, Buffer.from(m[1]!, 'utf8'), createPublicKey(pem), Buffer.from(m[2]!, 'base64url'));
-  } catch {
-    sigOk = false;
-  }
+  const sigOk = ((): boolean => {
+    try {
+      return edVerify(null, Buffer.from(m[1]!, 'utf8'), createPublicKey(pem), Buffer.from(m[2]!, 'base64url'));
+    } catch {
+      return false;
+    }
+  })();
   if (!sigOk) return { ok: false, reason: 'token_signature_invalid' };
   if (payload.aud !== i.nodeId) return { ok: false, reason: 'token_audience_mismatch' };
   if (payload.op !== i.op) return { ok: false, reason: 'token_operation_mismatch' };

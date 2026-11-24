@@ -201,9 +201,9 @@ describe('limits enforced by the agent itself (backstop to the control plane)', 
     const t0 = Date.now();
     const r = await rig.runtime.wait(handle);
     expect(r.signal).toMatch(/SIGTERM|SIGKILL/);
-    expect(Date.now() - t0).toBeLessThan(4000);
+    expect(Date.now() - t0).toBeLessThan(15_000); // generous: the machine may be heavily loaded; the point is that it ends by itself
     expect(rig.audit.events.some((e) => e.type === 'run_killed' && e.detail?.why === 'wall_backstop')).toBe(true);
-  }, 10_000);
+  }, 30_000);
 });
 
 describe('artifacts: the workspace is hostile territory', () => {

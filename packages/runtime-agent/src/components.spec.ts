@@ -169,7 +169,7 @@ const SPEC = (net: 'none' | 'registry-only' = 'none'): eg.RuntimeSpec =>
   });
 describe('OCI bundle for gVisor', () => {
   const bundle = (net: 'none' | 'registry-only' = 'none') =>
-    buildOciBundle({ spec: SPEC(net), rootfs: '/img/a', workDir: '/ws/w', scratchDir: '/ws/s', toolchainDir: '/opt/tc', netnsPath: net === 'none' ? undefined : '/var/run/netns/nz-1', cgroupsPath: '/nuzm/h1' }) as Record<string, any>;
+    buildOciBundle({ spec: SPEC(net), rootfs: '/img/a', workDir: '/ws/w', scratchDir: '/ws/s', toolchainDir: '/opt/tc', netnsPath: net === 'none' ? undefined : '/var/run/netns/nz-1', cgroupsPath: '/nuzm/h1' }) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- the OCI document is deliberately inspected untyped
   it('encodes the hardening the spec asks for', () => {
     const b = bundle();
     expect(b.root).toEqual({ path: '/img/a', readonly: true });
@@ -288,8 +288,7 @@ describe('RunscLauncher (recording runner: nothing is started)', () => {
     await expect(l.launch(req('h6'))).rejects.toMatchObject({ code: 'platform_refused' });
     expect(runner.argvs().some((a) => a.includes('del'))).toBe(true);
     expect(await lstat(join(stateDir, 'bundles/h6')).catch(() => null)).toBeNull();
-    runner.on((a) => false, {});
-    // slot released: a later launch with a healthy runner works
+        // slot released: a later launch with a healthy runner works
     const ok = await new RunscLauncher({ runner: new RecordingCommandRunner(), binaries: DEFAULT_BINARIES, runscRoot: '/r', stateDir, maxSlots: 1, proxyAddr: '10.200.0.1:3128', platform: 'systrap' }).launch(req('h7'));
     await ok.cleanup();
   });

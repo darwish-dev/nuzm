@@ -7,6 +7,26 @@ import {
   LIFECYCLE_PORT_CALLS,
 } from './handoff-conformance';
 
+type PortLike = {
+  origin: 'MOCK' | 'REAL';
+  request: (r: {
+    orgId: string;
+    runId: string;
+    profile: string;
+  }) => Promise<{ allowed: boolean; reasons?: string[] }>;
+  run: (
+    d: never,
+    c: { orgId: string; runId: string; source?: { projectId: string; versionId: string } },
+  ) => Promise<{
+    status: string;
+    exitCode: number | null;
+    stdout: string;
+    stderr: string;
+    durationMs: number;
+    artifacts: { path: string; bytes: number; sha256?: string }[];
+  }>;
+};
+
 /** the shared hand-off test, run on this side with S05's REAL adapter (`ExecutionBuildPort`) over the mock and over the simulated real-runtime port */
 const adapt = (port: never) => new ExecutionBuildPort(port, () => '2026-11-24T00:00:00Z');
 
@@ -52,7 +72,7 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
     );
     expect(strict.cases.find((c) => c.id === 'H-9')!.status).toBe('FAIL');
     // an adapter that names the version, as S05 must (exactly what CONTRACT-04-4 asks for)
-    const withSource = (port: { request: Function; run: Function; origin: 'MOCK' | 'REAL' }) => {
+    const withSource = (port: PortLike) => {
       const inner = new ExecutionBuildPort(port as never, () => '2026-11-24T00:00:00Z');
       return {
         origin: port.origin,
@@ -70,7 +90,7 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
               artifacts: [],
               durationMs: 0,
             };
-          const out = await port.run(decision, {
+          const out = await port.run(decision as never, {
             orgId: req.orgId,
             runId: req.runId,
             source: { projectId: req.projectId, versionId: req.versionId },

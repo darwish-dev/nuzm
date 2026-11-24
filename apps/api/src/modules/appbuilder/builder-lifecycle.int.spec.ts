@@ -414,6 +414,7 @@ describe('model-backed generation (flag builder_lifecycle.model_generation, scri
         await q(`SELECT coalesce(sum(spent_credits),0) s FROM ai.runs WHERE project_id = $1`, [p])
       )[0]!.s,
     );
+    const walletBefore = await e.wallet(A());
     const started = ok<{ id: string }>(await startRun(p), 202);
     const out = await drive(started.id);
     expect(
@@ -431,6 +432,18 @@ describe('model-backed generation (flag builder_lifecycle.model_generation, scri
     expect(BigInt(cp.state.credits)).toBeGreaterThan(0n);
     const gen = (await steps(started.id)).find((s) => String(s.node).includes('file-generation'))!;
     expect(Number(gen.tokens_in)).toBeGreaterThan(0);
+    // three ledgers, one number: the lifecycle state, the gateway's usage rows and the wallet (credit unit 1 minor) all agree
+    const usage = (
+      await q(
+        `SELECT coalesce(sum(tokens_in),0)::bigint ti, coalesce(sum(tokens_out),0)::bigint "to", coalesce(sum(credits),0)::bigint cr, count(*)::int n FROM ai.model_usage WHERE run_id = $1`,
+        [started.id],
+      )
+    )[0]!;
+    expect(Number(usage.n)).toBeGreaterThan(0);
+    expect(Number(usage.ti)).toBe(cp.state.tokensIn);
+    expect(Number(usage.to)).toBe(cp.state.tokensOut);
+    expect(BigInt(usage.cr)).toBe(BigInt(cp.state.credits));
+    expect(walletBefore - (await e.wallet(A()))).toBe(BigInt(cp.state.credits));
     // what the gateway charged is what the lifecycle reports (one accounting, not two)
     const run = (await q(`SELECT spent_credits FROM ai.runs WHERE id = $1`, [started.id]))[0]!;
     expect(BigInt(run.spent_credits) - before).toBe(BigInt(cp.state.credits));

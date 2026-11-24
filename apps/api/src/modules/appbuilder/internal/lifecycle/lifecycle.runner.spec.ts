@@ -43,6 +43,7 @@ describe('the lifecycle, offline, with scripted components', () => {
     // the plan's files were added as ONE validated change on the AI path
     expect(env.applied).toHaveLength(1);
     expect(env.applied[0]!.ops.every((o) => o.op === 'add')).toBe(true);
+    expect(env.applied[0]!.ops.map((o) => o.path)).toContain('nuzm.memory.json');
     expect(out.artifacts.generator).toBe('skeleton');
     expect(out.artifacts.appliedVersionId).toBe(env.versionId);
     // every step has a persistent record, an audit event, a checkpoint save

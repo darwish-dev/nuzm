@@ -26,7 +26,8 @@ describe('synthetic project qualification (SIMULATED end to end)', () => {
       expect(host.steps.every((s) => s.status === 'succeeded')).toBe(true);
       expect(state.repairRound).toBe(0);
       expect(env.applied).toHaveLength(1);
-      expect(env.applied[0]!.ops.length).toBe(a.plan!.fileCount);
+      expect(env.applied[0]!.ops.length).toBe(a.plan!.fileCount + 1); // the plan's files + the project memory file
+      expect(env.applied[0]!.ops.map((o) => o.path)).toContain('nuzm.memory.json');
       expect(a.generator).toBe('skeleton');
       expect(a.review!.errors).toBe(0);
       expect(a.executionOrigin).toBe('MOCK');

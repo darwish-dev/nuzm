@@ -44,7 +44,7 @@ export const BRIEFS = [
   },
 ] as const;
 
-export interface Row {
+export interface QualificationRow {
   id: string;
   title: string;
   productType: string;

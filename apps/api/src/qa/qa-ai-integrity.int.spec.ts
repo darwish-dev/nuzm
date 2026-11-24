@@ -113,15 +113,28 @@ describe('QA integrity 1: duplicate-charge prevention', () => {
     ).toBe(0);
   });
 
-  it.fails(
-    'DEFECT-8: the same call id sent 12 times AT ONCE reaches the provider once (today every duplicate that finds the held reservation is dispatched: the platform pays the provider N times for one charge)',
-    async () => {
-      const id = `race2-${uuidv7()}`;
-      const p0 = providerCalls;
-      await Promise.allSettled(Array.from({ length: 12 }, () => gw.invoke(call({ callId: id }))));
-      expect(providerCalls - p0, 'provider invocations for one call id').toBe(1);
-    },
-  );
+  it('DEFECT-8 (fixed by Session 02): the same call id sent 12 times AT ONCE reaches the provider once; every duplicate is refused with a 409 (in progress, or already settled) and none is charged', async () => {
+    const id = `race2-${uuidv7()}`;
+    const p0 = providerCalls;
+    const w0 = await e.wallet(A());
+    const res = await Promise.allSettled(
+      Array.from({ length: 12 }, () => gw.invoke(call({ callId: id }))),
+    );
+    expect(providerCalls - p0, 'provider invocations for one call id').toBe(1);
+    const failed = res.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(res.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    for (const f of failed) {
+      const r = f.reason as { code?: string; detail?: string; message?: string };
+      expect(r.code, String(f.reason)).toBe('conflict'); // HTTP 409
+      // a duplicate that arrives while the call is live is told so; one that arrives after it finished is told the id is settled: both are 409, neither dispatches
+      expect(`${r.detail ?? ''} ${r.message ?? ''}`).toMatch(/call_in_progress|already settled/);
+    }
+    const charged = w0 - (await e.wallet(A()));
+    expect(charged).toBeGreaterThan(0n);
+    expect(
+      await num(`SELECT count(*) n FROM ai.model_usage WHERE org_id=$1 AND call_id=$2`, [A(), id]),
+    ).toBe(1);
+  });
 
   it('a call that fails at the provider is not charged and leaves no open reservation; its id stays closed (no later charge under it)', async () => {
     const id = `fail-${uuidv7()}`;
@@ -320,30 +333,38 @@ describe('QA integrity 2: reconciliation after a concurrent mixed workload', () 
     expect(w.walletGap).toBe(0n);
   }, 180_000);
 
-  it.fails(
-    'DEFECT-7: calls of ONE run in parallel never leave a wallet charge without a usage record (today a settle deadlock (40P01) rolls the usage row back after the ledger debit was committed)',
-    async () => {
-      let mism = 0;
-      let gap = 0n;
-      for (let round = 0; round < 8 && mism === 0 && gap === 0n; round++) {
-        const w = await workload({
-          runs: 6,
-          perRun: 10,
-          parallelInRun: true,
-          cap: 600,
-          faults: 6,
-          tag: `par${round}`,
-        });
-        mism = w.mismatchCount;
-        gap = w.walletGap;
-      }
-      expect({ chargedWithoutUsage: mism, walletGap: String(gap) }).toEqual({
+  it('DEFECT-7 (fixed by Session 02): calls of ONE run in parallel never leave a wallet charge without a usage record, in 4 rounds of 60 calls (6 runs, 10 in flight per run, provider failures, key creation and top-ups racing); nothing stays held; no settle was left incomplete', async () => {
+    for (let round = 0; round < 4; round++) {
+      const w = await workload({
+        runs: 6,
+        perRun: 10,
+        parallelInRun: true,
+        cap: 600,
+        faults: 6,
+        tag: `par${round}`,
+      });
+      expect({
+        round,
+        chargedWithoutUsage: w.mismatchCount,
+        walletGap: String(w.walletGap),
+        detail: w.perCallMismatches,
+      }).toEqual({
+        round,
         chargedWithoutUsage: 0,
         walletGap: '0',
+        detail: [],
       });
-    },
-    300_000,
-  );
+    }
+    expect(
+      await num(`SELECT count(*) n FROM ai.reservations WHERE org_id=$1 AND state='held'`, [A()]),
+    ).toBe(0);
+    expect(
+      await num(
+        `SELECT count(*) n FROM audit.audit_logs WHERE chain_key=$1 AND action='ai.settle.incomplete'`,
+        [A()],
+      ),
+    ).toBe(0);
+  }, 300_000);
 
   it('every ledger transaction of the organization balances (debits = credits) and no posting is orphaned', async () => {
     const unbalanced = await e.sql(

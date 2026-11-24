@@ -1,6 +1,6 @@
 # DEFECT-7 — parallel calls of one run deadlock in the gateway; a settle that loses the deadlock leaves the customer charged with no usage record
 
-Reporter: Session 07 (QA) · Owner: Session 02 (`apps/api/src/modules/ai/internal/gateway.service.ts`, `budget.service.ts`) · cc Master, Session 05 (the agent loop may issue several model calls of one run at once) · Severity: **HIGH** (money and metering integrity; found by a dynamic test, Phase 2) · Status: OPEN · Found 2026-11-24 on `integration/ai-engine` `39658725`
+Reporter: Session 07 (QA) · Owner: Session 02 (`apps/api/src/modules/ai/internal/gateway.service.ts`, `budget.service.ts`) · cc Master, Session 05 (the agent loop may issue several model calls of one run at once) · Severity: **HIGH** (money and metering integrity; found by a dynamic test, Phase 2) · Status: FIXED, RE-TESTED (2026-11-24, feature/ai-providers f02209cd merged into feature/ai-qa-security) · Found 2026-11-24 on `integration/ai-engine` `39658725`
 
 Evidence class: SIMULATED model (MockModelAdapter), real PostgreSQL 16, real ledger, real hash-chained audit. No provider, no real money.
 
@@ -30,3 +30,6 @@ A charge and its usage record can never disagree: every committed wallet debit h
 
 ## Tests
 `qa-ai-integrity.int.spec.ts`: `it.fails('DEFECT-7 …')` states the secure expectation (zero charges without usage, zero wallet gap; fails today by reproducing the deadlock). Control that passes today and must keep passing: "calls of one run in sequence (runs concurrent) … usage = ledger = wallet, per call and in total". When the fix lands, turn the `it.fails` into an ordinary `it`.
+
+## Re-test result
+FIXED and RE-TESTED: reserve/settle/release take the balance lock first and settle/release retry on 40P01/40001 (`feature/ai-providers` f02209cd). `qa-ai-integrity.int.spec.ts` 19 passed in 3 consecutive runs: the DEFECT-7 test (4 rounds of 60 calls, 10 in flight per run, provider failures, key creation and top-ups racing) is an ordinary test, shows zero charges without usage, wallet gap 0, nothing held, no `ai.settle.incomplete` event; the PostgreSQL log shows no deadlock during the fixed runs.

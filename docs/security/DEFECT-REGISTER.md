@@ -1,6 +1,6 @@
 # AI Agent Engine: defect register (Session 07, QA / security)
 
-Date: 2026-11-24 · Baseline of the review `f81872d5` · Register covers DEFECT-1 … DEFECT-17 and DEFECT-20 (DEFECT-18 and 19 are not in this register) and the concerns O-11 … O-16. Full write-ups: `docs/parallel/sessions/DEFECT-<n>-*.md`; observations O-1 … O-16 and the control list: `docs/security/AI-ENGINE-SECURITY-FINDINGS.md`.
+Date: 2026-11-24 · Baseline of the review `f81872d5` · Register covers DEFECT-1 … DEFECT-17 and DEFECT-20 (numbers 18 and 19 are not filed in this register) and the concerns O-11 … O-16. Full write-ups: `docs/parallel/sessions/DEFECT-<n>-*.md`; observations O-1 … O-16 and the control list: `docs/security/AI-ENGINE-SECURITY-FINDINGS.md`.
 
 State vocabulary: **FIXED+RETESTED** = the owner's fix is in the tree I ran, and the test that states the secure expectation (first an `it.fails`, flipped to an ordinary test after the fix) passes; I saw the output. **FIXED-unverified** = a fix is reported but I have not run it. **OPEN** = not fixed. Every test was run alone on its own PostgreSQL with the real RLS roles; evidence class SIMULATED (mock model, mock execution port, in-memory publisher). "Seen" means the run output was in my terminal; the final column of section 3 repeats the counts of the last full pass over the merged head.
 

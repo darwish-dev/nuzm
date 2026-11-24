@@ -1,0 +1,19 @@
+# Enabled only when DEPLOY_API=true (needs a production API entrypoint and production config, D-42).
+[Unit]
+Description=Nuzm API (NestJS)
+After=network.target postgresql.service
+
+[Service]
+User=deploy
+WorkingDirectory=/srv/nuzm/current/apps/api
+EnvironmentFile=/etc/nuzm/api.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node dist/main.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

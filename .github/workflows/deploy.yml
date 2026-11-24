@@ -1,0 +1,68 @@
+# Production deploy: runs after the `ci` workflow succeeds on main (or by hand). See docs/runbooks/deploy-production.md.
+# Needs, in GitHub -> Settings -> Environments -> production:
+#   secrets   DEPLOY_SSH_KEY (private key of the `deploy` user), DEPLOY_KNOWN_HOSTS (pinned host key line(s) for the server)
+#   variables DEPLOY_HOST (e.g. 89.116.29.136), DEPLOY_USER (default deploy), PUBLIC_WEB_ORIGIN, ADMIN_ORIGIN,
+#             DEPLOY_API ("true" only once the API has a production entrypoint and its production config: D-42)
+name: deploy
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: { group: deploy-production, cancel-in-progress: false }
+
+permissions: { contents: read }
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
+      DEPLOY_API: ${{ vars.DEPLOY_API == 'true' && '1' || '0' }}
+      # Baked into the Next.js routes at build time (next.config.mjs reads them in redirects()/rewrites()).
+      ADMIN_ORIGIN: ${{ vars.ADMIN_ORIGIN || 'https://admin.nuzm.dev' }}
+      API_ORIGIN: http://127.0.0.1:4000
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.event.workflow_run.head_sha || github.sha }}' }
+      - name: Check deploy settings
+        run: |
+          test -n "$DEPLOY_HOST" || { echo "::error::Set the DEPLOY_HOST variable on the production environment"; exit 1; }
+          test -n "$DEPLOY_SSH_KEY" || { echo "::error::Set the DEPLOY_SSH_KEY secret"; exit 1; }
+          test -n "$DEPLOY_KNOWN_HOSTS" || { echo "::error::Set the DEPLOY_KNOWN_HOSTS secret (pinned host key; never ssh-keyscan in CI)"; exit 1; }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+        env: { NODE_ENV: production }
+      - name: Set up SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Upload release
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes"
+          REMOTE="$DEPLOY_USER@$DEPLOY_HOST"
+          $SSH "$REMOTE" "mkdir -p /srv/nuzm/releases/$SHA"
+          rsync -az --delete -e "$SSH" \
+            --link-dest=/srv/nuzm/current \
+            --exclude=.git --exclude=node_modules --exclude='.next/cache' --exclude=.claude --exclude=.turbo \
+            --exclude=apps/mobile --exclude=apps/desktop --exclude=docs --exclude=design --exclude=e2e \
+            ./ "$REMOTE:/srv/nuzm/releases/$SHA/"
+          echo "SHA=$SHA" >> "$GITHUB_ENV"
+      - name: Switch release on the server
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "NUZM_DEPLOY_API=$DEPLOY_API /srv/nuzm/releases/$SHA/infra/deploy/release.sh $SHA"
+      - name: Public smoke check
+        run: curl -fsS --retry 5 --retry-delay 3 -o /dev/null https://www.nuzm.dev/

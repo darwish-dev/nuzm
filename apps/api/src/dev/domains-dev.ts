@@ -48,7 +48,10 @@ export async function startDomainsDevMocks(
       defaultNameservers: ['ns1.example.net', 'ns2.example.net'],
     });
   // Dynadot: the mock answers ONLY for the dev-mock account. A real account saved in the admin console (its own sealed credential) reaches the real vendor, even here.
-  const realDynadot = factories.dynadot as (a: DynadotAccount, d: { vault: MemoryVault }) => unknown;
+  const realDynadot = factories.dynadot as (
+    a: DynadotAccount,
+    d: { vault: MemoryVault },
+  ) => unknown;
   factories.dynadot = (a: DynadotAccount, d: { vault: MemoryVault }) =>
     a.vaultRef === DYNADOT_MOCK_REF
       ? new DynadotAdapter({
@@ -83,7 +86,9 @@ export async function startDomainsDevMocks(
     // an administrator's own Dynadot account (saved in the console) replaces the mock: never add the mock beside it
     if (
       providerCode === 'dynadot' &&
-      (await admin.list()).accounts.some((a) => a.providerCode === 'dynadot' && a.vaultRef !== vaultRef)
+      (await admin.list()).accounts.some(
+        (a) => a.providerCode === 'dynadot' && a.vaultRef !== vaultRef,
+      )
     )
       continue;
     const existing = (await admin.list()).accounts.find(

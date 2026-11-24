@@ -77,9 +77,7 @@ export default async function Workflows({
           body={t(locale, 'm11.wf.emptyBody')}
           action={
             s.can('automation:write') ? (
-              <ButtonLink href={`/automation/workflows/new`}>
-                {t(locale, 'm11.wf.new')}
-              </ButtonLink>
+              <ButtonLink href={`/automation/workflows/new`}>{t(locale, 'm11.wf.new')}</ButtonLink>
             ) : undefined
           }
         />
@@ -201,9 +199,7 @@ export default async function Workflows({
           <Button type="submit">{t(locale, 'action.search')}</Button>
         </form>
         {s.can('automation:write') && (
-          <ButtonLink href={`/automation/workflows/new`}>
-            {t(locale, 'm11.wf.new')}
-          </ButtonLink>
+          <ButtonLink href={`/automation/workflows/new`}>{t(locale, 'm11.wf.new')}</ButtonLink>
         )}
       </div>
       {body}

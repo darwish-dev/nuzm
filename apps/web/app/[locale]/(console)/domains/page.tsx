@@ -44,9 +44,7 @@ export default async function Domains({ params }: { params: Promise<{ locale: st
         <EmptyState
           title={t(locale, 'dom.empty.title')}
           body={t(locale, 'state.empty.body')}
-          action={
-            <ButtonLink href={`/domains/search`}>{t(locale, 'dom.empty.cta')}</ButtonLink>
-          }
+          action={<ButtonLink href={`/domains/search`}>{t(locale, 'dom.empty.cta')}</ButtonLink>}
         />
       ) : (
         <>

@@ -11,8 +11,18 @@ const require = createRequire(join(here, '../../e2e/package.json'));
 const { chromium } = require('@playwright/test');
 
 const ids = [
-  '01-hosting', '02-grows', '03-domain', '04-ssl', '05-backups', '06-runtimes',
-  '07-ai-publish', '08-isolated', '09-compare', '10-agencies', '11-price', '12-start',
+  '01-hosting',
+  '02-grows',
+  '03-domain',
+  '04-ssl',
+  '05-backups',
+  '06-runtimes',
+  '07-ai-publish',
+  '08-isolated',
+  '09-compare',
+  '10-agencies',
+  '11-price',
+  '12-start',
 ];
 const out = join(here, 'out');
 mkdirSync(join(out, 'ar'), { recursive: true });

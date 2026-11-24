@@ -9,7 +9,12 @@ import type { Locale } from '@nuzm/i18n';
  * that element scrolls (section by section); on the other public pages the document does, so the buttons scroll whichever one actually moves. The appearance buttons write the same `nuzm_theme` cookie the rest of the site reads.
  */
 const LABELS = {
-  en: { light: 'Light appearance', dark: 'Dark appearance', up: 'Previous section', down: 'Next section' },
+  en: {
+    light: 'Light appearance',
+    dark: 'Dark appearance',
+    up: 'Previous section',
+    down: 'Next section',
+  },
   ar: { light: 'مظهر فاتح', dark: 'مظهر داكن', up: 'القسم السابق', down: 'القسم التالي' },
 } as const;
 
@@ -24,7 +29,8 @@ type Scroller = {
 /** Where an element starts on the page, from layout (not from what is painted: an entrance animation must not move the target). */
 function pageTop(el: HTMLElement): number {
   let y = 0;
-  for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += n.offsetTop;
+  for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null)
+    y += n.offsetTop;
   return y;
 }
 
@@ -34,9 +40,17 @@ function scroller(): Scroller {
   const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
   const sections = root
-    ? Array.from(root.querySelectorAll<HTMLElement>(':scope > section, :scope > main > section, :scope > footer'))
+    ? Array.from(
+        root.querySelectorAll<HTMLElement>(
+          ':scope > section, :scope > main > section, :scope > footer',
+        ),
+      )
     : [];
-  if (root && root.scrollHeight > root.clientHeight + 1 && getComputedStyle(root).overflowY !== 'visible') {
+  if (
+    root &&
+    root.scrollHeight > root.clientHeight + 1 &&
+    getComputedStyle(root).overflowY !== 'visible'
+  ) {
     const base = pageTop(root);
     return {
       top: root.scrollTop,

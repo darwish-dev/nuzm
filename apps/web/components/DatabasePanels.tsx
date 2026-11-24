@@ -554,9 +554,7 @@ export function BackupsPanel({
               header: t(locale, 'm8.rs.col.target'),
               render: (r) =>
                 r.targetDatabaseId && r.state === 'succeeded' && r.mode === 'new' ? (
-                  <a href={`/databases/${r.targetDatabaseId}`}>
-                    {t(locale, 'm8.rs.openTarget')}
-                  </a>
+                  <a href={`/databases/${r.targetDatabaseId}`}>{t(locale, 'm8.rs.openTarget')}</a>
                 ) : (
                   '—'
                 ),

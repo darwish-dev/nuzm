@@ -144,9 +144,7 @@ describe('checkout', () => {
     seed([dom, srv]);
     render(<Checkout {...base} />);
     const d = await screen.findByRole('link', { name: t('en', 'checkout.domains.continue') });
-    expect(d.getAttribute('href')).toBe(
-      '/domains/checkout?name=shop.example.com&years=1&cart=d1',
-    );
+    expect(d.getAttribute('href')).toBe('/domains/checkout?name=shop.example.com&years=1&cart=d1');
     const s = screen.getByRole('link', { name: t('en', 'checkout.servers.continue') });
     expect(s.getAttribute('href')).toBe('/compute/instances/new?offerId=o1&image=img1&cart=s1');
   });

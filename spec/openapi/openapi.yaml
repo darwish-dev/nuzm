@@ -7427,9 +7427,27 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
-        - { name: kind, in: query, required: false, schema: { type: string, enum: [access, error] }, description: 'access or error (default error)' }
-        - { name: lines, in: query, required: false, schema: { type: integer }, description: '1 to 500' }
+        - {
+            name: domain,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'One of the site domains; default the primary one',
+          }
+        - {
+            name: kind,
+            in: query,
+            required: false,
+            schema: { type: string, enum: [access, error] },
+            description: 'access or error (default error)',
+          }
+        - {
+            name: lines,
+            in: query,
+            required: false,
+            schema: { type: integer },
+            description: '1 to 500',
+          }
       responses:
         '200':
           description: 'Success'
@@ -7626,8 +7644,20 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
-        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - {
+            name: domain,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'One of the site domains; default the primary one',
+          }
+        - {
+            name: path,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'A path relative to the website folder; never absolute, never with ..',
+          }
       responses:
         '200':
           description: 'Success'
@@ -7652,8 +7682,20 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
-        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - {
+            name: domain,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'One of the site domains; default the primary one',
+          }
+        - {
+            name: path,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'A path relative to the website folder; never absolute, never with ..',
+          }
         - { name: recursive, in: query, required: false, schema: { type: boolean } }
       responses:
         '200':
@@ -7679,8 +7721,20 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
-        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - {
+            name: domain,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'One of the site domains; default the primary one',
+          }
+        - {
+            name: path,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'A path relative to the website folder; never absolute, never with ..',
+          }
       responses:
         '200':
           description: 'The file bytes (attachment)'
@@ -7706,8 +7760,20 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
-        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - {
+            name: domain,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'One of the site domains; default the primary one',
+          }
+        - {
+            name: path,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'A path relative to the website folder; never absolute, never with ..',
+          }
       responses:
         '200':
           description: 'Success'
@@ -7732,8 +7798,20 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
-        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - {
+            name: domain,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'One of the site domains; default the primary one',
+          }
+        - {
+            name: path,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'A path relative to the website folder; never absolute, never with ..',
+          }
       requestBody:
         required: true
         content:
@@ -7764,8 +7842,20 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/OrgHeader' }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: domain, in: query, required: false, schema: { type: string }, description: 'One of the site domains; default the primary one' }
-        - { name: path, in: query, required: false, schema: { type: string }, description: 'A path relative to the website folder; never absolute, never with ..' }
+        - {
+            name: domain,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'One of the site domains; default the primary one',
+          }
+        - {
+            name: path,
+            in: query,
+            required: false,
+            schema: { type: string },
+            description: 'A path relative to the website folder; never absolute, never with ..',
+          }
         - { name: overwrite, in: query, required: false, schema: { type: boolean } }
       requestBody:
         required: true
@@ -21027,7 +21117,8 @@ components:
       properties:
         id: { type: string, enum: [files, cron, logs, ftp, protection, php, mail] }
         state: { type: string, enum: [available, unavailable] }
-        reason: { type: string, enum: [role, site_state, connection, panel_version, panel_service, plan] }
+        reason:
+          { type: string, enum: [role, site_state, connection, panel_version, panel_service, plan] }
         limits: { type: object, additionalProperties: { type: number } }
         versions: { type: array, items: { type: string } }
         verification: { type: string, enum: [not_verified] }

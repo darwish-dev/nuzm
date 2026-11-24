@@ -83,7 +83,11 @@ export function LocaleSwitch({
         .map((l) => (
           <a
             key={l}
-            href={prefixed ? path.replace(new RegExp(`^/${current}(?=/|$)`), `/${l}`) : `${path}?lang=${l}`}
+            href={
+              prefixed
+                ? path.replace(new RegExp(`^/${current}(?=/|$)`), `/${l}`)
+                : `${path}?lang=${l}`
+            }
             lang={l}
             hrefLang={l}
           >

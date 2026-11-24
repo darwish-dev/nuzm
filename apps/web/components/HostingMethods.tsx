@@ -47,11 +47,7 @@ export function HostingMethods({
             role="listitem"
             className="nzc-method"
             data-featured={m.id === 'ai' ? 'true' : undefined}
-            href={
-              m.id === 'ai'
-                ? `/builder/projects`
-                : `/hosting/sites/new${qs({ method: m.id })}`
-            }
+            href={m.id === 'ai' ? `/builder/projects` : `/hosting/sites/new${qs({ method: m.id })}`}
           >
             {body}
           </a>

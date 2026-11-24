@@ -16,8 +16,7 @@ export default async function Register({ params }: { params: Promise<{ locale: s
     >
       <RegisterForm locale={locale} />
       <p className="nzc-split-links">
-        {t(locale, 'register.haveAccount')}{' '}
-        <a href={`/login`}>{t(locale, 'action.signin')}</a>
+        {t(locale, 'register.haveAccount')} <a href={`/login`}>{t(locale, 'action.signin')}</a>
       </p>
     </AuthShell>
   );

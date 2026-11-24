@@ -48,12 +48,13 @@ export interface CommandDef {
   maxOutputBytes: number;
 }
 
-const def = (
-  id: string,
-  schema: Schema,
-  mutating: boolean,
-  timeoutMs = 120_000,
-): CommandDef => ({ id, schema, mutating, timeoutMs, maxOutputBytes: 64 * 1024 });
+const def = (id: string, schema: Schema, mutating: boolean, timeoutMs = 120_000): CommandDef => ({
+  id,
+  schema,
+  mutating,
+  timeoutMs,
+  maxOutputBytes: 64 * 1024,
+});
 
 export const COMMANDS: Record<string, CommandDef> = Object.fromEntries(
   [

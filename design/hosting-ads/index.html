@@ -1,242 +1,506 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Nuzm hosting ad tiles</title>
-<style>
-@font-face{font-family:Manrope;font-weight:200 800;src:url(fonts/manrope-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F}
-@font-face{font-family:Cairo;font-weight:200 1000;src:url(fonts/cairo-arabic-wght-normal.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+FB50-FDFF,U+FE70-FEFF}
-@font-face{font-family:Cairo;font-weight:200 1000;src:url(fonts/cairo-latin-wght-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+2000-206F}
-:root{
-  --bg:#f6f5f1;--soft:#efebe4;--ink:#22262d;--muted:#5d6870;--teal:#4e7880;--sage:#7eaea3;--mint:#c8e6d6;--line:#d3dcd9;
-  --deep:#14201d;--deep2:#1b2a26;--glow:#618e83;
-}
-*{box-sizing:border-box;margin:0}
-body{background:#e9e6df;color:var(--ink);font-family:Manrope,Cairo,sans-serif;-webkit-font-smoothing:antialiased}
-body.ar{font-family:Cairo,Manrope,sans-serif}
-.board{display:grid;grid-template-columns:repeat(3,540px);gap:24px;padding:24px;justify-content:center}
-body.single .board{display:block;padding:0}
-.tile{position:relative;width:540px;height:675px;overflow:hidden;border-radius:0;isolation:isolate;display:flex;flex-direction:column;align-items:center;padding:34px 36px 0;text-align:center}
-.t-light{background:linear-gradient(180deg,#f6f5f1 0%,#e7efeb 100%)}
-.t-mint{background:linear-gradient(180deg,#e4f1ea 0%,#c8e6d6 100%)}
-.t-sage{background:linear-gradient(180deg,#d9e6e4 0%,#b4cfcb 100%)}
-.t-dark{background:radial-gradient(ellipse at 50% 70%,#2f5a50 0%,#1b2a26 48%,#101917 100%);color:#efebe4}
-.t-ink{background:linear-gradient(180deg,#2a323b 0%,#22262d 100%);color:#efebe4}
-.pill{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 18px;border-radius:999px;background:#ffffffb8;box-shadow:0 1px 0 #fff inset,0 6px 18px #22262d14;z-index:3}
-.t-dark .pill,.t-ink .pill{background:#ffffff1c;box-shadow:0 0 0 1px #ffffff22 inset}
-.pill img{height:17px;width:auto;filter:brightness(.16) sepia(.3) hue-rotate(120deg) saturate(1.6)}
-.t-dark .pill img,.t-ink .pill img{filter:none}
-h2{margin-top:22px;font-size:41px;line-height:1.28;font-weight:800;letter-spacing:-.01em;color:var(--ink);z-index:3;text-wrap:balance}
-body.ar h2{font-size:43px;line-height:1.38;font-weight:800;letter-spacing:0}
-.t-dark h2,.t-ink h2{color:#f6f5f1}
-h2 em{font-style:normal;color:var(--teal)}
-.t-dark h2 em,.t-ink h2 em{color:#9fd8c3}
-.chip{display:inline-block;margin-top:16px;padding:7px 18px;border-radius:999px;background:#ffffffcc;border:1px solid #ffffff;box-shadow:0 4px 14px #22262d10;font-size:15px;font-weight:600;color:#3d4a50;z-index:3}
-body.ar .chip{font-size:16px}
-.t-dark .chip,.t-ink .chip{background:#ffffff1a;border-color:#ffffff22;color:#dfeee8;box-shadow:none}
-.art{position:absolute;inset:auto 0 0 0;height:60%;z-index:1;pointer-events:none}
-.art svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.flip{justify-content:flex-end;padding:0 36px 36px}
-.flip .pill{position:absolute;top:34px;inset-inline-start:36px}
-.flip .art{inset:0 0 auto 0;height:62%}
-.flip .txt{z-index:3;text-align:start;width:100%}
-.flip h2{margin-top:0;font-size:38px}
-body.ar .flip h2{font-size:40px}
-.cta{display:inline-flex;align-items:center;gap:10px;margin-top:18px;padding:11px 24px;border-radius:10px;background:linear-gradient(135deg,#5f8f97,#3f666d);color:#fff;font-weight:700;font-size:16px;box-shadow:0 8px 20px #3f666d44;z-index:3}
-.cta svg{width:16px;height:16px}
-[dir=rtl] .cta svg{transform:scaleX(-1)}
-.note{position:absolute;bottom:14px;inset-inline:0;font-size:11px;color:#5d6870;z-index:3}
-.title-bar{display:none}
-</style>
-</head>
-<body>
-<div class="board" id="board"></div>
-<script>
-const q = new URLSearchParams(location.search);
-const LANG = q.get('lang') === 'en' ? 'en' : 'ar';
-const ONLY = q.get('tile');
-document.documentElement.lang = LANG;
-document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
-document.body.classList.add(LANG);
-if (ONLY) document.body.classList.add('single');
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Nuzm hosting ad tiles</title>
+    <style>
+      @font-face {
+        font-family: Manrope;
+        font-weight: 200 800;
+        src: url(fonts/manrope-latin.woff2) format('woff2');
+        unicode-range: U+0000-00FF, U+2000-206F;
+      }
+      @font-face {
+        font-family: Cairo;
+        font-weight: 200 1000;
+        src: url(fonts/cairo-arabic-wght-normal.woff2) format('woff2');
+        unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFF;
+      }
+      @font-face {
+        font-family: Cairo;
+        font-weight: 200 1000;
+        src: url(fonts/cairo-latin-wght-normal.woff2) format('woff2');
+        unicode-range: U+0000-00FF, U+2000-206F;
+      }
+      :root {
+        --bg: #f6f5f1;
+        --soft: #efebe4;
+        --ink: #22262d;
+        --muted: #5d6870;
+        --teal: #4e7880;
+        --sage: #7eaea3;
+        --mint: #c8e6d6;
+        --line: #d3dcd9;
+        --deep: #14201d;
+        --deep2: #1b2a26;
+        --glow: #618e83;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        background: #e9e6df;
+        color: var(--ink);
+        font-family: Manrope, Cairo, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      body.ar {
+        font-family: Cairo, Manrope, sans-serif;
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, 540px);
+        gap: 24px;
+        padding: 24px;
+        justify-content: center;
+      }
+      body.single .board {
+        display: block;
+        padding: 0;
+      }
+      .tile {
+        position: relative;
+        width: 540px;
+        height: 675px;
+        overflow: hidden;
+        border-radius: 0;
+        isolation: isolate;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 34px 36px 0;
+        text-align: center;
+      }
+      .t-light {
+        background: linear-gradient(180deg, #f6f5f1 0%, #e7efeb 100%);
+      }
+      .t-mint {
+        background: linear-gradient(180deg, #e4f1ea 0%, #c8e6d6 100%);
+      }
+      .t-sage {
+        background: linear-gradient(180deg, #d9e6e4 0%, #b4cfcb 100%);
+      }
+      .t-dark {
+        background: radial-gradient(ellipse at 50% 70%, #2f5a50 0%, #1b2a26 48%, #101917 100%);
+        color: #efebe4;
+      }
+      .t-ink {
+        background: linear-gradient(180deg, #2a323b 0%, #22262d 100%);
+        color: #efebe4;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 36px;
+        padding: 0 18px;
+        border-radius: 999px;
+        background: #ffffffb8;
+        box-shadow:
+          0 1px 0 #fff inset,
+          0 6px 18px #22262d14;
+        z-index: 3;
+      }
+      .t-dark .pill,
+      .t-ink .pill {
+        background: #ffffff1c;
+        box-shadow: 0 0 0 1px #ffffff22 inset;
+      }
+      .pill img {
+        height: 17px;
+        width: auto;
+        filter: brightness(0.16) sepia(0.3) hue-rotate(120deg) saturate(1.6);
+      }
+      .t-dark .pill img,
+      .t-ink .pill img {
+        filter: none;
+      }
+      h2 {
+        margin-top: 22px;
+        font-size: 41px;
+        line-height: 1.28;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+        z-index: 3;
+        text-wrap: balance;
+      }
+      body.ar h2 {
+        font-size: 43px;
+        line-height: 1.38;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+      .t-dark h2,
+      .t-ink h2 {
+        color: #f6f5f1;
+      }
+      h2 em {
+        font-style: normal;
+        color: var(--teal);
+      }
+      .t-dark h2 em,
+      .t-ink h2 em {
+        color: #9fd8c3;
+      }
+      .chip {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 7px 18px;
+        border-radius: 999px;
+        background: #ffffffcc;
+        border: 1px solid #ffffff;
+        box-shadow: 0 4px 14px #22262d10;
+        font-size: 15px;
+        font-weight: 600;
+        color: #3d4a50;
+        z-index: 3;
+      }
+      body.ar .chip {
+        font-size: 16px;
+      }
+      .t-dark .chip,
+      .t-ink .chip {
+        background: #ffffff1a;
+        border-color: #ffffff22;
+        color: #dfeee8;
+        box-shadow: none;
+      }
+      .art {
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 60%;
+        z-index: 1;
+        pointer-events: none;
+      }
+      .art svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+      .flip {
+        justify-content: flex-end;
+        padding: 0 36px 36px;
+      }
+      .flip .pill {
+        position: absolute;
+        top: 34px;
+        inset-inline-start: 36px;
+      }
+      .flip .art {
+        inset: 0 0 auto 0;
+        height: 62%;
+      }
+      .flip .txt {
+        z-index: 3;
+        text-align: start;
+        width: 100%;
+      }
+      .flip h2 {
+        margin-top: 0;
+        font-size: 38px;
+      }
+      body.ar .flip h2 {
+        font-size: 40px;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 18px;
+        padding: 11px 24px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #5f8f97, #3f666d);
+        color: #fff;
+        font-weight: 700;
+        font-size: 16px;
+        box-shadow: 0 8px 20px #3f666d44;
+        z-index: 3;
+      }
+      .cta svg {
+        width: 16px;
+        height: 16px;
+      }
+      [dir='rtl'] .cta svg {
+        transform: scaleX(-1);
+      }
+      .note {
+        position: absolute;
+        bottom: 14px;
+        inset-inline: 0;
+        font-size: 11px;
+        color: #5d6870;
+        z-index: 3;
+      }
+      .title-bar {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="board" id="board"></div>
+    <script>
+      const q = new URLSearchParams(location.search);
+      const LANG = q.get('lang') === 'en' ? 'en' : 'ar';
+      const ONLY = q.get('tile');
+      document.documentElement.lang = LANG;
+      document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
+      document.body.classList.add(LANG);
+      if (ONLY) document.body.classList.add('single');
 
-/* ---------- isometric helpers ---------- */
-let uid = 0;
-const C = Math.cos(Math.PI / 6), S = 0.5;
-const P = (x, y, z) => [(x - y) * C, (x + y) * S - z];
-const pts = (a) => a.map((p) => p.map((n) => n.toFixed(1)).join(',')).join(' ');
-const PAL = {
-  mint: ['#f1faf5', '#bfe0d2', '#93c3b4'],
-  teal: ['#9cc7bd', '#5b8890', '#3f666d'],
-  ink: ['#56626d', '#343c46', '#22262d'],
-  cream: ['#ffffff', '#ebe5d9', '#d4ccbb'],
-  glass: ['#ffffffd9', '#d8ece6cc', '#b5d8cdcc'],
-};
-function grad(a, b, vertical = true) {
-  const id = 'g' + uid++;
-  return [id, `<linearGradient id="${id}" x1="0" y1="0" x2="${vertical ? 0 : 1}" y2="${vertical ? 1 : 0}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`];
-}
-/* box: origin (x,y) on floor z, size w (x), d (y), h (z) */
-function box(x, y, z, w, d, h, pal, extra = '') {
-  const [t, l, r] = pal;
-  const top = [P(x, y, z + h), P(x + w, y, z + h), P(x + w, y + d, z + h), P(x, y + d, z + h)];
-  const left = [P(x, y + d, z + h), P(x + w, y + d, z + h), P(x + w, y + d, z), P(x, y + d, z)];
-  const right = [P(x + w, y, z + h), P(x + w, y + d, z + h), P(x + w, y + d, z), P(x + w, y, z)];
-  const [g1, d1] = grad(l, shade(l, -.08));
-  const [g2, d2] = grad(r, shade(r, -.1));
-  const [g3, d3] = grad(t, shade(t, -.04), false);
-  return `<defs>${d1}${d2}${d3}</defs>
+      /* ---------- isometric helpers ---------- */
+      let uid = 0;
+      const C = Math.cos(Math.PI / 6),
+        S = 0.5;
+      const P = (x, y, z) => [(x - y) * C, (x + y) * S - z];
+      const pts = (a) => a.map((p) => p.map((n) => n.toFixed(1)).join(',')).join(' ');
+      const PAL = {
+        mint: ['#f1faf5', '#bfe0d2', '#93c3b4'],
+        teal: ['#9cc7bd', '#5b8890', '#3f666d'],
+        ink: ['#56626d', '#343c46', '#22262d'],
+        cream: ['#ffffff', '#ebe5d9', '#d4ccbb'],
+        glass: ['#ffffffd9', '#d8ece6cc', '#b5d8cdcc'],
+      };
+      function grad(a, b, vertical = true) {
+        const id = 'g' + uid++;
+        return [
+          id,
+          `<linearGradient id="${id}" x1="0" y1="0" x2="${vertical ? 0 : 1}" y2="${vertical ? 1 : 0}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`,
+        ];
+      }
+      /* box: origin (x,y) on floor z, size w (x), d (y), h (z) */
+      function box(x, y, z, w, d, h, pal, extra = '') {
+        const [t, l, r] = pal;
+        const top = [
+          P(x, y, z + h),
+          P(x + w, y, z + h),
+          P(x + w, y + d, z + h),
+          P(x, y + d, z + h),
+        ];
+        const left = [
+          P(x, y + d, z + h),
+          P(x + w, y + d, z + h),
+          P(x + w, y + d, z),
+          P(x, y + d, z),
+        ];
+        const right = [
+          P(x + w, y, z + h),
+          P(x + w, y + d, z + h),
+          P(x + w, y + d, z),
+          P(x + w, y, z),
+        ];
+        const [g1, d1] = grad(l, shade(l, -0.08));
+        const [g2, d2] = grad(r, shade(r, -0.1));
+        const [g3, d3] = grad(t, shade(t, -0.04), false);
+        return `<defs>${d1}${d2}${d3}</defs>
   <polygon points="${pts(left)}" fill="url(#${g1})"/>
   <polygon points="${pts(right)}" fill="url(#${g2})"/>
   <polygon points="${pts(top)}" fill="url(#${g3})"/>
   <polyline points="${pts([P(x, y + d, z + h), P(x + w, y + d, z + h), P(x + w, y, z + h)])}" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.2"/>${extra}`;
-}
-function shade(hex, k) {
-  const m = hex.replace('#', '');
-  const n = [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16));
-  const a = m.length === 8 ? m.slice(6) : '';
-  return '#' + n.map((v) => Math.max(0, Math.min(255, Math.round(v + 255 * k))).toString(16).padStart(2, '0')).join('') + a;
-}
-const shadow = (cx, cy, rx, ry, o = .22) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#22262d" opacity="${o}" filter="url(#blur)"/>`;
-const defsBlur = `<defs><filter id="blur" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="14"/></filter></defs>`;
-const wrap = (inner, vb = '0 0 540 405') => `<svg viewBox="${vb}" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">${defsBlur}${inner}</svg>`;
-const g = (tx, ty, s, inner, rot = 0) => `<g transform="translate(${tx} ${ty}) rotate(${rot}) scale(${s})">${inner}</g>`;
-const dropf = `<filter id="drop" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#22262d" flood-opacity=".22"/></filter>`;
+      }
+      function shade(hex, k) {
+        const m = hex.replace('#', '');
+        const n = [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16));
+        const a = m.length === 8 ? m.slice(6) : '';
+        return (
+          '#' +
+          n
+            .map((v) =>
+              Math.max(0, Math.min(255, Math.round(v + 255 * k)))
+                .toString(16)
+                .padStart(2, '0'),
+            )
+            .join('') +
+          a
+        );
+      }
+      const shadow = (cx, cy, rx, ry, o = 0.22) =>
+        `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#22262d" opacity="${o}" filter="url(#blur)"/>`;
+      const defsBlur = `<defs><filter id="blur" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="14"/></filter></defs>`;
+      const wrap = (inner, vb = '0 0 540 405') =>
+        `<svg viewBox="${vb}" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">${defsBlur}${inner}</svg>`;
+      const g = (tx, ty, s, inner, rot = 0) =>
+        `<g transform="translate(${tx} ${ty}) rotate(${rot}) scale(${s})">${inner}</g>`;
+      const dropf = `<filter id="drop" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#22262d" flood-opacity=".22"/></filter>`;
 
-/* browser card */
-function browser(x, y, w, h, o = {}) {
-  const { rot = 0, accent = '#4e7880', title = '', bars = 3, dark = false } = o;
-  const fill = dark ? '#2a323b' : '#ffffff';
-  const bar = dark ? '#475b66' : '#e3ebe8';
-  let inner = `<rect width="${w}" height="${h}" rx="18" fill="${fill}" filter="url(#drop)"/>
+      /* browser card */
+      function browser(x, y, w, h, o = {}) {
+        const { rot = 0, accent = '#4e7880', title = '', bars = 3, dark = false } = o;
+        const fill = dark ? '#2a323b' : '#ffffff';
+        const bar = dark ? '#475b66' : '#e3ebe8';
+        let inner = `<rect width="${w}" height="${h}" rx="18" fill="${fill}" filter="url(#drop)"/>
   <rect x="0" y="0" width="${w}" height="34" rx="18" fill="${dark ? '#34434d' : '#f1f5f3'}"/><rect y="20" width="${w}" height="14" fill="${dark ? '#34434d' : '#f1f5f3'}"/>
   <circle cx="20" cy="17" r="4.5" fill="#d98a7a"/><circle cx="35" cy="17" r="4.5" fill="#e3c27a"/><circle cx="50" cy="17" r="4.5" fill="#8fc7a6"/>
   <rect x="70" y="9" width="${w - 90}" height="16" rx="8" fill="${dark ? '#22262d' : '#fff'}" stroke="${bar}"/>`;
-  if (title) inner += `<text x="${w / 2 + 6}" y="21" font-size="10.5" font-weight="700" fill="${dark ? '#9fd8c3' : '#3d5a5f'}" text-anchor="middle" font-family="Manrope,sans-serif" direction="ltr">${title}</text>`;
-  inner += `<rect x="20" y="52" width="${w * .46}" height="${Math.max(18, h * .13)}" rx="8" fill="${accent}"/>`;
-  for (let i = 0; i < bars; i++) inner += `<rect x="20" y="${52 + h * .2 + i * 20}" width="${(w - 40) * (i % 2 ? .62 : .86)}" height="10" rx="5" fill="${bar}"/>`;
-  inner += `<rect x="${w - 20 - w * .26}" y="${h - 46}" width="${w * .26}" height="26" rx="9" fill="${accent}" opacity=".95"/>`;
-  return `<g transform="translate(${x} ${y}) rotate(${rot} ${w / 2} ${h / 2})">${inner}</g>`;
-}
-const led = (cx, cy, c = '#8ff0c4') => `<circle cx="${cx}" cy="${cy}" r="5.5" fill="${c}"/><circle cx="${cx}" cy="${cy}" r="11" fill="${c}" opacity=".28"/>`;
-
-/* ---------- artwork ---------- */
-const ART = {
-  servers() {
-    let s = shadow(270, 372, 190, 34);
-    const W = 210, D = 210, H = 46;
-    for (let i = 0; i < 3; i++) {
-      const z = i * (H + 12);
-      const o = [270, 250 + 0, 0];
-      const e = [0, 1, 2].map((k) => {
-        const [lx, ly] = P(52 + k * 42, D, z + H / 2);
-        return led(lx + 270, ly + 330, k === 1 && i === 1 ? '#f6d98a' : '#8ff0c4');
-      }).join('');
-      s += `<g transform="translate(270 ${330 - (0)})">${box(-W / 2 + 0, -D / 2, z, W, D, H, i === 1 ? PAL.teal : PAL.cream, '')}</g>`;
-      const faceY = 330;
-      for (let k = 0; k < 3; k++) {
-        const [lx, ly] = P(-W / 2 + 44 + k * 44, D / 2, z + H / 2);
-        s += led(270 + lx, faceY + ly, k === 2 && i === 1 ? '#f6d98a' : '#8ff0c4');
+        if (title)
+          inner += `<text x="${w / 2 + 6}" y="21" font-size="10.5" font-weight="700" fill="${dark ? '#9fd8c3' : '#3d5a5f'}" text-anchor="middle" font-family="Manrope,sans-serif" direction="ltr">${title}</text>`;
+        inner += `<rect x="20" y="52" width="${w * 0.46}" height="${Math.max(18, h * 0.13)}" rx="8" fill="${accent}"/>`;
+        for (let i = 0; i < bars; i++)
+          inner += `<rect x="20" y="${52 + h * 0.2 + i * 20}" width="${(w - 40) * (i % 2 ? 0.62 : 0.86)}" height="10" rx="5" fill="${bar}"/>`;
+        inner += `<rect x="${w - 20 - w * 0.26}" y="${h - 46}" width="${w * 0.26}" height="26" rx="9" fill="${accent}" opacity=".95"/>`;
+        return `<g transform="translate(${x} ${y}) rotate(${rot} ${w / 2} ${h / 2})">${inner}</g>`;
       }
-      const [bx, by] = P(-W / 2 + W - 36, D / 2, z + H / 2);
-      s += `<rect x="${270 + bx - 30}" y="${faceY + by - 3}" width="56" height="6" rx="3" fill="#22262d" opacity=".28" transform="rotate(26.5 ${270 + bx} ${faceY + by})"/>`;
-    }
-    return wrap(`<g transform="translate(27 -20) scale(.9)">${s}</g>`);
-  },
-  cloud() {
-    const [a, A] = grad('#ffffff', '#cfe8de');
-    const [b, B] = grad('#c8e6d6', '#7eaea3');
-    let s = `<defs>${A}${B}<radialGradient id="cg" cx=".4" cy=".25" r=".9"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#e3f3ec"/><stop offset="1" stop-color="#9fcfc0"/></radialGradient></defs>`;
-    s += shadow(270, 372, 210, 30);
-    s += `<g transform="translate(270 330)">${box(-150, -90, 0, 300, 180, 26, PAL.teal)}</g>`;
-    s += `<g filter="url(#drop)" fill="url(#cg)"><defs>${dropf}</defs>
+      const led = (cx, cy, c = '#8ff0c4') =>
+        `<circle cx="${cx}" cy="${cy}" r="5.5" fill="${c}"/><circle cx="${cx}" cy="${cy}" r="11" fill="${c}" opacity=".28"/>`;
+
+      /* ---------- artwork ---------- */
+      const ART = {
+        servers() {
+          let s = shadow(270, 372, 190, 34);
+          const W = 210,
+            D = 210,
+            H = 46;
+          for (let i = 0; i < 3; i++) {
+            const z = i * (H + 12);
+            const o = [270, 250 + 0, 0];
+            const e = [0, 1, 2]
+              .map((k) => {
+                const [lx, ly] = P(52 + k * 42, D, z + H / 2);
+                return led(lx + 270, ly + 330, k === 1 && i === 1 ? '#f6d98a' : '#8ff0c4');
+              })
+              .join('');
+            s += `<g transform="translate(270 ${330 - 0})">${box(-W / 2 + 0, -D / 2, z, W, D, H, i === 1 ? PAL.teal : PAL.cream, '')}</g>`;
+            const faceY = 330;
+            for (let k = 0; k < 3; k++) {
+              const [lx, ly] = P(-W / 2 + 44 + k * 44, D / 2, z + H / 2);
+              s += led(270 + lx, faceY + ly, k === 2 && i === 1 ? '#f6d98a' : '#8ff0c4');
+            }
+            const [bx, by] = P(-W / 2 + W - 36, D / 2, z + H / 2);
+            s += `<rect x="${270 + bx - 30}" y="${faceY + by - 3}" width="56" height="6" rx="3" fill="#22262d" opacity=".28" transform="rotate(26.5 ${270 + bx} ${faceY + by})"/>`;
+          }
+          return wrap(`<g transform="translate(27 -20) scale(.9)">${s}</g>`);
+        },
+        cloud() {
+          const [a, A] = grad('#ffffff', '#cfe8de');
+          const [b, B] = grad('#c8e6d6', '#7eaea3');
+          let s = `<defs>${A}${B}<radialGradient id="cg" cx=".4" cy=".25" r=".9"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#e3f3ec"/><stop offset="1" stop-color="#9fcfc0"/></radialGradient></defs>`;
+          s += shadow(270, 372, 210, 30);
+          s += `<g transform="translate(270 330)">${box(-150, -90, 0, 300, 180, 26, PAL.teal)}</g>`;
+          s += `<g filter="url(#drop)" fill="url(#cg)"><defs>${dropf}</defs>
       <circle cx="190" cy="205" r="62"/><circle cx="262" cy="160" r="84"/><circle cx="345" cy="198" r="66"/><circle cx="395" cy="230" r="42"/><rect x="150" y="205" width="270" height="68" rx="34"/></g>`;
-    s += `<ellipse cx="238" cy="130" rx="40" ry="18" fill="#fff" opacity=".8" transform="rotate(-24 238 130)"/>`;
-    s += `<g stroke="#fff" stroke-width="2" opacity=".9"><path d="M96 150h36M96 168h56" stroke-linecap="round"/></g>`;
-    return wrap(`<g transform="translate(40.5 -40) scale(.85)">${s}</g>`);
-  },
-  domain() {
-    let s = shadow(270, 380, 200, 24);
-    s += `<defs>${dropf}</defs>`;
-    s += browser(70, 120, 400, 250, { accent: '#4e7880', title: 'yourname.com', bars: 3, rot: -3 });
-    s += `<g filter="url(#drop)"><rect x="104" y="64" width="332" height="66" rx="33" fill="#fff"/><circle cx="144" cy="97" r="14" fill="none" stroke="#4e7880" stroke-width="4"/><path d="M155 108l12 12" stroke="#4e7880" stroke-width="4" stroke-linecap="round"/>
+          s += `<ellipse cx="238" cy="130" rx="40" ry="18" fill="#fff" opacity=".8" transform="rotate(-24 238 130)"/>`;
+          s += `<g stroke="#fff" stroke-width="2" opacity=".9"><path d="M96 150h36M96 168h56" stroke-linecap="round"/></g>`;
+          return wrap(`<g transform="translate(40.5 -40) scale(.85)">${s}</g>`);
+        },
+        domain() {
+          let s = shadow(270, 380, 200, 24);
+          s += `<defs>${dropf}</defs>`;
+          s += browser(70, 120, 400, 250, {
+            accent: '#4e7880',
+            title: 'yourname.com',
+            bars: 3,
+            rot: -3,
+          });
+          s += `<g filter="url(#drop)"><rect x="104" y="64" width="332" height="66" rx="33" fill="#fff"/><circle cx="144" cy="97" r="14" fill="none" stroke="#4e7880" stroke-width="4"/><path d="M155 108l12 12" stroke="#4e7880" stroke-width="4" stroke-linecap="round"/>
       <text x="196" y="106" font-size="26" font-weight="800" fill="#22262d" font-family="Manrope,sans-serif" direction="ltr">yourname</text><text x="332" y="106" font-size="26" font-weight="800" fill="#4e7880" font-family="Manrope,sans-serif" direction="ltr">.com</text></g>`;
-    return wrap(s);
-  },
-  shield() {
-    const [a, A] = grad('#9cc7bd', '#3f666d');
-    let s = `<defs>${A}${dropf}<linearGradient id="sh2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
-    s += shadow(270, 378, 150, 22);
-    s += `<g filter="url(#drop)"><path d="M270 40 L400 86 V210 C400 290 340 340 270 372 C200 340 140 290 140 210 V86 Z" fill="url(#${a})"/><path d="M270 40 L400 86 V210 C400 290 340 340 270 372 Z" fill="#22262d" opacity=".12"/><path d="M270 40 L400 86 V210 C400 290 340 340 270 372 C200 340 140 290 140 210 V86 Z" fill="url(#sh2)"/></g>`;
-    s += `<g transform="translate(270 206)"><rect x="-44" y="-8" width="88" height="68" rx="14" fill="#f6f5f1"/><path d="M-24 -8v-16a24 24 0 0 1 48 0v16" fill="none" stroke="#f6f5f1" stroke-width="12" stroke-linecap="round"/><circle cy="24" r="9" fill="#4e7880"/><rect x="-3.5" y="26" width="7" height="18" rx="3.5" fill="#4e7880"/></g>`;
-    s += `<g fill="#fff" opacity=".9"><path d="M98 150l5 12 12 5-12 5-5 12-5-12-12-5 12-5z"/><path d="M450 250l4 9 9 4-9 4-4 9-4-9-9-4 9-4z"/></g>`;
-    return wrap(s);
-  },
-  backup() {
-    const [a, A] = grad('#56626d', '#22262d');
-    let s = `<defs>${A}<radialGradient id="dk" cx=".5" cy=".3" r=".8"><stop offset="0" stop-color="#9fd8c3"/><stop offset="1" stop-color="#3f7a6c"/></radialGradient></defs>`;
-    s += `<ellipse cx="270" cy="340" rx="230" ry="46" fill="#8ff0c4" opacity=".16" filter="url(#blur)"/>`;
-    s += `<g><path d="M110 240v54c0 30 72 54 160 54s160-24 160-54v-54z" fill="#1f3a33"/><ellipse cx="270" cy="240" rx="160" ry="54" fill="#2f5a50"/><ellipse cx="270" cy="232" rx="160" ry="54" fill="url(#dk)"/><ellipse cx="270" cy="232" rx="118" ry="38" fill="#f6f5f1" opacity=".16"/></g>`;
-    s += `<g fill="none" stroke="#f6f5f1" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" transform="translate(270 140)"><path d="M-58 8a58 58 0 0 1 100-40"/><path d="M58 -8a58 58 0 0 1-100 40"/><path d="M44 -52l2 22-22 -2" /><path d="M-44 52l-2-22 22 2"/></g>`;
-    s += `<g fill="#9fd8c3"><circle cx="96" cy="110" r="5"/><circle cx="452" cy="170" r="4"/><circle cx="420" cy="92" r="3"/></g>`;
-    return wrap(s);
-  },
-  code() {
-    let s = shadow(270, 384, 190, 22, .18) + `<defs>${dropf}</defs>`;
-    const card = (x, y, w, h, label, col, rot, sub) => `<g transform="translate(${x} ${y}) rotate(${rot} ${w / 2} ${h / 2})" filter="url(#drop)"><rect width="${w}" height="${h}" rx="26" fill="${col[0]}"/><text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="${sub ? 44 : 54}" font-weight="800" fill="${col[1]}" font-family="Manrope,sans-serif" direction="ltr">${label}</text>${sub ? `<text x="${w / 2}" y="${h / 2 + 34}" text-anchor="middle" font-size="19" font-weight="700" fill="${col[1]}" opacity=".8" font-family="Manrope,sans-serif" direction="ltr">${sub}</text>` : ''}</g>`;
-    s += card(40, 132, 200, 170, '&lt;/&gt;', ['#c8e6d6', '#2f5a50'], -9);
-    s += card(190, 70, 190, 170, 'Node', ['#4e7880', '#f6f5f1'], 4, '.js');
-    s += card(318, 170, 190, 170, 'PHP', ['#22262d', '#9fd8c3'], 11);
-    s += card(150, 250, 170, 120, 'Py', ['#ffffff', '#4e7880'], -4);
-    return wrap(s);
-  },
-  ai() {
-    let s = `<defs>${dropf}</defs>` + shadow(270, 384, 190, 22, .18);
-    s += browser(86, 120, 368, 250, { accent: '#7eaea3', title: 'my-site.com', bars: 3, rot: 3 });
-    s += `<g filter="url(#drop)" transform="translate(150 20)"><path d="M120 0 C128 60 160 92 220 100 C160 108 128 140 120 200 C112 140 80 108 20 100 C80 92 112 60 120 0Z" fill="url(#aig)"/></g><defs><linearGradient id="aig" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3f6ee"/><stop offset="1" stop-color="#4e7880"/></linearGradient></defs>`;
-    s += `<g fill="#fff"><path d="M92 90l6 14 14 6-14 6-6 14-6-14-14-6 14-6z"/><path d="M450 190l5 11 11 5-11 5-5 11-5-11-11-5 11-5z"/></g>`;
-    return wrap(s);
-  },
-  isolation() {
-    let s = shadow(270, 380, 210, 30);
-    const cell = (x, y, z) => box(x, y, z, 110, 110, 90, PAL.glass, '');
-    s += `<g transform="translate(270 300)">`;
-    s += box(-210, -120, 0, 150, 150, 80, PAL.mint) + `<g></g>`;
-    s += box(-60, 20, 0, 150, 150, 80, PAL.teal);
-    s += box(70, -140, 0, 140, 140, 80, PAL.cream);
-    s += box(-40, -190, 0, 120, 120, 60, PAL.ink);
-    s += `</g>`;
-    return wrap(`<g transform="translate(54 20) scale(.8)">${s}</g>`);
-  },
-  plans() {
-    let s = shadow(270, 384, 210, 26);
-    s += `<g transform="translate(270 335)">`;
-    s += box(-210, -30, 0, 120, 120, 70, PAL.mint);
-    s += box(-80, -30, 0, 120, 120, 120, PAL.teal);
-    s += box(50, -30, 0, 120, 120, 180, PAL.ink);
-    s += `</g>`;
-    const dot = (x, y, c) => `<circle cx="${x}" cy="${y}" r="9" fill="${c}"/>`;
-    return wrap(`<g transform="translate(32 12) scale(.88)">${s}</g>`);
-  },
-  agency() {
-    let s = `<defs>${dropf}</defs>` + shadow(270, 388, 200, 22, .18);
-    s += browser(40, 70, 260, 190, { accent: '#c8e6d6', title: 'client-one.com', bars: 2, rot: -7 });
-    s += browser(240, 40, 260, 190, { accent: '#7eaea3', title: 'client-two.com', bars: 2, rot: 6 });
-    s += browser(130, 190, 290, 200, { accent: '#4e7880', title: 'client-three.com', bars: 3, rot: -1 });
-    return wrap(s);
-  },
-  tag() {
-    let s = `<defs>${dropf}<linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9cc7bd"/><stop offset="1" stop-color="#3f666d"/></linearGradient></defs>` + shadow(270, 388, 190, 22, .2);
-    s += `<g transform="translate(270 220) rotate(-14)" filter="url(#drop)"><path d="M-130 -90 H60 L150 0 L60 90 H-130 Q-150 90 -150 70 V-70 Q-150 -90 -130 -90Z" fill="url(#tg)"/><circle cx="-100" cy="0" r="14" fill="#e4f1ea"/><rect x="-60" y="-34" width="120" height="16" rx="8" fill="#f6f5f1" opacity=".9"/><rect x="-60" y="2" width="170" height="16" rx="8" fill="#f6f5f1" opacity=".55"/><rect x="-60" y="38" width="90" height="16" rx="8" fill="#f6f5f1" opacity=".35"/></g>`;
-    s += `<g transform="translate(400 120)" filter="url(#drop)"><circle r="42" fill="#fff"/><path d="M-18 2l13 14 25-30" fill="none" stroke="#4e7880" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></g>`;
-    return wrap(s);
-  },
-  dash() {
-    let s = `<defs>${dropf}<linearGradient id="ln" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7eaea3"/><stop offset="1" stop-color="#4e7880"/></linearGradient><linearGradient id="ar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4e7880" stop-opacity=".3"/><stop offset="1" stop-color="#4e7880" stop-opacity="0"/></linearGradient></defs>` + shadow(270, 392, 200, 20, .16);
-    s += browser(50, 60, 440, 300, { accent: '#c8e6d6', title: 'dashboard', bars: 0 }).replace(/<rect x="20" y="52"[^>]*\/>/, '');
-    s += `<g transform="translate(50 60)"><rect x="16" y="50" width="96" height="234" rx="14" fill="#f1f5f3"/>
-      ${[0,1,2,3,4].map((k)=>`<rect x="28" y="${66+k*30}" width="${k===0?70:52}" height="12" rx="6" fill="${k===0?'#4e7880':'#cfdcd8'}"/>`).join('')}
+          return wrap(s);
+        },
+        shield() {
+          const [a, A] = grad('#9cc7bd', '#3f666d');
+          let s = `<defs>${A}${dropf}<linearGradient id="sh2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
+          s += shadow(270, 378, 150, 22);
+          s += `<g filter="url(#drop)"><path d="M270 40 L400 86 V210 C400 290 340 340 270 372 C200 340 140 290 140 210 V86 Z" fill="url(#${a})"/><path d="M270 40 L400 86 V210 C400 290 340 340 270 372 Z" fill="#22262d" opacity=".12"/><path d="M270 40 L400 86 V210 C400 290 340 340 270 372 C200 340 140 290 140 210 V86 Z" fill="url(#sh2)"/></g>`;
+          s += `<g transform="translate(270 206)"><rect x="-44" y="-8" width="88" height="68" rx="14" fill="#f6f5f1"/><path d="M-24 -8v-16a24 24 0 0 1 48 0v16" fill="none" stroke="#f6f5f1" stroke-width="12" stroke-linecap="round"/><circle cy="24" r="9" fill="#4e7880"/><rect x="-3.5" y="26" width="7" height="18" rx="3.5" fill="#4e7880"/></g>`;
+          s += `<g fill="#fff" opacity=".9"><path d="M98 150l5 12 12 5-12 5-5 12-5-12-12-5 12-5z"/><path d="M450 250l4 9 9 4-9 4-4 9-4-9-9-4 9-4z"/></g>`;
+          return wrap(s);
+        },
+        backup() {
+          const [a, A] = grad('#56626d', '#22262d');
+          let s = `<defs>${A}<radialGradient id="dk" cx=".5" cy=".3" r=".8"><stop offset="0" stop-color="#9fd8c3"/><stop offset="1" stop-color="#3f7a6c"/></radialGradient></defs>`;
+          s += `<ellipse cx="270" cy="340" rx="230" ry="46" fill="#8ff0c4" opacity=".16" filter="url(#blur)"/>`;
+          s += `<g><path d="M110 240v54c0 30 72 54 160 54s160-24 160-54v-54z" fill="#1f3a33"/><ellipse cx="270" cy="240" rx="160" ry="54" fill="#2f5a50"/><ellipse cx="270" cy="232" rx="160" ry="54" fill="url(#dk)"/><ellipse cx="270" cy="232" rx="118" ry="38" fill="#f6f5f1" opacity=".16"/></g>`;
+          s += `<g fill="none" stroke="#f6f5f1" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" transform="translate(270 140)"><path d="M-58 8a58 58 0 0 1 100-40"/><path d="M58 -8a58 58 0 0 1-100 40"/><path d="M44 -52l2 22-22 -2" /><path d="M-44 52l-2-22 22 2"/></g>`;
+          s += `<g fill="#9fd8c3"><circle cx="96" cy="110" r="5"/><circle cx="452" cy="170" r="4"/><circle cx="420" cy="92" r="3"/></g>`;
+          return wrap(s);
+        },
+        code() {
+          let s = shadow(270, 384, 190, 22, 0.18) + `<defs>${dropf}</defs>`;
+          const card = (x, y, w, h, label, col, rot, sub) =>
+            `<g transform="translate(${x} ${y}) rotate(${rot} ${w / 2} ${h / 2})" filter="url(#drop)"><rect width="${w}" height="${h}" rx="26" fill="${col[0]}"/><text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="${sub ? 44 : 54}" font-weight="800" fill="${col[1]}" font-family="Manrope,sans-serif" direction="ltr">${label}</text>${sub ? `<text x="${w / 2}" y="${h / 2 + 34}" text-anchor="middle" font-size="19" font-weight="700" fill="${col[1]}" opacity=".8" font-family="Manrope,sans-serif" direction="ltr">${sub}</text>` : ''}</g>`;
+          s += card(40, 132, 200, 170, '&lt;/&gt;', ['#c8e6d6', '#2f5a50'], -9);
+          s += card(190, 70, 190, 170, 'Node', ['#4e7880', '#f6f5f1'], 4, '.js');
+          s += card(318, 170, 190, 170, 'PHP', ['#22262d', '#9fd8c3'], 11);
+          s += card(150, 250, 170, 120, 'Py', ['#ffffff', '#4e7880'], -4);
+          return wrap(s);
+        },
+        ai() {
+          let s = `<defs>${dropf}</defs>` + shadow(270, 384, 190, 22, 0.18);
+          s += browser(86, 120, 368, 250, {
+            accent: '#7eaea3',
+            title: 'my-site.com',
+            bars: 3,
+            rot: 3,
+          });
+          s += `<g filter="url(#drop)" transform="translate(150 20)"><path d="M120 0 C128 60 160 92 220 100 C160 108 128 140 120 200 C112 140 80 108 20 100 C80 92 112 60 120 0Z" fill="url(#aig)"/></g><defs><linearGradient id="aig" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3f6ee"/><stop offset="1" stop-color="#4e7880"/></linearGradient></defs>`;
+          s += `<g fill="#fff"><path d="M92 90l6 14 14 6-14 6-6 14-6-14-14-6 14-6z"/><path d="M450 190l5 11 11 5-11 5-5 11-5-11-11-5 11-5z"/></g>`;
+          return wrap(s);
+        },
+        isolation() {
+          let s = shadow(270, 380, 210, 30);
+          const cell = (x, y, z) => box(x, y, z, 110, 110, 90, PAL.glass, '');
+          s += `<g transform="translate(270 300)">`;
+          s += box(-210, -120, 0, 150, 150, 80, PAL.mint) + `<g></g>`;
+          s += box(-60, 20, 0, 150, 150, 80, PAL.teal);
+          s += box(70, -140, 0, 140, 140, 80, PAL.cream);
+          s += box(-40, -190, 0, 120, 120, 60, PAL.ink);
+          s += `</g>`;
+          return wrap(`<g transform="translate(54 20) scale(.8)">${s}</g>`);
+        },
+        plans() {
+          let s = shadow(270, 384, 210, 26);
+          s += `<g transform="translate(270 335)">`;
+          s += box(-210, -30, 0, 120, 120, 70, PAL.mint);
+          s += box(-80, -30, 0, 120, 120, 120, PAL.teal);
+          s += box(50, -30, 0, 120, 120, 180, PAL.ink);
+          s += `</g>`;
+          const dot = (x, y, c) => `<circle cx="${x}" cy="${y}" r="9" fill="${c}"/>`;
+          return wrap(`<g transform="translate(32 12) scale(.88)">${s}</g>`);
+        },
+        agency() {
+          let s = `<defs>${dropf}</defs>` + shadow(270, 388, 200, 22, 0.18);
+          s += browser(40, 70, 260, 190, {
+            accent: '#c8e6d6',
+            title: 'client-one.com',
+            bars: 2,
+            rot: -7,
+          });
+          s += browser(240, 40, 260, 190, {
+            accent: '#7eaea3',
+            title: 'client-two.com',
+            bars: 2,
+            rot: 6,
+          });
+          s += browser(130, 190, 290, 200, {
+            accent: '#4e7880',
+            title: 'client-three.com',
+            bars: 3,
+            rot: -1,
+          });
+          return wrap(s);
+        },
+        tag() {
+          let s =
+            `<defs>${dropf}<linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9cc7bd"/><stop offset="1" stop-color="#3f666d"/></linearGradient></defs>` +
+            shadow(270, 388, 190, 22, 0.2);
+          s += `<g transform="translate(270 220) rotate(-14)" filter="url(#drop)"><path d="M-130 -90 H60 L150 0 L60 90 H-130 Q-150 90 -150 70 V-70 Q-150 -90 -130 -90Z" fill="url(#tg)"/><circle cx="-100" cy="0" r="14" fill="#e4f1ea"/><rect x="-60" y="-34" width="120" height="16" rx="8" fill="#f6f5f1" opacity=".9"/><rect x="-60" y="2" width="170" height="16" rx="8" fill="#f6f5f1" opacity=".55"/><rect x="-60" y="38" width="90" height="16" rx="8" fill="#f6f5f1" opacity=".35"/></g>`;
+          s += `<g transform="translate(400 120)" filter="url(#drop)"><circle r="42" fill="#fff"/><path d="M-18 2l13 14 25-30" fill="none" stroke="#4e7880" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+          return wrap(s);
+        },
+        dash() {
+          let s =
+            `<defs>${dropf}<linearGradient id="ln" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7eaea3"/><stop offset="1" stop-color="#4e7880"/></linearGradient><linearGradient id="ar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4e7880" stop-opacity=".3"/><stop offset="1" stop-color="#4e7880" stop-opacity="0"/></linearGradient></defs>` +
+            shadow(270, 392, 200, 20, 0.16);
+          s += browser(50, 60, 440, 300, {
+            accent: '#c8e6d6',
+            title: 'dashboard',
+            bars: 0,
+          }).replace(/<rect x="20" y="52"[^>]*\/>/, '');
+          s += `<g transform="translate(50 60)"><rect x="16" y="50" width="96" height="234" rx="14" fill="#f1f5f3"/>
+      ${[0, 1, 2, 3, 4].map((k) => `<rect x="28" y="${66 + k * 30}" width="${k === 0 ? 70 : 52}" height="12" rx="6" fill="${k === 0 ? '#4e7880' : '#cfdcd8'}"/>`).join('')}
       <rect x="126" y="50" width="136" height="70" rx="14" fill="#e4f1ea"/><rect x="274" y="50" width="136" height="70" rx="14" fill="#efebe4"/>
       <circle cx="152" cy="85" r="12" fill="#4e7880"/><rect x="172" y="72" width="62" height="10" rx="5" fill="#4e7880" opacity=".55"/><rect x="172" y="90" width="40" height="10" rx="5" fill="#4e7880" opacity=".3"/>
       <circle cx="300" cy="85" r="12" fill="#8ff0c4"/><rect x="320" y="72" width="62" height="10" rx="5" fill="#22262d" opacity=".45"/><rect x="320" y="90" width="40" height="10" rx="5" fill="#22262d" opacity=".25"/>
@@ -244,60 +508,139 @@ const ART = {
       <path d="M142 262 L186 226 L224 244 L272 190 L318 214 L368 160 L394 172 V270 H142Z" fill="url(#ar)"/>
       <path d="M142 262 L186 226 L224 244 L272 190 L318 214 L368 160 L394 172" fill="none" stroke="url(#ln)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
       <circle cx="368" cy="160" r="8" fill="#fff" stroke="#4e7880" stroke-width="4"/></g>`;
-    s += `<g filter="url(#drop)" transform="translate(396 308)"><rect width="104" height="60" rx="18" fill="#22262d"/><circle cx="26" cy="30" r="8" fill="#8ff0c4"/><circle cx="26" cy="30" r="16" fill="#8ff0c4" opacity=".25"/><rect x="46" y="22" width="44" height="8" rx="4" fill="#efebe4" opacity=".8"/><rect x="46" y="36" width="28" height="8" rx="4" fill="#efebe4" opacity=".4"/></g>`;
-    return wrap(s);
-  },
-};
+          s += `<g filter="url(#drop)" transform="translate(396 308)"><rect width="104" height="60" rx="18" fill="#22262d"/><circle cx="26" cy="30" r="8" fill="#8ff0c4"/><circle cx="26" cy="30" r="16" fill="#8ff0c4" opacity=".25"/><rect x="46" y="22" width="44" height="8" rx="4" fill="#efebe4" opacity=".8"/><rect x="46" y="36" width="28" height="8" rx="4" fill="#efebe4" opacity=".4"/></g>`;
+          return wrap(s);
+        },
+      };
 
-/* ---------- copy ---------- */
-const T = [
-  { id: '01-hosting', tone: 'light', art: 'servers',
-    h: { ar: 'استضافة على خوادم <em>تشغّلها نظم</em>', en: 'Hosting on servers <em>Nuzm operates</em>' },
-    c: { ar: 'للمواقع وتطبيقات الويب والوكالات', en: 'For websites, web apps and agencies' } },
-  { id: '02-grows', tone: 'mint', art: 'cloud',
-    h: { ar: 'بيت لموقعك <em>ينمو معه</em>', en: 'A home for your website that <em>grows with it</em>' },
-    c: { ar: 'من أول نشر إلى آخر زائر', en: 'From first launch to every visitor' } },
-  { id: '03-domain', tone: 'sage', art: 'domain',
-    h: { ar: 'اربط نطاقك <em>بخطوة واحدة</em>', en: 'Connect your domain in <em>one step</em>' },
-    c: { ar: 'نعرض لك إعدادات DNS ونتحقق منها', en: 'We show the DNS settings and verify them' } },
-  { id: '04-ssl', tone: 'dark', art: 'shield',
-    h: { ar: 'نطاقك مع <em>SSL</em>', en: 'Your domain, with <em>SSL</em>' },
-    c: { ar: 'تُفحص الحالة قبل أن يُعلَن الربط جاهزًا', en: 'Checked before the link is called ready' } },
-  { id: '05-backups', tone: 'dark', art: 'backup', flip: true,
-    h: { ar: 'نسخ احتياطية <em>تستعيدها</em>', en: 'Backups <em>you can restore</em>' },
-    c: { ar: 'من لوحة التحكم نفسها', en: 'From the same dashboard' } },
-  { id: '06-runtimes', tone: 'light', art: 'code',
-    h: { ar: 'شغّل <em>ما تبنيه</em>', en: 'Run <em>what you build</em>' },
-    c: { ar: 'بيئات التشغيل تظهر في كل باقة', en: 'Every plan lists its runtimes' } },
-  { id: '07-ai-publish', tone: 'mint', art: 'ai', flip: true,
-    h: { ar: 'انشر ما بنيته <em>بالذكاء الاصطناعي</em>', en: 'Publish what you built <em>with AI</em>' },
-    c: { ar: 'من منشئ المواقع إلى الاستضافة', en: 'From the site builder to hosting' } },
-  { id: '08-isolated', tone: 'light', art: 'isolation',
-    h: { ar: 'مواقع <em>معزولة</em> عن بعضها', en: 'Sites <em>isolated</em> from each other' },
-    c: { ar: 'ولكل باقة حدود موارد معلنة', en: 'Each plan has stated resource limits' } },
-  { id: '09-compare', tone: 'sage', art: 'plans',
-    h: { ar: 'قارن الباقات <em>بحدودها</em>', en: 'Compare plans <em>by their limits</em>' },
-    c: { ar: 'المساحة · النطاق · قواعد البيانات', en: 'Storage · bandwidth · databases' } },
-  { id: '10-agencies', tone: 'ink', art: 'agency',
-    h: { ar: 'باقات <em>للوكالات</em>', en: 'Plans <em>for agencies</em>' },
-    c: { ar: 'مواقع عملائك في مكان واحد', en: 'Your clients’ sites in one place' } },
-  { id: '11-price', tone: 'light', art: 'tag', flip: true,
-    h: { ar: 'اعرف السعر <em>قبل أن تدفع</em>', en: 'See the price <em>before you pay</em>' },
-    c: { ar: 'يظهر في حسابك للباقة والمنطقة', en: 'Shown in your account for plan and region' } },
-  { id: '12-start', tone: 'mint', art: 'dash', cta: true,
-    h: { ar: 'ابدأ مع <em>نظم</em>', en: 'Start with <em>Nuzm</em>' },
-    c: { ar: 'استضافة · نطاقات · بريد · ذكاء اصطناعي', en: 'Hosting · domains · email · AI' } },
-];
+      /* ---------- copy ---------- */
+      const T = [
+        {
+          id: '01-hosting',
+          tone: 'light',
+          art: 'servers',
+          h: {
+            ar: 'استضافة على خوادم <em>تشغّلها نظم</em>',
+            en: 'Hosting on servers <em>Nuzm operates</em>',
+          },
+          c: { ar: 'للمواقع وتطبيقات الويب والوكالات', en: 'For websites, web apps and agencies' },
+        },
+        {
+          id: '02-grows',
+          tone: 'mint',
+          art: 'cloud',
+          h: {
+            ar: 'بيت لموقعك <em>ينمو معه</em>',
+            en: 'A home for your website that <em>grows with it</em>',
+          },
+          c: { ar: 'من أول نشر إلى آخر زائر', en: 'From first launch to every visitor' },
+        },
+        {
+          id: '03-domain',
+          tone: 'sage',
+          art: 'domain',
+          h: {
+            ar: 'اربط نطاقك <em>بخطوة واحدة</em>',
+            en: 'Connect your domain in <em>one step</em>',
+          },
+          c: {
+            ar: 'نعرض لك إعدادات DNS ونتحقق منها',
+            en: 'We show the DNS settings and verify them',
+          },
+        },
+        {
+          id: '04-ssl',
+          tone: 'dark',
+          art: 'shield',
+          h: { ar: 'نطاقك مع <em>SSL</em>', en: 'Your domain, with <em>SSL</em>' },
+          c: {
+            ar: 'تُفحص الحالة قبل أن يُعلَن الربط جاهزًا',
+            en: 'Checked before the link is called ready',
+          },
+        },
+        {
+          id: '05-backups',
+          tone: 'dark',
+          art: 'backup',
+          flip: true,
+          h: { ar: 'نسخ احتياطية <em>تستعيدها</em>', en: 'Backups <em>you can restore</em>' },
+          c: { ar: 'من لوحة التحكم نفسها', en: 'From the same dashboard' },
+        },
+        {
+          id: '06-runtimes',
+          tone: 'light',
+          art: 'code',
+          h: { ar: 'شغّل <em>ما تبنيه</em>', en: 'Run <em>what you build</em>' },
+          c: { ar: 'بيئات التشغيل تظهر في كل باقة', en: 'Every plan lists its runtimes' },
+        },
+        {
+          id: '07-ai-publish',
+          tone: 'mint',
+          art: 'ai',
+          flip: true,
+          h: {
+            ar: 'انشر ما بنيته <em>بالذكاء الاصطناعي</em>',
+            en: 'Publish what you built <em>with AI</em>',
+          },
+          c: { ar: 'من منشئ المواقع إلى الاستضافة', en: 'From the site builder to hosting' },
+        },
+        {
+          id: '08-isolated',
+          tone: 'light',
+          art: 'isolation',
+          h: {
+            ar: 'مواقع <em>معزولة</em> عن بعضها',
+            en: 'Sites <em>isolated</em> from each other',
+          },
+          c: { ar: 'ولكل باقة حدود موارد معلنة', en: 'Each plan has stated resource limits' },
+        },
+        {
+          id: '09-compare',
+          tone: 'sage',
+          art: 'plans',
+          h: { ar: 'قارن الباقات <em>بحدودها</em>', en: 'Compare plans <em>by their limits</em>' },
+          c: { ar: 'المساحة · النطاق · قواعد البيانات', en: 'Storage · bandwidth · databases' },
+        },
+        {
+          id: '10-agencies',
+          tone: 'ink',
+          art: 'agency',
+          h: { ar: 'باقات <em>للوكالات</em>', en: 'Plans <em>for agencies</em>' },
+          c: { ar: 'مواقع عملائك في مكان واحد', en: 'Your clients’ sites in one place' },
+        },
+        {
+          id: '11-price',
+          tone: 'light',
+          art: 'tag',
+          flip: true,
+          h: { ar: 'اعرف السعر <em>قبل أن تدفع</em>', en: 'See the price <em>before you pay</em>' },
+          c: {
+            ar: 'يظهر في حسابك للباقة والمنطقة',
+            en: 'Shown in your account for plan and region',
+          },
+        },
+        {
+          id: '12-start',
+          tone: 'mint',
+          art: 'dash',
+          cta: true,
+          h: { ar: 'ابدأ مع <em>نظم</em>', en: 'Start with <em>Nuzm</em>' },
+          c: { ar: 'استضافة · نطاقات · بريد · ذكاء اصطناعي', en: 'Hosting · domains · email · AI' },
+        },
+      ];
 
-const arrow = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
-const logo = '<span class="pill"><img src="nuzm-logo.png" alt="Nuzm" /></span>';
-const html = T.filter((t) => !ONLY || t.id === ONLY).map((t) => {
-  const body = t.flip
-    ? `${logo}<div class="art">${ART[t.art]()}</div><div class="txt"><h2>${t.h[LANG]}</h2><span class="chip">${t.c[LANG]}</span></div>`
-    : `${logo}<h2>${t.h[LANG]}</h2><span class="chip">${t.c[LANG]}</span>${t.cta ? `<span class="cta">${LANG === 'ar' ? 'ابدأ الآن' : 'Get started'} ${arrow}</span>` : ''}<div class="art">${ART[t.art]()}</div>`;
-  return `<article class="tile t-${t.tone}${t.flip ? ' flip' : ''}" data-id="${t.id}">${body}</article>`;
-}).join('');
-document.getElementById('board').innerHTML = html;
-</script>
-</body>
+      const arrow =
+        '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
+      const logo = '<span class="pill"><img src="nuzm-logo.png" alt="Nuzm" /></span>';
+      const html = T.filter((t) => !ONLY || t.id === ONLY)
+        .map((t) => {
+          const body = t.flip
+            ? `${logo}<div class="art">${ART[t.art]()}</div><div class="txt"><h2>${t.h[LANG]}</h2><span class="chip">${t.c[LANG]}</span></div>`
+            : `${logo}<h2>${t.h[LANG]}</h2><span class="chip">${t.c[LANG]}</span>${t.cta ? `<span class="cta">${LANG === 'ar' ? 'ابدأ الآن' : 'Get started'} ${arrow}</span>` : ''}<div class="art">${ART[t.art]()}</div>`;
+          return `<article class="tile t-${t.tone}${t.flip ? ' flip' : ''}" data-id="${t.id}">${body}</article>`;
+        })
+        .join('');
+      document.getElementById('board').innerHTML = html;
+    </script>
+  </body>
 </html>

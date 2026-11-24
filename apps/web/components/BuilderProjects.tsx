@@ -43,9 +43,7 @@ export function ProjectCards({
         body={t(locale, canCreate ? 'bld.projects.empty.body' : 'state.empty.body')}
         action={
           canCreate ? (
-            <ButtonLink href={`/builder/new`}>
-              {t(locale, 'bld.projects.create')}
-            </ButtonLink>
+            <ButtonLink href={`/builder/new`}>{t(locale, 'bld.projects.create')}</ButtonLink>
           ) : undefined
         }
       />

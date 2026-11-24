@@ -81,7 +81,8 @@ export function AuthShell({
           {children}
         </div>
         <a className="nzc-split-back" href="/">
-          <span aria-hidden="true">{locale === 'ar' ? '→' : '←'}</span> {t(locale, 'auth.backToSite')}
+          <span aria-hidden="true">{locale === 'ar' ? '→' : '←'}</span>{' '}
+          {t(locale, 'auth.backToSite')}
         </a>
       </main>
     </div>

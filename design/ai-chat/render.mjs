@@ -49,7 +49,9 @@ for (let i = 0; i < n; i++) {
 const enc = await browser.newPage({ viewport: { width: 400, height: 300 } });
 await enc.goto('about:blank');
 const mime = await enc.evaluate(() =>
-  ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)),
+  ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find((m) =>
+    MediaRecorder.isTypeSupported(m),
+  ),
 );
 console.log('encoder', mime);
 await enc.evaluate(() => (window.__frames = []));
@@ -62,12 +64,17 @@ const b64 = await enc.evaluate(
     canvas.width = W;
     canvas.height = H;
     const g = canvas.getContext('2d');
-    const rec = new MediaRecorder(canvas.captureStream(FPS), { mimeType: mime, videoBitsPerSecond: 4_000_000 });
+    const rec = new MediaRecorder(canvas.captureStream(FPS), {
+      mimeType: mime,
+      videoBitsPerSecond: 4_000_000,
+    });
     const chunks = [];
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     const stopped = new Promise((r) => (rec.onstop = r));
     const draw = async (b64) => {
-      const img = await createImageBitmap(await (await fetch(`data:image/jpeg;base64,${b64}`)).blob());
+      const img = await createImageBitmap(
+        await (await fetch(`data:image/jpeg;base64,${b64}`)).blob(),
+      );
       g.drawImage(img, 0, 0);
       img.close();
     };
@@ -83,7 +90,8 @@ const b64 = await enc.evaluate(
     await stopped;
     const bytes = new Uint8Array(await new Blob(chunks).arrayBuffer());
     let s = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    for (let i = 0; i < bytes.length; i += 0x8000)
+      s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
     return btoa(s);
   },
   { W, H, FPS, mime },

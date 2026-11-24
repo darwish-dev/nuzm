@@ -36,6 +36,10 @@ export async function setPassword(
 async function main() {
   const [email, given] = process.argv.slice(2);
   if (!email) throw new Error('usage: set-password <email> [password]');
+  if (process.env.NUZM_FORBID_DEFAULT_DB === '1' && !process.env.DATABASE_ADMIN_URL)
+    throw new Error(
+      'DATABASE_ADMIN_URL is mandatory in a leased test environment (no default database)',
+    );
   const url = process.env.DATABASE_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_dev';
   if (!['127.0.0.1', 'localhost', '::1'].includes(new URL(url).hostname))
     throw new Error('set-password only runs against a local database');

@@ -21,6 +21,12 @@ async function main() {
   const amount = args[0] ?? '500000';
   if (!/^[1-9]\d{0,11}$/.test(amount)) throw new Error('amountMinor must be a positive integer');
   const filter = args[1];
+  if (process.env.NUZM_FORBID_DEFAULT_DB === '1' && !process.env.DATABASE_ADMIN_URL)
+    throw new Error(
+      'DATABASE_ADMIN_URL is mandatory in a leased test environment (no default database)',
+    );
+  if (process.env.NUZM_FORBID_DEFAULT_DB === '1' && !process.env.DATABASE_URL)
+    throw new Error('DATABASE_URL is mandatory in a leased test environment (no default database)');
   const adminUrl =
     process.env.DATABASE_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_dev';
   const appUrl =

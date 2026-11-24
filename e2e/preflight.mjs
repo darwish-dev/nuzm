@@ -32,6 +32,25 @@ function holders(port) {
 }
 
 const say = (m) => process.stderr.write(`${m}\n`);
+// The database preflight is NOT skippable (E2E_SKIP_PREFLIGHT only skips the port check below): the E2E database must be the session's own leased cluster.
+{
+  const { checkUrl, TestEnvError } = await import('../scripts/testenv/lib.mjs');
+  try {
+    const dbPort = num(process.env.E2E_PG_PORT, 0);
+    checkUrl(dbPort ? `postgres://nuzm_admin@127.0.0.1:${dbPort}/postgres` : undefined, {
+      env: process.env,
+    });
+  } catch (e) {
+    if (e instanceof TestEnvError) {
+      say(`e2e preflight: the E2E database was REFUSED (${e.code}): ${e.message}`);
+      say(
+        'Acquire an isolated test environment: node scripts/testenv/testenv.mjs acquire, then `source` the printed file (it exports E2E_PG_PORT and the lease).',
+      );
+      process.exit(3);
+    }
+    throw e;
+  }
+}
 if (process.env.E2E_SKIP_PREFLIGHT === '1') process.exit(0);
 const busy = ports
   .map(([what, port, env]) => ({ what, port, env, by: holders(port) }))

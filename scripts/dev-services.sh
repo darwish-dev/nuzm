@@ -9,6 +9,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATA="$ROOT/.dev-data"
 PGBIN="${NUZM_PGBIN:-/usr/local/opt/postgresql@16/bin}"
 PGPORT="${NUZM_PGPORT:-54329}"
+# Session safety (scripts/testenv): in a leased test environment the owner's development cluster is never started, stopped or reused.
+if [ -n "${NUZM_LEASE_ID:-}" ] && [ "$PGPORT" != "${NUZM_LEASE_PORT:-}" ]; then
+  echo "dev-services: refused: port $PGPORT is not this session's leased port (${NUZM_LEASE_PORT:-none}); use 'node scripts/testenv/testenv.mjs acquire' for a session database" >&2; exit 2
+fi
 REDISPORT="${NUZM_REDISPORT:-6390}"
 PGDIR="$DATA/pg"; RUNDIR="$DATA/run"; REDISDIR="$DATA/redis"
 

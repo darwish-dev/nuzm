@@ -13,7 +13,13 @@ import { migrate } from './runner';
  *  - the ingestion worker: platform rows only, only its columns, never a licence verdict / review / activation, never a customer's rows
  *  - processing logs, scan findings and reviews are append-only; jobs cannot be rewritten once finished
  */
-const admin = process.env.NUZM_TEST_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/postgres';
+const admin =
+  process.env.NUZM_TEST_ADMIN_URL ??
+  (() => {
+    throw new Error(
+      'NUZM_TEST_ADMIN_URL is mandatory: acquire an isolated test environment first (node scripts/testenv/testenv.mjs acquire); there is no default database',
+    );
+  })();
 const manifest = loadManifest(join(__dirname, '../../../spec/db/ownership.yaml'));
 const migrationsDir = join(__dirname, '../migrations');
 const dbName = `nuzm_test_ing_${Date.now()}_${Math.floor(Math.random() * 1e4)}`;

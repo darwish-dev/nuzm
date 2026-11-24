@@ -3,7 +3,13 @@ import { Client } from 'pg';
 import { loadManifest, migrate } from '@nuzm/db';
 import { Db } from '../db';
 
-const admin = process.env.NUZM_TEST_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/postgres';
+const admin =
+  process.env.NUZM_TEST_ADMIN_URL ??
+  (() => {
+    throw new Error(
+      'NUZM_TEST_ADMIN_URL is mandatory: acquire an isolated test environment first (node scripts/testenv/testenv.mjs acquire); there is no default database',
+    );
+  })();
 const DEV_PW = 'nuzm_dev_only'; // dev/test cluster only; never used outside the project-local cluster
 
 export const ORG_A = '00000000-0000-7000-8000-00000000000a';

@@ -5,13 +5,17 @@
 #   scripts/e2e-stack.sh restart   restarts the servers with the same ports and build, on a fresh migrated database (after a change of e2e/playwright.config.ts environment)
 #   scripts/e2e-stack.sh status    ports, database, pid
 #   scripts/e2e-stack.sh stop      stops the servers it started, drops the database
-# State lives in .dev-data/e2e-stack/ (gitignored). It never touches a process or database it did not create. E2E_PG_PORT selects the cluster (default 54329).
+# State lives in .dev-data/e2e-stack/ (gitignored). It never touches a process or database it did not create. E2E_PG_PORT selects the cluster and is MANDATORY (no default; it must be the session's leased cluster, see scripts/testenv).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PGBIN="${NUZM_PGBIN:-/usr/local/opt/postgresql@16/bin}"
-PGPORT="${E2E_PG_PORT:-${NUZM_PGPORT:-54329}}"
+PGPORT="${E2E_PG_PORT:-${NUZM_PGPORT:-}}"
 STATE="$ROOT/.dev-data/e2e-stack"; ENVF="$STATE/env"; PIDF="$STATE/pid"
 cd "$ROOT"
+case "${1:-status}" in status|stop) ;; *)
+[ -n "$PGPORT" ] || { echo "e2e-stack: E2E_PG_PORT (or NUZM_PGPORT) is mandatory: acquire an isolated test environment (node scripts/testenv/testenv.mjs acquire); there is no default database"; exit 2; }
+node "$ROOT/scripts/testenv/testenv.mjs" check-url "postgres://nuzm_admin@127.0.0.1:$PGPORT/postgres" || exit $?
+;; esac
 
 free_port() { node -e "const s=require('net').createServer().listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close()})"; }
 pick() { local p; while :; do p="$(free_port)"; case " $* " in *" $p "*) ;; *) echo "$p"; return;; esac; done; }

@@ -17,7 +17,21 @@ const root = join(__dirname, '..', '..', '..');
 const manifest = loadManifest(join(root, 'spec/db/ownership.yaml'));
 const migrationsDir = join(__dirname, '..', 'migrations');
 const controlsPath = join(root, 'spec/compliance/controls.yaml');
+// Session safety (scripts/testenv): a leased test environment exports NUZM_FORBID_DEFAULT_DB=1 and NUZM_LEASE_PORT. There the owner's development database is never a
+// fallback and the URL must point at the session's own cluster. Without a lease (the owner's own shell) the development default still applies.
+if (process.env.NUZM_FORBID_DEFAULT_DB === '1' && !process.env.DATABASE_ADMIN_URL) {
+  console.error(
+    'db cli: DATABASE_ADMIN_URL is mandatory in a leased test environment (no default database)',
+  );
+  process.exit(2);
+}
 const url = process.env.DATABASE_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_dev';
+if (process.env.NUZM_LEASE_PORT && new URL(url).port !== process.env.NUZM_LEASE_PORT) {
+  console.error(
+    `db cli: ${new URL(url).port} is not this session's leased database port (${process.env.NUZM_LEASE_PORT}): refused`,
+  );
+  process.exit(2);
+}
 
 async function ensureDatabase(target: string) {
   const u = new URL(target);

@@ -6,7 +6,13 @@ import { checkDatabase } from './checks';
 import { discoverMigrations, loadManifest, type Manifest } from './migrations';
 import { migrate, rollback } from './runner';
 
-const admin = process.env.NUZM_TEST_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/postgres';
+const admin =
+  process.env.NUZM_TEST_ADMIN_URL ??
+  (() => {
+    throw new Error(
+      'NUZM_TEST_ADMIN_URL is mandatory: acquire an isolated test environment first (node scripts/testenv/testenv.mjs acquire); there is no default database',
+    );
+  })();
 const manifest = loadManifest(join(__dirname, '../../../spec/db/ownership.yaml'));
 const migrationsDir = join(__dirname, '../migrations');
 const allOrdinals = discoverMigrations(migrationsDir, manifest).map((m) => m.ordinal);

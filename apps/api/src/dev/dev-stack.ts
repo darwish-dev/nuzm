@@ -29,6 +29,8 @@ function devSealKey(): string {
   if (!existsSync(file)) writeFileSync(file, randomBytes(32).toString('base64'), { mode: 0o600 });
   return readFileSync(file, 'utf8').trim();
 }
+if (process.env.NUZM_FORBID_DEFAULT_DB === '1' && !process.env.DATABASE_URL)
+  throw new Error('DATABASE_URL is mandatory in a leased test environment (no default database)');
 const dbUrl =
   process.env.DATABASE_URL ?? 'postgres://nuzm_app:nuzm_dev_only@127.0.0.1:54329/nuzm_dev';
 if (!/@(127\.0\.0\.1|localhost)[:/]/.test(dbUrl))

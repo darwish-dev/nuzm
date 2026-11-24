@@ -54,7 +54,8 @@ describe('offers: only verified inventory (AC-M05-03, AC-M05-21)', () => {
     expect(r.statusCode).toBe(200);
     const items = r.json().items as Row[];
     expect(items.length).toBeGreaterThan(0);
-    for (const i of items) expect(Object.keys(i).sort()).toEqual(['id', 'name', 'osFamily']);
+    for (const i of items)
+      expect(Object.keys(i).sort()).toEqual(['hestia', 'id', 'name', 'osFamily']);
     const text = JSON.stringify(r.json());
     for (const leak of ['imageRef', 'providerRegionId', 'accountId', 'provider', 'mock-sa-1'])
       expect(text).not.toContain(leak);

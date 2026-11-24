@@ -24,6 +24,8 @@ export interface NodeDto {
   dataRegion: string;
   status: string;
   panelKind: string;
+  /** `shared` (Nuzm's hosting network) or `customer_vps` (a customer's own server: outside it, never receives shared sites) */
+  networkClass: string;
   panelVersion: string | null;
   panelHost: string | null;
   panelPort: number | null;
@@ -53,6 +55,7 @@ const dto = (r: Row, pending: Row | undefined): NodeDto => ({
   dataRegion: r.data_region as string,
   status: r.status as string,
   panelKind: r.panel_kind as string,
+  networkClass: (r.network_class as string | undefined) ?? 'shared',
   panelVersion: (r.panel_version as string | null) ?? null,
   panelHost: (r.panel_host as string | null) ?? null,
   panelPort: r.panel_port === null || r.panel_port === undefined ? null : Number(r.panel_port),
@@ -186,6 +189,117 @@ export class NodesService {
       });
       return { node: dto(await this.load(c, id), undefined), created: true };
     });
+  }
+
+  // ---- S04: a customer's VPS that runs HestiaCP --------------------------------------------------------------------------------
+  /**
+   * Registers the customer's own VPS as a node of class `customer_vps`: outside the shared-hosting network (placement, capacity and plans only ever read `shared` nodes), owned by one
+   * organization, `maintenance` for good (a shared site is never placed on it), with a READ-ONLY panel key. Idempotent per compute instance.
+   */
+  async registerCustomerVps(a: {
+    orgId: string;
+    instanceId: string;
+    name: string;
+    region: string;
+    dataRegion: string;
+    panelHost: string;
+    panelPort: number;
+    tlsPinSha256: string | null;
+    keyRef: string;
+    panelVersion: string | null;
+  }): Promise<{ nodeId: string }> {
+    if (!isPanelHost(a.panelHost))
+      throw new ProblemException('validation_failed', 'panel host is not an fqdn');
+    if (a.tlsPinSha256 && !isFingerprint(a.tlsPinSha256))
+      throw new ProblemException('validation_failed', 'invalid TLS fingerprint');
+    return this.db.withPlatformScope(async (c) => {
+      const existing = (
+        await c.query(
+          `SELECT id, network_class, owner_org_id FROM hosting.nodes WHERE compute_instance_id = $1`,
+          [a.instanceId],
+        )
+      ).rows[0];
+      if (existing) {
+        if (existing.network_class !== 'customer_vps' || existing.owner_org_id !== a.orgId)
+          throw new ProblemException(
+            'conflict',
+            'this compute instance is already a different kind of node',
+          );
+        await c.query(
+          `UPDATE hosting.nodes SET panel_host = $2, panel_port = $3, panel_tls_pin = $4, panel_key_ref = $5, panel_version = COALESCE($6, panel_version), updated_at = now() WHERE id = $1`,
+          [existing.id, a.panelHost, a.panelPort, a.tlsPinSha256, a.keyRef, a.panelVersion],
+        );
+        return { nodeId: existing.id as string };
+      }
+      const id = uuidv7();
+      await c.query(
+        `INSERT INTO hosting.nodes (id, name, compute_instance_id, region, data_region, status, network_class, owner_org_id, panel_host, panel_port, panel_tls_pin, panel_key_ref, panel_version)
+         VALUES ($1,$2,$3,$4,$5,'maintenance','customer_vps',$6,$7,$8,$9,$10,$11)`,
+        [
+          id,
+          a.name,
+          a.instanceId,
+          a.region,
+          a.dataRegion,
+          a.orgId,
+          a.panelHost,
+          a.panelPort,
+          a.tlsPinSha256,
+          a.keyRef,
+          a.panelVersion,
+        ],
+      );
+      await this.audit.record({
+        action: 'hosting.node.created',
+        orgId: a.orgId,
+        actorType: 'system',
+        resource: { type: 'hosting_node', id },
+        outcome: 'success',
+        detail: { networkClass: 'customer_vps', dataRegion: a.dataRegion },
+      });
+      return { nodeId: id };
+    });
+  }
+
+  async retireCustomerVps(nodeId: string): Promise<void> {
+    await this.db.withPlatformScope((c) =>
+      c.query(
+        `UPDATE hosting.nodes SET status = 'retired', health = 'unknown', updated_at = now() WHERE id = $1 AND network_class = 'customer_vps'`,
+        [nodeId],
+      ),
+    );
+  }
+
+  /** Read-only readiness of a customer VPS panel: health (one documented read), the version it reports, and the proof that the key is as narrow as intended. */
+  async checkCustomerVps(nodeId: string) {
+    const n = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT compute_instance_id, network_class FROM hosting.nodes WHERE id = $1`,
+            [nodeId],
+          )
+        ).rows[0],
+    );
+    if (!n || n.network_class !== 'customer_vps')
+      throw new ProblemException('not_found', 'node not found');
+    const ref = { nodeId, computeInstanceId: n.compute_instance_id as string };
+    const h = await this.adapter.health(this.ctx(nodeId), ref);
+    let profile: 'read_only' | 'too_broad' | 'unknown' = 'unknown';
+    if (h.state === 'healthy')
+      profile = (await this.adapter.verifyReadOnlyKey?.(this.ctx(nodeId), ref)) ?? 'unknown';
+    await this.db.withPlatformScope((c) =>
+      c.query(`UPDATE hosting.nodes SET health = $2, updated_at = now() WHERE id = $1`, [
+        nodeId,
+        h.state,
+      ]),
+    );
+    const panelVersion = (await this.db.withPlatformScope(
+      async (c) =>
+        (await c.query(`SELECT panel_version FROM hosting.nodes WHERE id = $1`, [nodeId])).rows[0]
+          ?.panel_version,
+    )) as string | null;
+    return { health: h.state, panelVersion, profile, ...(h.detail ? { code: h.detail } : {}) };
   }
 
   /** The inventory job: probe + inventory through the adapter; stores versions, health and runtimes and sizes the node's capacity rows. */

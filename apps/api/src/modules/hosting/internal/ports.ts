@@ -130,6 +130,11 @@ export interface HostingAdapter {
   readonly contractVersion: string;
   probe(ctx: AccountContext, node: NodeRef): Promise<HostingCapabilityReport>;
   health(ctx: AccountContext, node: NodeRef): Promise<HealthReport>;
+  /** S04 (optional): is the node's access key as narrow as the read-only profile? */
+  verifyReadOnlyKey?(
+    ctx: AccountContext,
+    node: NodeRef,
+  ): Promise<'read_only' | 'too_broad' | 'unknown'>;
   inventory(ctx: AccountContext, node: NodeRef): Promise<OperationResult<NodeState>>;
   createSite(
     ctx: AccountContext,

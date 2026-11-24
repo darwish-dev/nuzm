@@ -14,6 +14,7 @@ import { DB } from '../../common/tokens';
 import { PriceBookService, QuotaService, SpendService } from '../billing';
 import { OrderService, QuotePricerRegistry } from '../commerce';
 import { MockRegionRegistry, ResidencyService } from '../compliance';
+import { NodesService } from '../hosting';
 import { IdentityModule } from '../identity';
 import { AdminOffersController } from './admin-offers.controller';
 import { AdminResourcesController } from './admin-resources.controller';
@@ -21,6 +22,8 @@ import { AdminProviderAccountsController } from './admin-provider-accounts.contr
 import { AdminProviderJobsController } from './admin-provider-jobs.controller';
 import { AdminProvidersController } from './admin-providers.controller';
 import { AdminRoutingRulesController } from './admin-routing-rules.controller';
+import { AdminPanelController } from './admin-panel.controller';
+import { PanelBootstrapController } from './panel-bootstrap.controller';
 import { CloudWebhooksController } from './cloud-webhooks.controller';
 import { ComputeInstancesController } from './compute-instances.controller';
 import { OffersController } from './offers.controller';
@@ -40,12 +43,22 @@ import { OfferService } from './internal/offer.service';
 import { ProvisioningService } from './internal/provisioning.service';
 import { ProviderService } from './internal/provider.service';
 import { ComputeQuotaGuard } from './internal/quota-guard';
+import { PanelImageService } from './internal/hestia-vps/panel-images.service';
+import { PanelInstallService } from './internal/hestia-vps/panel-install.service';
+import {
+  UnconfiguredPanelDns,
+  type PanelDnsPort,
+  type PanelNodePort,
+} from './internal/hestia-vps/ports';
+import { envConfigSource } from './internal/hestia-vps/policy';
 import { ReconcilerService } from './internal/reconciler.service';
 import { RoutingService } from './internal/routing.service';
 import { ProviderRegionRegistry } from './internal/provider-region-registry';
 
 export const VAULT = 'NUZM_VAULT_CLIENT';
 export const OFFER_PRICE_COMPOSER = 'NUZM_OFFER_PRICE_COMPOSER';
+export const PANEL_NODES = 'NUZM_PANEL_NODES';
+export const PANEL_DNS = 'NUZM_PANEL_DNS';
 
 const every = (
   envName: string,
@@ -72,6 +85,7 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly health: HealthService,
     private readonly reconciler: ReconcilerService,
     private readonly sampler: ComputeMeteringSampler,
+    private readonly panel: PanelInstallService,
   ) {}
   onApplicationBootstrap() {
     this.timers = [
@@ -82,6 +96,7 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
         'cloud_reconcile_error',
       ),
       every('CLOUD_METERING_INTERVAL_SECONDS', () => this.sampler.run(), 'cloud_metering_error'),
+      every('CLOUD_PANEL_INTERVAL_SECONDS', () => this.panel.sweep(), 'cloud_panel_error'),
     ];
   }
   onModuleDestroy() {
@@ -108,6 +123,8 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
     PublicComputePlansController,
     ComputeInstancesController,
     CloudWebhooksController,
+    PanelBootstrapController,
+    AdminPanelController,
   ],
   providers: [
     { provide: AdapterRegistry, useFactory: () => defaultAdapterRegistry() },
@@ -182,6 +199,57 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
     },
     { provide: ImageCatalog, useFactory: (db: Db) => new ImageCatalog(db), inject: [DB] },
     {
+      provide: PANEL_NODES,
+      // the hosting module's public surface registers and checks the customer's panel node (cloud never touches hosting tables)
+      useFactory: (n: NodesService): PanelNodePort => ({
+        registerNode: (a) => n.registerCustomerVps(a),
+        retire: (id) => n.retireCustomerVps(id),
+        check: (id) => n.checkCustomerVps(id),
+      }),
+      inject: [NodesService],
+    },
+    { provide: PANEL_DNS, useFactory: (): PanelDnsPort => new UnconfiguredPanelDns() },
+    {
+      provide: PanelInstallService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        r: AdapterRegistry,
+        p: ProvisioningService,
+        f: CloudFlags,
+        s: SecretStore,
+        nodes: PanelNodePort,
+        dns: PanelDnsPort,
+      ) =>
+        new PanelInstallService({
+          db,
+          audit: a,
+          adapters: r,
+          prov: p,
+          flags: f,
+          config: envConfigSource,
+          // production has no secret store until D-12: the Hestia VPS product is then not available (never a fallback to something weaker)
+          vault: process.env.NODE_ENV === 'production' ? null : new SealedVault(s, r.redactor),
+          nodes,
+          dns,
+        }),
+      inject: [
+        DB,
+        AuditSink,
+        AdapterRegistry,
+        ProvisioningService,
+        CloudFlags,
+        SecretStore,
+        PANEL_NODES,
+        PANEL_DNS,
+      ],
+    },
+    {
+      provide: PanelImageService,
+      useFactory: (db: Db, a: AuditSink) => new PanelImageService(db, a, envConfigSource),
+      inject: [DB, AuditSink],
+    },
+    {
       provide: ProvisioningService,
       useFactory: (
         db: Db,
@@ -218,7 +286,8 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
         p: ProvisioningService,
         rec: ReconcilerService,
         f: CloudFlags,
-      ) => new InstanceService(db, a, ops, r, o, ord, sp, g, p, rec, f),
+        panel: PanelInstallService,
+      ) => new InstanceService(db, a, ops, r, o, ord, sp, g, p, rec, f, panel),
       inject: [
         DB,
         AuditSink,
@@ -231,6 +300,7 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
         ProvisioningService,
         ReconcilerService,
         CloudFlags,
+        PanelInstallService,
       ],
     },
     {
@@ -246,9 +316,13 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
     },
     {
       provide: CloudScheduler,
-      useFactory: (h: HealthService, rec: ReconcilerService, s: ComputeMeteringSampler) =>
-        new CloudScheduler(h, rec, s),
-      inject: [HealthService, ReconcilerService, ComputeMeteringSampler],
+      useFactory: (
+        h: HealthService,
+        rec: ReconcilerService,
+        s: ComputeMeteringSampler,
+        p: PanelInstallService,
+      ) => new CloudScheduler(h, rec, s, p),
+      inject: [HealthService, ReconcilerService, ComputeMeteringSampler, PanelInstallService],
     },
   ],
   exports: [
@@ -265,6 +339,7 @@ class CloudScheduler implements OnApplicationBootstrap, OnModuleDestroy {
     InstanceService,
     ComputeMeteringSampler,
     CloudFlags,
+    PanelInstallService,
   ],
 })
 export class CloudModule implements OnApplicationBootstrap {
@@ -277,13 +352,31 @@ export class CloudModule implements OnApplicationBootstrap {
     @Inject(ImageCatalog) private readonly images: ImageCatalog,
     @Inject(OFFER_PRICE_COMPOSER) private readonly composer: OfferPriceComposer,
     @Inject(ResidencyService) private readonly residency: ResidencyService,
+    @Inject(PanelInstallService) private readonly panel: PanelInstallService,
+    @Inject(ProvisioningService) private readonly prov: ProvisioningService,
   ) {}
 
   onApplicationBootstrap() {
     // compute quotes (M02 quote mechanism, kind `compute`)
     this.pricers.register(
-      new ComputeQuotePricer(this.offers, this.routing, this.images, this.composer, this.residency),
+      new ComputeQuotePricer(
+        this.offers,
+        this.routing,
+        this.images,
+        this.composer,
+        this.residency,
+        this.panel,
+      ),
     );
+    // S04: the provisioning workflow reaches the Hestia install only through these hooks
+    this.prov.panel = {
+      userDataFor: (o, i, k) => this.panel.userDataFor(o, i, k),
+      stillValid: (o, i) => this.panel.stillValid(o, i),
+      markServerCreated: (c, i, ref, ips, at) => this.panel.markServerCreated(c, i, ref, ips, at),
+      markHeld: (o, i) => this.panel.markHeld(o, i),
+      holdRetryMinutes: () => this.panel.holdRetryMinutes(),
+      onDeleted: (o, i) => this.panel.onDeleted(o, i),
+    };
     // M04 residency: provider regions resolve from cloud.provider_regions (verified_at + evidence), never from a name or a caller's claim
     this.residency.useRegionRegistry(new ProviderRegionRegistry(this.db, new MockRegionRegistry()));
   }

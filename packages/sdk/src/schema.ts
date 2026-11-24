@@ -2916,6 +2916,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/compute/instances/{id}/panel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The control panel install of a server (HestiaCP) and its link state
+         * @description Only for a server ordered with the panel installed automatically (404 otherwise). Staged status: create server, wait for boot, install panel, register link, readiness test, then ready or needs attention; a `held` order waits for provider capacity in the SOLD region (it is never moved to another one). `panelLink` is `lost` when Nuzm can no longer reach the panel (the customer has root); start/stop/restart go through the provider API and stay available. Requires permission `compute:instance:read`.
+         */
+        get: operations["getComputeInstancePanel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compute/instances/{id}/panel/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a panel install that needs attention (same server)
+         * @description Never creates, replaces or wipes a server. Problems on Nuzm's side (readiness, DNS, node registration, secret store) continue from their stage; when the bootstrap did not finish on the server the registration window of the SAME order and server is extended and the response carries the command to re-run the script that is still on the server (`rerun_bootstrap`). A failed integrity check of the pinned installer is not resumable on that server (409 invalid_state). Idempotent per Idempotency-Key. Requires permission `compute:instance:act`.
+         */
+        post: operations["retryComputeInstancePanel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bootstrap/panel/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Progress report of the panel bootstrap running on a new server
+         * @description Called by the bootstrap script on the server. Unauthenticated by design: the single-use registration secret (`Authorization: Bearer nzr1.<registration id>.<secret>`) is the credential; it is bound to one order and one server, short-lived (the window starts when the provider created the server) and stored only as a SHA-256. 401 unknown secret, 409 the server is not recorded yet (retry), 410 the window ended, 429 rate limited.
+         */
+        post: operations["panelBootstrapEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bootstrap/panel/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register the new panel (single use)
+         * @description Called once by the bootstrap script. The secret is consumed atomically; the caller's address must be one of the server's public addresses AS THE PROVIDER REPORTS THEM, and the provider's record must show the server running in the sold region (403 otherwise: the secret is NOT consumed). The panel access key is a read-only profile; it is sealed on receipt and only a vault reference is stored. Repeating the same registration from the same server after a lost answer returns `already_registered`; any other repeat is 409. 503 when the provider or the secret store cannot answer (the script retries).
+         */
+        post: operations["panelBootstrapRegister"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compute/panel-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provider images and their HestiaCP verification
+         * @description Every catalogued image with whether the provider states cloud-init for it, the operating system HestiaCP would see, and its approval (version, evidence kind, who approved). Only an approved image on a sold placement is offered to customers.
+         */
+        get: operations["adminListPanelImages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compute/panel-images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Approve an image for the configured HestiaCP version
+         * @description Body {evidenceKind: live|fixture|mock, evidenceNote}. 422 unless the provider states cloud-init for the image AND HestiaCP documents its operating system (Debian 12/13, Ubuntu 22.04/24.04/26.04) AND the product is configured. `live` is for an install actually performed on that provider; `fixture`/`mock` are labelled and refused as mock in production. Needs admin:provider:manage and a recent MFA check. Audited (compute.panel_image.approved).
+         */
+        put: operations["adminApprovePanelImage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compute/panel-image-approvals/{approvalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Withdraw an image approval
+         * @description The image stops being offered at once; an order already placed re-checks at execution and is released without charge. Needs admin:provider:manage and a recent MFA check. Audited (compute.panel_image.revoked).
+         */
+        delete: operations["adminRevokePanelImageApproval"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compute/panel-installs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Panel installs across organizations
+         * @description Most recently changed first; filter by stage (e.g. needs_attention, held). Platform only; carries provider and region (internal), never a secret.
+         */
+        get: operations["adminListPanelInstalls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/compute/instances/{id}/metrics": {
         parameters: {
             query?: never;
@@ -9371,7 +9531,7 @@ export interface components {
             routing?: {
                 [key: string]: unknown;
             };
-            /** @description compute: {imageId, diskGb?, count}. */
+            /** @description compute: {imageId, diskGb?, count, panel?}. panel = {kind:"none"} or {kind:"hestia", template:{id, mail}} (HestiaCP installed automatically; the mail choice is explicit; one server per order; only on an image the offers list marks hestia). The choice is stored in the order snapshot together with the image, template, region, provider plan and the pinned installer. */
             spec?: {
                 [key: string]: unknown;
             };
@@ -10551,13 +10711,153 @@ export interface components {
             items: components["schemas"]["Offer"][];
             nextCursor: string | null;
         };
+        PanelTemplate: {
+            /** @enum {string} */
+            id: "hestia-web" | "hestia-web-mail";
+            /** @description The explicit mail choice of the order: the panel's mail services (Exim, Dovecot) are installed only when true; hestia-web-mail needs true and hestia-web needs false. */
+            mail: boolean;
+        };
+        PanelStep: {
+            /** @enum {string} */
+            key: "create_server" | "wait_boot" | "install_panel" | "register" | "readiness";
+            /** @enum {string} */
+            state: "pending" | "running" | "done" | "failed";
+        };
+        PanelInstall: {
+            /** @enum {string} */
+            kind: "hestia";
+            /** @enum {string} */
+            stage: "create_server" | "waiting_boot" | "installing_panel" | "registering" | "readiness" | "ready" | "needs_attention" | "held";
+            steps: components["schemas"]["PanelStep"][];
+            template: components["schemas"]["PanelTemplate"];
+            panelVersion: string;
+            osName: string;
+            /** @description The fixed fully qualified domain name of the panel, decided at order time. */
+            panelHost: string;
+            panelPort: number;
+            /** @enum {string} */
+            panelLink: "none" | "connected" | "lost";
+            attention: {
+                code: string;
+                detail: string | null;
+                /**
+                 * @description here: retry continues from Nuzm; server: the script on the server is re-run; support: not resumable on this server.
+                 * @enum {string}
+                 */
+                resumable: "here" | "server" | "support";
+            } | null;
+            /** @enum {string|null} */
+            holdReason: "provider_capacity_unavailable" | null;
+            ready: boolean;
+            rerunCommand: string | null;
+            /** @description Where the panel admin password was left ON the server (root only). It is never sent to Nuzm. */
+            adminPasswordFile: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PanelRetryResult: {
+            /** @enum {string} */
+            action: "continued" | "rerun_bootstrap";
+            command?: string;
+            panel: components["schemas"]["PanelInstall"];
+        };
+        PanelBootstrapEvent: {
+            /** @enum {string} */
+            phase: "booted" | "installer_verified" | "installing" | "failed" | "note";
+            code?: string;
+        };
+        PanelBootstrapRegister: {
+            panelVersion: string;
+            /** @description Must equal the panel FQDN fixed at order time. */
+            host: string;
+            port: number;
+            /** @description SHA-256 fingerprint of the panel's (self-signed) certificate, colon-separated. */
+            tlsFingerprintSha256: string;
+            /**
+             * Format: password
+             * @description ACCESS_KEY_ID:SECRET_ACCESS_KEY of the read-only profile. Sealed on receipt; never returned, logged or audited.
+             */
+            accessKey: string;
+        };
+        PanelBootstrapRegisterResult: {
+            /** @enum {string} */
+            status: "registered" | "already_registered";
+        };
+        PanelImageApprove: {
+            /** @enum {string} */
+            evidenceKind: "live" | "fixture" | "mock";
+            evidenceNote: string;
+        };
+        PanelImageList: {
+            items: {
+                /** Format: uuid */
+                imageId: string;
+                /** Format: uuid */
+                accountId: string;
+                providerRegionId: string;
+                name: string;
+                cloudInit: boolean | null;
+                os: {
+                    id?: string;
+                    version?: string;
+                    supportedByHestia?: boolean;
+                } | null;
+                approval: {
+                    /** Format: uuid */
+                    id?: string;
+                    panelVersion?: string;
+                    /** @enum {string} */
+                    evidenceKind?: "live" | "fixture" | "mock";
+                    evidenceNote?: string;
+                    /** Format: date-time */
+                    approvedAt?: string;
+                    revoked?: boolean;
+                } | null;
+            }[];
+        };
+        PanelInstallAdminList: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                orgId: string;
+                /** Format: uuid */
+                instanceId: string;
+                /** Format: uuid */
+                orderId: string;
+                provider: string;
+                region: string;
+                stage: string;
+                attentionCode: string | null;
+                attentionDetail: string | null;
+                panelVersion: string;
+                panelHost: string;
+                panelLink: string;
+                attempts: number;
+                /** Format: date-time */
+                updatedAt: string;
+            }[];
+        };
         OfferImageList: {
             items: {
                 /** Format: uuid */
                 id: string;
                 name: string;
                 osFamily: string | null;
+                /** @description HestiaCP can be installed on this image: verified by an administrator for the configured version, in a sold placement, with cloud-init stated by the provider. */
+                hestia: boolean;
             }[];
+            panels?: {
+                hestia?: {
+                    available: boolean;
+                    templates: string[];
+                    minimum: {
+                        vcpu?: number;
+                        memoryMb?: number;
+                        diskGb?: number;
+                    };
+                };
+            };
         };
         Offer: {
             /** Format: uuid */
@@ -10645,7 +10945,7 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            status: "provisioning" | "running" | "stopped" | "failed" | "deleting" | "deleted" | "unknown";
+            status: "provisioning" | "running" | "stopped" | "failed" | "deleting" | "deleted" | "unknown" | "held";
             dataRegion: string;
             country: string;
             plan: components["schemas"]["ComputePlan"];
@@ -10666,6 +10966,18 @@ export interface components {
             /** @enum {string} */
             driftState: "in_sync" | "drift" | "orphan_suspected" | "missing";
             version: number;
+            /**
+             * @description hestia = ordered with the panel installed automatically (see GET /v1/compute/instances/{id}/panel).
+             * @enum {string}
+             */
+            panelKind: "none" | "hestia";
+            /**
+             * @description Why a held order waits: the provider has no capacity in the sold region. It is never moved to another region; cancel it with DELETE (no charge).
+             * @enum {string|null}
+             */
+            holdReason: "provider_capacity_unavailable" | null;
+            /** @description Only on a single-instance read. */
+            panel?: components["schemas"]["PanelInstall"] | null;
         };
         ComputeInstanceList: {
             items: components["schemas"]["ComputeInstance"][];
@@ -11414,6 +11726,11 @@ export interface components {
             status: "active" | "draining" | "maintenance" | "retired";
             /** @enum {string} */
             panelKind: "hestia";
+            /**
+             * @description shared = Nuzm's hosting network; customer_vps = a customer's own server running HestiaCP (outside it, never receives shared sites).
+             * @enum {string}
+             */
+            networkClass: "shared" | "customer_vps";
             panelVersion?: string | null;
             panelHost?: string | null;
             panelPort?: number | null;
@@ -20440,6 +20757,229 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    getComputeInstancePanel: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelInstall"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    retryComputeInstancePanel: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+                /** @description Makes the request safely retryable; same key plus same body replays the first response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelRetryResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    panelBootstrapEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PanelBootstrapEvent"];
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    panelBootstrapRegister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PanelBootstrapRegister"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelBootstrapRegisterResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    adminListPanelImages: {
+        parameters: {
+            query?: {
+                accountId?: string;
+                regionId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelImageList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    adminApprovePanelImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PanelImageApprove"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        approvalId: string;
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminRevokePanelImageApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approvalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    adminListPanelInstalls: {
+        parameters: {
+            query?: {
+                stage?: "create_server" | "waiting_boot" | "installing_panel" | "registering" | "readiness" | "ready" | "needs_attention" | "held";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelInstallAdminList"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
         };
     };
     getComputeInstanceMetrics: {

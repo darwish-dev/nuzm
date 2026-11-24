@@ -442,6 +442,7 @@ export class ContaboVpsAdapter implements ComputeAdapter {
       providerRegionId: region, // images are account-wide in the API (NOT DOCUMENTED per region)
       name: String(i.name ?? i.imageId),
       ...(typeof i.osType === 'string' ? { osFamily: (i.osType as string).toLowerCase() } : {}),
+      cloudInit: true, // only `standardImage=true` images are listed; the docs promise cloud-init "at least on our default / standard images"
     }));
   }
 
@@ -544,11 +545,13 @@ export class ContaboVpsAdapter implements ComputeAdapter {
       defaultUser: 'admin',
       // SSH keys: the documented `sshKeys` field takes Secrets-API ids, whose endpoints we could not read (NOT VERIFIED). cloud-init
       // `userData` IS documented as a create field, so keys are injected through it.
-      ...(req.sshPublicKeys.length
-        ? {
-            userData: `#cloud-config\nssh_authorized_keys:\n${req.sshPublicKeys.map((k) => `  - ${JSON.stringify(k)}`).join('\n')}\n`,
-          }
-        : {}),
+      ...(req.userData !== undefined
+        ? { userData: req.userData } // the caller's complete cloud-init document (it carries the keys itself); encoding/size NOT DOCUMENTED (README)
+        : req.sshPublicKeys.length
+          ? {
+              userData: `#cloud-config\nssh_authorized_keys:\n${req.sshPublicKeys.map((k) => `  - ${JSON.stringify(k)}`).join('\n')}\n`,
+            }
+          : {}),
     };
     const r = await this.call(ctx, 'POST', '/v1/compute/instances', { body, op: 'provision' });
     if (!this.ok2xx(r)) return this.mutFail(r);

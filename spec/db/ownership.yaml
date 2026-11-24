@@ -95,8 +95,8 @@ schemas:
   compute:
     owner_module: compute
     created_by: M05
-    extended_by: []
-    tables: [ images, instance_actions, instance_intervals, instances, snapshots ]
+    extended_by: [ M05-INT2 ]
+    tables: [ images, instance_actions, instance_intervals, instances, panel_image_approvals, panel_installs, snapshots ]
   hosting:
     owner_module: hosting
     created_by: M06
@@ -302,6 +302,7 @@ tenant_less:
   - cloud.routing_rules
   - cloud.resource_reconciliations
   - compute.images
+  - compute.panel_image_approvals
   - hosting.nodes
   - hosting.node_overcommit_changes
   - hosting.node_agents
@@ -459,6 +460,8 @@ classification:
     identity.sessions.csrf_hash: hash
     hosting.node_enrolment_tokens.token_hash: hash
     hosting.nodes.panel_key_ref: vault_ref
+    compute.panel_installs.registration_hash: hash
+    compute.panel_installs.registration_secret_ref: vault_ref
     hosting.sites.credentials_ref: vault_ref
     hosting.sites.backup_key_ref: vault_ref
     hosting.ssl_certificates.secret_ref: vault_ref
@@ -1821,6 +1824,65 @@ classification:
       name: internal
       os_family: internal
       last_seen_at: internal
+      cloud_init: internal
+    compute.panel_image_approvals:
+      id: internal
+      account_id: internal
+      provider_region_id: internal
+      image_ref: internal
+      panel_kind: internal
+      panel_version: internal
+      os_id: internal
+      os_version: internal
+      evidence_kind: internal
+      evidence_note: internal
+      approved_by: internal
+      approved_at: internal
+      revoked_at: internal
+    compute.panel_installs:
+      id: internal
+      org_id: internal
+      instance_id: internal
+      order_id: internal
+      panel_kind: internal
+      provider_key: internal
+      provider_region_id: internal
+      plan_ref: internal
+      image_ref: internal
+      image_name: internal
+      os_id: internal
+      os_version: internal
+      template: internal
+      panel_version: internal
+      installer_url: internal
+      installer_sha256: internal
+      panel_host: internal
+      panel_port: internal
+      stage: internal
+      resume_stage: internal
+      steps: internal
+      attention_code: internal
+      attention_detail: internal
+      attempts: internal
+      server_ref: internal
+      server_addresses: personal
+      boot_seen_at: internal
+      last_event_at: internal
+      stage_entered_at: internal
+      registration_id: internal
+      registration_hash: credentials
+      registration_secret_ref: credentials
+      registration_expires_at: internal
+      registration_consumed_at: internal
+      registration_source_ip: personal
+      panel_node_id: internal
+      panel_link: internal
+      panel_link_checked_at: internal
+      panel_version_seen: internal
+      ready_at: internal
+      created_at: internal
+      updated_at: internal
+      version: internal
     compute.instance_actions:
       id: internal
       org_id: internal
@@ -1863,6 +1925,9 @@ classification:
       ssh_public_keys: internal
       tags: customer-content
       deletion_protected: internal
+      panel_kind: internal
+      hold_reason: internal
+      held_at: internal
       operation_id: internal
       created_by: internal
       created_at: internal
@@ -2150,6 +2215,8 @@ classification:
       panel_port: internal
       panel_key_ref: credentials
       panel_tls_pin: internal
+      network_class: internal
+      owner_org_id: internal
       runtimes: internal
       overcommit_factor: internal
       overcommit_change_id: internal

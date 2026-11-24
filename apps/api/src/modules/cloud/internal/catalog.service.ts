@@ -369,9 +369,17 @@ export class CatalogService {
     for (const im of snap.images) {
       if (!seenRegions.includes(im.providerRegionId)) continue;
       await c.query(
-        `INSERT INTO compute.images (id, account_id, provider_region_id, image_ref, name, os_family, last_seen_at) VALUES ($1,$2,$3,$4,$5,$6, now())
-         ON CONFLICT (account_id, provider_region_id, image_ref) DO UPDATE SET name = EXCLUDED.name, os_family = EXCLUDED.os_family, last_seen_at = now()`,
-        [uuidv7(), accountId, im.providerRegionId, im.imageRef, im.name, im.osFamily ?? null],
+        `INSERT INTO compute.images (id, account_id, provider_region_id, image_ref, name, os_family, cloud_init, last_seen_at) VALUES ($1,$2,$3,$4,$5,$6,$7, now())
+         ON CONFLICT (account_id, provider_region_id, image_ref) DO UPDATE SET name = EXCLUDED.name, os_family = EXCLUDED.os_family, cloud_init = EXCLUDED.cloud_init, last_seen_at = now()`,
+        [
+          uuidv7(),
+          accountId,
+          im.providerRegionId,
+          im.imageRef,
+          im.name,
+          im.osFamily ?? null,
+          im.cloudInit ?? null,
+        ],
       );
     }
     const hash = sha256(

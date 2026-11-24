@@ -118,7 +118,7 @@ export class PlansService {
       async (c) =>
         (
           await c.query(
-            `SELECT DISTINCT data_region, runtimes FROM hosting.nodes WHERE status = 'active' AND health = 'healthy'`,
+            `SELECT DISTINCT data_region, runtimes FROM hosting.nodes WHERE status = 'active' AND network_class = 'shared' AND health = 'healthy'`,
           )
         ).rows,
     );
@@ -173,7 +173,7 @@ export class PlansService {
         await c.query(
           `SELECT n.id, n.data_region, n.runtimes, json_object_agg(c.dim, json_build_object('free', c.sellable - c.reserved)) AS free
              FROM hosting.nodes n JOIN hosting.node_capacity c ON c.node_id = n.id
-            WHERE n.status = 'active' AND n.health = 'healthy' AND n.data_region = ANY($1::text[]) GROUP BY n.id`,
+            WHERE n.status = 'active' AND n.network_class = 'shared' AND n.health = 'healthy' AND n.data_region = ANY($1::text[]) GROUP BY n.id`,
           [regions],
         )
       ).rows;

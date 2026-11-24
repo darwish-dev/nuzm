@@ -15,12 +15,17 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { etag, parseIfMatch } from '../../common/etag';
 import { Idempotent } from '../../common/idempotency';
+import { ProblemException } from '../../common/errors';
+import { PanelInstallService } from './internal/hestia-vps/panel-install.service';
 import { InstanceService } from './internal/instance.service';
 
 /** Compute instances (docs/04 §2.5). Create/delete/actions are async (202 + operationId); other organizations' ids answer 404. */
 @Controller('v1/compute/instances')
 export class ComputeInstancesController {
-  constructor(private readonly instances: InstanceService) {}
+  constructor(
+    private readonly instances: InstanceService,
+    private readonly panel: PanelInstallService,
+  ) {}
 
   @RequirePermission('compute:instance:create')
   @Idempotent()
@@ -109,5 +114,25 @@ export class ComputeInstancesController {
     @Query() q: { from?: string; to?: string },
   ) {
     return this.instances.metrics(orgId, id, q);
+  }
+
+  /** The staged HestiaCP install of this server and the state of its panel link (the provider actions do not depend on it). */
+  @RequirePermission('compute:instance:read')
+  @Get(':id/panel')
+  async panelStatus(@Org() orgId: string, @Param('id') id: string) {
+    await this.instances.get(orgId, id); // 404 for another organization's id and when compute is off
+    const p = await this.panel.status(orgId, id);
+    if (!p) throw new ProblemException('not_found', 'this server has no control panel');
+    return p;
+  }
+
+  /** Resume an install that needs attention on the SAME server (never a new server, never a wipe). */
+  @RequirePermission('compute:instance:act')
+  @Idempotent()
+  @Post(':id/panel/retry')
+  @HttpCode(202)
+  async panelRetry(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string) {
+    await this.instances.get(orgId, id);
+    return this.panel.retry(orgId, id, a.actor.userId);
   }
 }

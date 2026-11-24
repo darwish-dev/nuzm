@@ -87,6 +87,22 @@ describe('contabo-vps', () => {
     expect(s.sim.requests.length).toBe(before);
   });
 
+  it("a caller's cloud-init document is sent as `userData` verbatim (it carries the keys itself); without one the keys go through a generated document; standard images are listed with cloud-init", async () => {
+    const s = await makeSubject();
+    stops.push(s.stop);
+    await s.adapter.probe(s.ctx);
+    const doc = '#cloud-config\nwrite_files: []\nssh_authorized_keys:\n  - "ssh-ed25519 AAAA"\n';
+    const tok = idempotencyToken('o', 'p', 'ud');
+    const r = await s.adapter.provision(s.ctx, { ...req('V153', tok), userData: doc });
+    expect(r.status).toBe('accepted');
+    const inst = [...s.sim.instances.values()].find((i) =>
+      i.displayName.startsWith(`nuzm:${tok}|`),
+    )!;
+    expect(inst.userData).toBe(doc);
+    const imgs = await s.adapter.listImages(s.ctx, 'EU');
+    expect(imgs.every((i) => i.cloudInit === true)).toBe(true);
+  });
+
   it('displayName carries the token marker, never the org name; SSH keys go through cloud-init userData', async () => {
     const s = await makeSubject();
     stops.push(s.stop);

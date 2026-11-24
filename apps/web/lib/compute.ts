@@ -45,7 +45,49 @@ export interface Paged<T> {
   nextCursor: string | null;
 }
 export type InstanceStatus =
-  'provisioning' | 'running' | 'stopped' | 'failed' | 'deleting' | 'deleted' | 'unknown';
+  'provisioning' | 'running' | 'stopped' | 'failed' | 'deleting' | 'deleted' | 'unknown' | 'held';
+
+// ---- HestiaCP control panel (S04) ----------------------------------------------------------------------------------------------
+export type PanelStage =
+  | 'create_server'
+  | 'waiting_boot'
+  | 'installing_panel'
+  | 'registering'
+  | 'readiness'
+  | 'ready'
+  | 'needs_attention'
+  | 'held';
+export interface PanelStep {
+  key: 'create_server' | 'wait_boot' | 'install_panel' | 'register' | 'readiness';
+  state: 'pending' | 'running' | 'done' | 'failed';
+}
+export interface PanelInstall {
+  kind: 'hestia';
+  stage: PanelStage;
+  steps: PanelStep[];
+  template: { id: string; mail: boolean };
+  panelVersion: string;
+  osName: string;
+  panelHost: string;
+  panelPort: number;
+  panelLink: 'none' | 'connected' | 'lost';
+  attention: {
+    code: string;
+    detail: string | null;
+    resumable: 'here' | 'server' | 'support';
+  } | null;
+  holdReason: string | null;
+  ready: boolean;
+  rerunCommand: string | null;
+  adminPasswordFile: string;
+  updatedAt: string;
+}
+/** The page follows an install until it is ready or needs a person; a ready one is re-read slowly so a lost panel link shows up. */
+export const panelPollMs = (stage: PanelStage): number =>
+  stage === 'needs_attention' ? 0 : stage === 'ready' ? 60_000 : 5_000;
+/** Panel address for the "open" button: only the fixed FQDN the API returned, https, never built from anything typed. */
+export const panelUrl = (p: Pick<PanelInstall, 'panelHost' | 'panelPort'>): string =>
+  `https://${p.panelHost}:${p.panelPort}`;
 export type DriftState = 'in_sync' | 'drift' | 'orphan_suspected' | 'missing';
 export interface Instance {
   id: string;
@@ -64,6 +106,9 @@ export interface Instance {
   deletionProtected?: boolean;
   driftState: DriftState | string;
   version: number;
+  panelKind?: 'none' | 'hestia';
+  holdReason?: string | null;
+  panel?: PanelInstall | null;
 }
 export interface QuoteLine {
   position: number;
@@ -233,6 +278,7 @@ export function actionAllowed(type: ActionType, status: string): boolean {
 const STATUS_TONES: Record<string, Tone> = {
   running: 'success',
   provisioning: 'warn',
+  held: 'warn',
   deleting: 'warn',
   unknown: 'warn',
   failed: 'danger',
@@ -241,7 +287,7 @@ const STATUS_TONES: Record<string, Tone> = {
 };
 export const statusTone = (status: string): Tone => STATUS_TONES[status.toLowerCase()];
 export const driftTone = (drift: string): Tone => (drift === 'in_sync' ? undefined : 'warn');
-export const TRANSIENT = new Set(['provisioning', 'deleting']);
+export const TRANSIENT = new Set(['provisioning', 'deleting', 'held']);
 export const isTransient = (status: string): boolean => TRANSIENT.has(status.toLowerCase());
 
 /**

@@ -100,12 +100,8 @@ describe('Track E hand-off: the lifecycle (S05 ExecutionBuildPort) against the e
             status,
             logs: `${out.stdout}${out.stderr}`,
             artifacts: out.artifacts
-              .filter((a: { sha256?: string }) => a.sha256)
-              .map((a: { path: string; bytes: number; sha256: string }) => ({
-                path: a.path,
-                bytes: a.bytes,
-                sha256: a.sha256,
-              })),
+              .filter((a) => a.sha256)
+              .map((a) => ({ path: a.path, bytes: a.bytes, sha256: a.sha256 as string })),
             durationMs: out.durationMs,
           };
         },

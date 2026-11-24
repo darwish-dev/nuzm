@@ -45,6 +45,26 @@ export function setHostExecAuditor(f: (d: HostExecDecision) => void): void {
 }
 export const LOCAL_DEV_EXEC_ENV = 'NUZM_LOCAL_DEV_EXEC';
 
+/**
+ * The lighter form for a host path that starts a process but NEVER runs project code (git plumbing: `git.store`): production and the explicit opt-in only, no origin rule. Same audit,
+ * same refusal type. Do not use it for anything that executes project files.
+ */
+export function assertHostProcessAllowed(
+  path: HostExecPath,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): void {
+  const reasons: string[] = [];
+  if (env.NODE_ENV === 'production') reasons.push('production');
+  if (env[LOCAL_DEV_EXEC_ENV] !== '1') reasons.push('opt_in_missing');
+  const d: HostExecDecision = { path, allowed: reasons.length === 0, reasons };
+  try {
+    auditor(d);
+  } catch {
+    /* an auditor failure never changes the decision */
+  }
+  if (!d.allowed) throw new HostExecRefused(path, reasons);
+}
+
 export function assertHostExecAllowed(
   path: HostExecPath,
   origin: unknown,

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { assertHostExecAllowed, HostExecRefused, setHostExecAuditor, templateOrigin, TemplateOriginProof, type HostExecDecision } from './host-exec-guard';
+import { assertHostExecAllowed, assertHostProcessAllowed, HostExecRefused, setHostExecAuditor, templateOrigin, TemplateOriginProof, type HostExecDecision } from './host-exec-guard';
 
 const ENV = { NODE_ENV: 'test', NUZM_LOCAL_DEV_EXEC: '1' };
 afterEach(() => setHostExecAuditor(() => undefined));
@@ -48,5 +48,16 @@ describe('host execution guard (default deny)', () => {
     });
     expect(() => assertHostExecAllowed('live-preview', 'customer', ENV)).toThrow(HostExecRefused);
     expect(() => assertHostExecAllowed('live-preview', templateOrigin('webapp-preview'), ENV)).not.toThrow();
+  });
+});
+
+describe('host process guard (git plumbing: no origin rule)', () => {
+  it('needs only not-production and the explicit opt-in, and is audited', () => {
+    const seen: HostExecDecision[] = [];
+    setHostExecAuditor((d) => seen.push(d));
+    expect(() => assertHostProcessAllowed('git-store', ENV)).not.toThrow();
+    expect(() => assertHostProcessAllowed('git-store', { NODE_ENV: 'production', NUZM_LOCAL_DEV_EXEC: '1' })).toThrow(HostExecRefused);
+    expect(() => assertHostProcessAllowed('git-store', { NODE_ENV: 'test' })).toThrow(HostExecRefused);
+    expect(seen.map((d) => d.reasons)).toEqual([[], ['production'], ['opt_in_missing']]);
   });
 });

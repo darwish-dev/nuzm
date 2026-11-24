@@ -9,7 +9,7 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 ## 1. Method
 - Independent review of the existing code (gateway, budgets, secret scan, SSRF/egress, sandbox policy and local runtime, deploy, mobile signing, access guard), then a threat model of the new ports (`docs/security/AI-ENGINE-THREAT-MODEL.md`).
 - Adversarial and dynamic tests in `apps/api/src/qa/**` (own paths only), each run alone against its own PostgreSQL, real RLS and the real hash-chained audit sink where relevant. 15 defects were found; 15 are fixed and re-tested by flipping the `it.fails` marker; DEFECT-16 and 17 (coverage gaps of the O-9 content-access switch) are fixed too (`docs/security/DEFECT-REGISTER.md`).
-- Browser E2E specs written by other sessions were reviewed read-only (`PHASE2-E2E-REVIEW.md`); a negatives spec was added (`e2e/tests/qa-negatives.spec.ts`). **No browser run has passed yet: UI evidence is NOT VERIFIED until the Master's isolated E2E has run.**
+- Browser E2E specs written by other sessions were reviewed read-only (`PHASE2-E2E-REVIEW.md`); a negatives spec was added (`e2e/tests/qa-negatives.spec.ts`). `qa-negatives.spec.ts` has run in an isolated stack (2026-11-25, SIMULATED): 4 passed (ar and en, both tests, axe). The happy-path specs of S02, S03 and S05 are the Master's and S05's to evidence.
 
 ## 2. What was verified, and what could not be (by control area)
 | Control area | Verified offline / simulated (evidence) | LIVE-VERIFIED | What cannot be verified until |
@@ -28,7 +28,7 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 | Builder agent loop | exhaustive: cancel after every checkpoint and crash after every boundary resume to the same result (one change, one approval, no repeated step); repair/step/time limits hold for hostile inputs; closed execution profiles; token and credit stops; no permission = nothing applied; approval never self-granted; prompt injection in project files, build logs, an obedient model or repair strategy changes no permission, approval, limit, budget or membership; forbidden paths never applied | none | real model behaviour under injection, real build output, real execution |
 | Deployment | publish and rollback approvals (both policy settings); target model (real target needs approval reference, preview domain, evidence); preview-origin isolation (ADR-060), 64-bit tags; simulated health probe; in-memory publisher | none | **BLOCKED (HG-05, HG-06)**: a real node, panel access, DNS, TLS issuance, rollback on a real release |
 | Migrations | up/down/up for every migration from 1800 with a full schema fingerprint (tables, columns, constraints, indexes, triggers, RLS, policies, functions) | none | upgrade of a populated production database |
-| Browser UI (ar/en, axe) | specs written (S02, S03, S05, S07 negatives) | **NOT VERIFIED: none has run** | the Master's isolated E2E |
+| Browser UI (ar/en, axe) | specs written (S02, S03, S05, S07 negatives) | S07 negatives and S05 agent screen: **PASS (SIMULATED, isolated stack, ar+en, axe)**; S02 insights and S03 benchmarks: see the Master's isolated E2E | the Master's isolated E2E; `qa-negatives.spec.ts` run recorded in REPORT-07 |
 
 ## 3. What no offline test can establish (the honest list)
 1. **Isolation strength of any runtime** (filesystem, process, network, resource, secret and cross-tenant isolation under hostile code). Mock results are never evidence (`MockExecutionPort.origin = 'MOCK'` is stamped in every audit record and job view).
@@ -53,7 +53,7 @@ Evidence vocabulary: `SIMULATED` = produced against a stand-in, `NOT VERIFIED` =
 | R7 | Concurrency fixes serialise per organization (DEFECT-7: the balance row; DEFECT-15: an advisory lock on run creation): possible latency under many parallel runs or creates of one organization | Medium at scale / low | load test needed before enabling for large tenants |
 | R8 | Idempotency error for duplicate in-flight call ids is the generic `conflict` code (nit) | Low / low | registry code recommended |
 | R9 | Supply chain: dependency installation runs with network only under an approved profile; the policy refuses git/URL/path dependencies and foreign registries, but no real registry mirror or advisory feed was exercised | Medium / high once a real runtime exists | dependency policy, SBOM and advisory gates before HG-10-02 |
-| R10 | E2E evidence missing for the new screens | Certain until run / low | Master's isolated E2E; qa-negatives spec |
+| R10 | E2E evidence for the new screens: negatives and the agent screen have run (SIMULATED); the other new screens depend on the Master's run | Low | Master's isolated E2E; qa-negatives spec |
 | R11 | Preview and custom-domain security (DNS takeover, wildcard TLS, cookie scope) is design-level only | Medium / medium once a real preview domain exists | ADR-060 checks in code; verify on the staging node |
 | R12 | Audit checkpoint signing key is a dev stub (D-12) | Certain until a real key custody exists / medium | external anchoring, key custody decision |
 
@@ -83,7 +83,7 @@ Purpose: HG-10-02 is the human gate that says an isolating runtime was reviewed 
 **What a green result does not mean:** it does not cover a different node image, a kernel upgrade, a different region or a new runtime version: any such change needs a re-attestation.
 
 ## 6. Recommended order to close the gaps
-1. Run the Master's isolated E2E (ar+en, axe) with `qa-negatives.spec.ts`; record screenshots outside git.
+1. Re-run the isolated E2E (ar+en, axe) on the release candidate, `qa-negatives.spec.ts` included; record screenshots outside git.
 2. Owner decisions: O-1/O-2/O-9 defaults, D2–D9 (provider), D-21/HG-10-02 (runtime), HG-05/HG-06 (deployment).
 3. Live provider probe under the recorded budget; re-run the money suites against the real adapter's usage reports (SIMULATED → LIVE).
 4. Qualify a runtime (section 5); only then enable `ai.agent.exec_tools` for a pilot organization with a build allowance.

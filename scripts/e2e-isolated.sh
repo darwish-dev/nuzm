@@ -10,8 +10,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PGBIN="${NUZM_PGBIN:-/usr/local/opt/postgresql@16/bin}"
-PGPORT="${E2E_PG_PORT:-${NUZM_PGPORT:-54329}}"
+PGPORT="${E2E_PG_PORT:-${NUZM_PGPORT:-}}"
 cd "$ROOT"
+[ -n "$PGPORT" ] || { echo "e2e-isolated: E2E_PG_PORT (or NUZM_PGPORT) is mandatory: acquire an isolated test environment (node scripts/testenv/testenv.mjs acquire); there is no default database"; exit 2; }
+node "$ROOT/scripts/testenv/testenv.mjs" check-url "postgres://nuzm_admin@127.0.0.1:$PGPORT/postgres" || exit $?
 
 [ -x "$PGBIN/createdb" ] || { echo "e2e-isolated: no createdb in $PGBIN (set NUZM_PGBIN)"; exit 2; }
 "$PGBIN/pg_isready" -h 127.0.0.1 -p "$PGPORT" >/dev/null 2>&1 || { echo "e2e-isolated: no Postgres on 127.0.0.1:$PGPORT (pnpm services:start, or set E2E_PG_PORT)"; exit 2; }

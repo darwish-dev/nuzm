@@ -29,6 +29,13 @@ function devSealKey(): string {
   if (!existsSync(file)) writeFileSync(file, randomBytes(32).toString('base64'), { mode: 0o600 });
   return readFileSync(file, 'utf8').trim();
 }
+if (
+  !process.env.DATABASE_URL &&
+  (process.env.NUZM_FORBID_DEFAULT_DB === '1' || process.env.NUZM_ALLOW_OWNER_DEV_DB !== '1')
+)
+  throw new Error(
+    'DATABASE_URL is mandatory: the owner development database is a default ONLY with the owner own NUZM_ALLOW_OWNER_DEV_DB=1 opt-in (never in a session; use source scripts/session-env.sh <name>)',
+  );
 const dbUrl =
   process.env.DATABASE_URL ?? 'postgres://nuzm_app:nuzm_dev_only@127.0.0.1:54329/nuzm_dev';
 if (!/@(127\.0\.0\.1|localhost)[:/]/.test(dbUrl))

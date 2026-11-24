@@ -89,7 +89,12 @@ test('builder agent screen: unauthenticated, viewer, another tenant, malformed i
     const html = await p.content();
     expect(html, `${what}: the marker must not be on the page`).not.toContain(MARKER);
     expect(html, `${what}: the project name must not be on the page`).not.toContain(name);
-    expect(html, `${what}: no internal error text`).not.toMatch(LEAKS);
+    // Phase 2 E2E lesson: the page's inline <script> bundles and <style> blocks legitimately contain words such as "SELECT " or "at Object."; the leak patterns are checked on what a
+    // person can read (visible text) and on the markup WITHOUT script/style bodies. Secrets (the marker, the project name) are still checked on the full HTML above.
+    const markup = html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '');
+    expect(markup, `${what}: no internal error text in the markup`).not.toMatch(LEAKS);
+    const visible = await p.locator('body').innerText();
+    expect(visible, `${what}: no internal error text in the visible text`).not.toMatch(LEAKS);
   };
 
   // ---- 1. unauthenticated: sent to sign-in, nothing of the project or run is rendered

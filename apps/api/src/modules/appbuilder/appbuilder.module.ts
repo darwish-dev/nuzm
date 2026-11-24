@@ -1,3 +1,4 @@
+import { BuilderPolicyController } from './builder-policy.controller';
 import {
   Module,
   type OnApplicationBootstrap,
@@ -284,6 +285,7 @@ const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
 @Module({
   imports: [IdentityModule, BuilderModule, KnowledgeModule],
   controllers: [
+    BuilderPolicyController,
     ChangeToolsController,
     BuilderPlanController,
     BuilderInsightController,

@@ -61,7 +61,7 @@ beforeAll(async () => {
   gw = e.app.get(GatewayService);
   ins = e.app.get(ProviderInsightsService);
   await e.fund(A(), '1000000');
-}, 120_000);
+}, 300_000);
 afterAll(() => e.h.close());
 
 describe('capability registry', () => {

@@ -5,8 +5,8 @@ import { ContentAccessService } from './internal/changes/content-access.service'
 
 /**
  * O-9 (PROPOSED): the organization's own policy on whether a billing administrator may read project content through the builder tools. Default `allow` = today's behaviour.
- * Reading needs `org:read`; changing needs `org:update` (owners and admins) AND a signed-in session (an API key is refused 403). Not behind the builder-tools flag: this is where an owner decides before enabling it.
- * PARKED until CONTRACT-S05-O9 is applied (spec:drift fails on an undeclared route): rename to `builder-policy.controller.ts` and add `BuilderPolicyController` to `controllers`.
+ * Reading needs `org:read`; changing needs `org:update` (owners and admins). Not behind the builder-tools flag: this is where an owner decides before enabling it.
+ * A policy change is a decision of a person: an API key is refused (403) even with the permission (same rule as the deployment policy, DEFECT-4/6).
  */
 @Controller('v1/builder/policies/content-access')
 export class BuilderPolicyController {
@@ -24,9 +24,11 @@ export class BuilderPolicyController {
     @Access() a: AccessContext,
     @Body() body: Record<string, unknown> | undefined,
   ) {
-    // session-only (Master's revision of CONTRACT-S05-P2-2, same rule as the deployment policy): an API key can never change who may read customer content
-    if (a.actor.kind !== 'session')
-      throw new ProblemException('forbidden', 'this setting can only be changed from a signed-in session');
+    if (a.actor.kind === 'api_key')
+      throw new ProblemException(
+        'forbidden',
+        'a policy is changed by a signed-in person, not an API key',
+      );
     return this.svc.set(orgId, a.actor.userId, body ?? {});
   }
 }

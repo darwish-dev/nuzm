@@ -5,7 +5,7 @@ Status: **the offline machinery is complete and tested; nothing has been measure
 ## 1. Labels (never blurred)
 Every recording carries `origin`: `REFERENCE` (this repository's oracle, not a model), `MOCK` (a scripted test double, not a model), `RECORDED` (captured by the gated live runner from a verified provider, with capture provenance: run id, approval reference, provider evidence reference). A report states its evidence label: `OFFLINE_REFERENCE_ORACLE`, `OFFLINE_MOCK_REPLAY`, `OFFLINE_REPLAY_OF_RECORDED_RUN` or `MIXED_ORIGINS_NOT_COMPARABLE`, with a disclaimer. No label, text or field says "real-model performance". A `RECORDED` recording without provenance, or recorded against another dataset version, is rejected (listed, never scored).
 
-## 2. The golden dataset (version 2.0.0, 83 tasks, 24 in Arabic)
+## 2. The golden dataset (version 2.1.0, 83 tasks, 24 in Arabic)
 Synthetic or owner-authored only, data class `public`, no customer data, no template content. 23 categories, each with at least 3 tasks; each category maps to one of the four **kinds** the original thresholds T05-T08 are scoped to:
 
 | kind | categories (tasks) |

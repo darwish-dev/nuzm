@@ -79,6 +79,8 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
     for (const r of rs)
       await sql(`INSERT INTO tenancy.platform_roles (user_id, role) VALUES ($1, $2)`, [uid, r]);
   };
+  // the provider list: the page also has the insight tables (health, registry, usage, rate-card history), which list provider codes too
+  const providersTable = () => page.getByRole('table', { name: T(info, 'aia.rows'), exact: true });
   const cleanProviders = () =>
     // the rate card version history (append-only evidence, migration 1900) references a provider row, so a provider cannot be deleted any more: it is switched off instead
     // (every spec file starts from a fresh database, so no row survives into another spec)
@@ -138,7 +140,7 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
     );
     await page.getByRole('button', { name: T(info, 'action.save'), exact: true }).click();
     await expect(page.getByText(T(info, 'aia.cfg.done'))).toBeVisible();
-    const row = page.getByRole('row').filter({ hasText: 'acme-e2e' });
+    const row = providersTable().getByRole('row').filter({ hasText: 'acme-e2e' });
     await expect(row).toBeVisible();
     await expect(row.getByText('vault://ai/e2e-acme', { exact: true })).toBeVisible(); // the reference, never a value
     await expect(row.getByText(T(info, 'aia.notAttested'), { exact: true })).toBeVisible();
@@ -196,7 +198,7 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
     const refused = page.getByText(T(info, 'aia.err.refused'));
     await expect(saved.or(refused)).toBeVisible();
     if (await saved.isVisible()) {
-      const mock = page.getByRole('row').filter({ hasText: 'mock-model' });
+      const mock = providersTable().getByRole('row').filter({ hasText: 'mock-model' });
       await expect(mock.getByText(T(info, 'aia.devRef'))).toBeVisible();
       if (await mock.getByText(T(info, 'aia.noBlockers')).isVisible()) {
         await mock.getByText(T(info, 'aia.actions')).click();
@@ -340,10 +342,10 @@ test('admin AI: providers (empty, configure, attestation gates, enable/disable, 
     // support: may read everything, may change nothing
     await setRoles(['support']);
     await page.goto(`${ADMIN}/${L}/ai/model-providers`);
-    await expect(page.getByRole('row').filter({ hasText: 'acme-e2e' })).toBeVisible();
+    await expect(providersTable().getByRole('row').filter({ hasText: 'acme-e2e' })).toBeVisible();
     await expect(page.getByLabel(T(info, 'aia.cfg.vault'))).toHaveCount(0);
     await expect(page.getByRole('button', { name: T(info, 'aia.ks.engage') })).toHaveCount(0);
-    const ro = page.getByRole('row').filter({ hasText: 'acme-e2e' });
+    const ro = providersTable().getByRole('row').filter({ hasText: 'acme-e2e' });
     await ro.getByText(T(info, 'aia.actions')).click();
     await expect(
       ro.getByRole('button', { name: T(info, 'aia.enable'), exact: true }),

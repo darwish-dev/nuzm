@@ -43,8 +43,22 @@ export const LINES: Line[] = [
     ],
     sizes: [
       { ref: 'mock.small', vcpu: 1, memoryMb: 2048, diskGb: 40, bandwidth: '1 TB', costMinor: 400 },
-      { ref: 'mock.medium', vcpu: 2, memoryMb: 4096, diskGb: 80, bandwidth: '2 TB', costMinor: 800 },
-      { ref: 'mock.large', vcpu: 4, memoryMb: 8192, diskGb: 160, bandwidth: '4 TB', costMinor: 1600 },
+      {
+        ref: 'mock.medium',
+        vcpu: 2,
+        memoryMb: 4096,
+        diskGb: 80,
+        bandwidth: '2 TB',
+        costMinor: 800,
+      },
+      {
+        ref: 'mock.large',
+        vcpu: 4,
+        memoryMb: 8192,
+        diskGb: 160,
+        bandwidth: '4 TB',
+        costMinor: 1600,
+      },
     ],
     images: [
       ['mock-ubuntu', 'Mock Ubuntu', 'linux'],

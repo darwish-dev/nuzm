@@ -4679,7 +4679,7 @@ export interface paths {
         put?: never;
         /**
          * Start an AI run
-         * @description Body {sessionId, kind: website|edit|chat|webapp|test-fix|mobile, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. `webapp` (the 7-agent graph; `input: {brief: {prompt}, maxMinutes?, specRef?}`, needs a web-app project, served only while the org flag `app_builder.enabled` is on) and `test-fix` (bounded debugging loop) are registered by the app-builder module (M10A). `mobile` (M10B, flag `mobile_builder.enabled`) needs a project of type mobile and input {description: 3..600 characters}: the design agent returns a structured mobile spec, a human approves it (approval kind `plan`), then the Flutter project is written as a new project version. Model quality is NOT VERIFIED. A webapp run that needs a human (destructive migration, dependency outside the policy, ...) waits in `waiting_approval` and is decided in the approvals inbox (`/v1/ai/approvals`; `pendingApproval.scopeHash` is the hash to quote), not through `POST /v1/ai/runs/{id}/approvals`. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`).
+         * @description Body {sessionId, kind: website|edit|chat|webapp|test-fix|mobile, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. `webapp` (the 7-agent graph; `input: {brief: {prompt}, maxMinutes?, specRef?}`, needs a web-app project, served only while the org flag `app_builder.enabled` is on) and `test-fix` (bounded debugging loop) are registered by the app-builder module (M10A). `mobile` (M10B, flag `mobile_builder.enabled`) needs a project of type mobile and input {description: 3..600 characters}: the design agent returns a structured mobile spec, a human approves it (approval kind `plan`), then the Flutter project is written as a new project version. Model quality is NOT VERIFIED. A webapp run that needs a human (destructive migration, dependency outside the policy, ...) waits in `waiting_approval` and is decided in the approvals inbox (`/v1/ai/approvals`; `pendingApproval.scopeHash` is the hash to quote), not through `POST /v1/ai/runs/{id}/approvals`. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`). A webapp run with input {builderLifecycle: true, brief: {prompt: 1..4000 characters}, maxRepairRounds?: 1..3, maxMinutes?: 1..60} runs the builder agent loop: it analyses the brief, plans, writes the plan's files as ONE validated change (AI branch only), reviews, builds and tests through the Execution Gateway, repairs failures within hard limits (3 repair rounds, 2 attempts per step on a transient error, 60 steps, the run's token and credit budget) and ends by asking for a deployment approval (approval type production_deploy, decided by an owner or admin in the approvals inbox). It deploys nothing. Served only while the organization flags builder_tools.enabled and builder_lifecycle.enabled are on (otherwise the run ends unsupported_capability). Build and test results are SIMULATED (a mock execution port) until the sandbox runtime is approved (D-21, HG-10-02, the Execution Gateway ADR); the result says so (simulated: true). 422 validation_failed for a malformed input; the usual 402/403/422/429/503 of run creation.
          */
         post: operations["createAiRun"];
         delete?: never;
@@ -4801,6 +4801,30 @@ export interface paths {
          */
         get: operations["listAdminAiRuns"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/builder/policies/content-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether a billing administrator may read project content through the builder tools
+         * @description Answers {mode: allow|deny, default: allow}. allow (the default) = today: a billing administrator reads the review, symbols, import analysis, components and memory of a project. Permission org:read.
+         */
+        get: operations["getBuilderContentAccessPolicy"];
+        /**
+         * Allow or deny billing administrators project content (owners and admins, signed in as a person)
+         * @description Body {mode: allow|deny}. deny makes the five content reads of the builder tools answer 403 for the billing_admin role of this organization only. An API key is refused (403) even with the permission. Audited (builder.policy.content_access_changed, with before and after). Permission org:update.
+         */
+        put: operations["setBuilderContentAccessPolicy"];
         post?: never;
         delete?: never;
         options?: never;
@@ -12828,6 +12852,16 @@ export interface components {
                 [key: string]: unknown;
             }[];
             nextCursor: string | null;
+        };
+        BuilderContentAccessPolicy: {
+            /** @enum {string} */
+            mode: "allow" | "deny";
+            /** @enum {string} */
+            default: "allow";
+        };
+        BuilderContentAccessPolicyInput: {
+            /** @enum {string} */
+            mode: "allow" | "deny";
         };
         BuilderProjectInput: {
             /** @enum {string} */
@@ -24973,6 +25007,61 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+        };
+    };
+    getBuilderContentAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderContentAccessPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    setBuilderContentAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Active organization for session callers (verified against membership; API keys fix their own org). */
+                "X-Nuzm-Org"?: components["parameters"]["OrgHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderContentAccessPolicyInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderContentAccessPolicy"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     listBuilderProjects: {

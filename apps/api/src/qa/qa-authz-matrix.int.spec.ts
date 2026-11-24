@@ -68,6 +68,21 @@ describe('QA authz matrix: the scanner and the role table are sane', () => {
   it('scans a few hundred organization routes', () => {
     expect(orgRoutes.length).toBeGreaterThan(250);
   });
+  it('the matrix covers the Phase 2 routes by name (a refactor that hides them from the scanner fails here, not silently)', () => {
+    const keys = new Set(orgRoutes.map((r) => key(r)));
+    for (const k of [
+      'GET /v1/deployments/policy',
+      'PUT /v1/deployments/policy',
+      'GET /v1/builder/policies/content-access',
+      'PUT /v1/builder/policies/content-access',
+      'POST /v1/ai/approvals/:approvalId/decisions',
+      'POST /v1/ai/runs/:runId/cancellation',
+    ])
+      expect(
+        [...keys].some((x) => x.replace(/:[A-Za-z]+/g, ':p') === k.replace(/:[A-Za-z]+/g, ':p')),
+        k,
+      ).toBe(true);
+  });
   it('the role table is the one the matrix assumes (owner holds more than viewer; viewer cannot write AI, builder or deploy)', () => {
     const viewer = rolePerms.get('viewer')!;
     for (const p of [

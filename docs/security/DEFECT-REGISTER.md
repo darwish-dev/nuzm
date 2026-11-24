@@ -1,0 +1,63 @@
+# AI Agent Engine: defect register (Session 07, QA / security)
+
+Date: 2026-11-24 · Baseline of the review `f81872d5` · Register covers DEFECT-1 … DEFECT-15 and the concerns O-11 … O-16. Full write-ups: `docs/parallel/sessions/DEFECT-<n>-*.md`; observations O-1 … O-16 and the control list: `docs/security/AI-ENGINE-SECURITY-FINDINGS.md`.
+
+State vocabulary: **FIXED+RETESTED** = the owner's fix is in the tree I ran, and the test that states the secure expectation (first an `it.fails`, flipped to an ordinary test after the fix) passes; I saw the output. **FIXED-unverified** = a fix is reported but I have not run it. **OPEN** = not fixed. Every test was run alone on its own PostgreSQL with the real RLS roles; evidence class SIMULATED (mock model, mock execution port, in-memory publisher). "Seen" means the run output was in my terminal; the final column of section 3 repeats the counts of the last full pass over the merged head.
+
+## 1. Defects
+| ID | Severity | Component | Owner (fixer) | Fix commit | Proving test (file::name) | State |
+|---|---|---|---|---|---|---|
+| DEFECT-1 | Low-Medium | Execution Gateway policy: profile lookup walked the prototype chain (`constructor`, `__proto__` threw instead of refusing) | S04 | `35047320` | `qa-exec-gateway.int.spec.ts::DEFECT-1 (fixed by Session 04): the profile lookup does not walk the prototype chain` | FIXED+RETESTED |
+| DEFECT-2 | Low-Medium | Customer URL fetcher (`packages/domain/src/ai/ssrf.ts`): IPv6 spellings of private IPv4 not blocked | S04 | `cc318642` | `qa-ssrf-egress.int.spec.ts::DEFECT-2 (fixed): customer URL fetcher blocks %s (%s)` | FIXED+RETESTED |
+| DEFECT-3 | Low | Sandbox egress policy: SIIT `::ffff:0:a.b.c.d` and `100::/64` missed | S04 | `2f5277b4` | `qa-ssrf-egress.int.spec.ts::DEFECT-3 (fixed): sandbox policy blocks %s (%s)` | FIXED+RETESTED |
+| DEFECT-4 | Medium | Deploy: an API key could confirm a production publish approval | S06 | `8d787bfa` | `qa-deploy-approval.int.spec.ts::DEFECT-4: an API key (not a human) cannot confirm a publish approval` | FIXED+RETESTED |
+| DEFECT-5 | Low today (High if the runtime were shared) | Local dev sandbox control plane followed symlinks left by sandboxed code | S04 | `2f5277b4` | `qa-local-dev-sandbox.int.spec.ts::DEFECT-5 (fixed): reading a NAMED path never follows a symlink out of the sandbox` and `::… writing through a symlinked directory never lands outside the sandbox` | FIXED+RETESTED |
+| DEFECT-6 | Medium | AI run approval could be decided by an API key holding only `ai:write` | S02 | `5781c6f0` | `qa-run-approval.int.spec.ts::DEFECT-6: an API key (not a human) cannot decide a run approval` | FIXED+RETESTED |
+| DEFECT-7 | **High** | AI gateway: reserve/settle lock-order deadlock; the settle that lost left the customer charged with no usage record, no metering, run cap under-counted | S02 | `f02209cd` | `qa-ai-integrity.int.spec.ts::DEFECT-7 (fixed by Session 02): calls of ONE run in parallel never leave a wallet charge without a usage record …` | FIXED+RETESTED |
+| DEFECT-8 | Low-Medium | AI gateway: one call id sent concurrently reached the provider 9–11 times (customer charged once) | S02 | `f02209cd` | `qa-ai-integrity.int.spec.ts::DEFECT-8 (fixed by Session 02): the same call id sent 12 times AT ONCE reaches the provider once …` | FIXED+RETESTED |
+| DEFECT-9 | Medium | Outbound secret scanner missed 13 realistic shapes (prefixed `.env` names, JSON config, YAML next line, `sk-ant-`, `sk-proj-`, `AIza`, `sk_live_`) | Master | `ebfde17b` (+ `40295a49` dataset fixture) | `qa-secret-scan.int.spec.ts::DEFECT-9 (fixed): <shape> is detected` (13 cases) and the false-positive controls | FIXED+RETESTED |
+| DEFECT-10 | Medium | Execution orchestrator: idempotency key registered after awaits, concurrent submits ran the request several times | S04 | `c9c7c557` | `qa-exec-orchestrator.int.spec.ts::ten concurrent submits with ONE idempotency key create ONE job and ONE execution (DEFECT-10, fixed by Session 04)` | FIXED+RETESTED |
+| DEFECT-11 | Low | Deploy policy: concurrent first-ever edit answered 500 instead of 409 | S06 | `03380df9` | `qa-deploy-policy-matrix.int.spec.ts::eight simultaneous FIRST-EVER edits … (DEFECT-11, fixed by Session 06)` | FIXED+RETESTED |
+| DEFECT-12 | Low (latent) | Deploy targets: `decideTarget` read inherited object names as a rule and threw | S06 | `03380df9` | `qa-deploy-targets.int.spec.ts::DEFECT-12 (fixed by Session 06): inherited object names read as an UNKNOWN product type (null), never as a rule` | FIXED+RETESTED |
+| DEFECT-13 | Low | M10 approvals: the loser of a race against a different decision got 200 with the winner's record | S05 | `8733daad` | `qa-agent-loop-http.int.spec.ts::DEFECT-13 (fixed): a decision that LOST the race to a different decision is told so (409) …` | FIXED+RETESTED |
+| DEFECT-14 | Low-Medium | Cancelling a parked lifecycle run left its production-deploy approval pending and decidable | S05 | `8733daad` | `qa-agent-loop-http.int.spec.ts::DEFECT-14 (fixed): cancelling a run closes the deployment approval it is waiting on …` | FIXED+RETESTED |
+| DEFECT-15 | Low | Run engine: the organization's concurrent-run ceiling is a count then an insert (two unlocked statements); a burst overshoots it (found in the final re-verification; intermittent under load) | S02 | none yet | `qa-run-concurrency.int.spec.ts::DEFECT-15: the organization ceiling holds under bursts …` (`it.fails`, reproduced in 2 of 2 runs) | **OPEN** |
+
+Count: 15 found, 14 fixed and re-tested, 1 open (DEFECT-15, low). Severity counts: 1 High, 4 Medium (DEFECT-4, 6, 9, 10), 9 Low or Low-Medium. How each was found: static review (1–6), dynamic concurrency and reconciliation tests on the real ledger and audit chain (7, 8, 10, 11, 13, 14), a corpus of realistic secrets (9), a property check of a table lookup (12).
+
+## 2. Concerns and observations raised against Session 04 and 06 work (O-11 … O-16)
+| ID | Concern | Disposition | Evidence |
+|---|---|---|---|
+| O-11 | Orchestrator idempotency: the same key with a different request or run returned the first job (no conflict; keys not scoped to the run) | **FIXED** (`c9c7c557`): `idempotency_key_conflict`, also while the first is in flight, without leaking the first job id | `qa-exec-orchestrator.int.spec.ts::the same key with a DIFFERENT request …`, `::a conflicting duplicate that arrives WHILE the first is still being decided …` |
+| O-12 | `ExecDecision` is an unsigned plain object: a hand-made decision ran on the mock | **FIXED** (`c9c7c557`): ports run only decisions the gateway issued (`decision_not_issued_by_gateway`); altered argv/env/network/limits/approval flag and foreign org/run decisions refused | `qa-exec-orchestrator.int.spec.ts::QA orchestrator: a forged or altered decision (O-12 …)` (3 tests) |
+| O-13 | `ExecutionOutcome.artifacts` had no file kind, so link/device refusals could never fire | **FIXED** (`c9c7c557`): optional `kind` carried to the artifact policy; symlink, hard link, device, directory refused | `qa-exec-orchestrator.int.spec.ts::a runtime that reports a symlink, hard link, device or directory as an artifact is refused …` |
+| O-14 | The canary screen matches the exact string only (base64, hex, reversed or split canaries pass) | **ACCEPTED by design, documented**: safe only while the runtime holds no platform secret; becomes a qualification criterion (section 5 of `PHASE2-SECURITY-QUALIFICATION.md`) | `qa-exec-orchestrator.int.spec.ts::OBSERVATION: the canary screen is an exact match …` (documents the limit) |
+| O-15 | Staging target `approvalRef` was presence-only; a real panel could carry the SIMULATED label | **PARTLY FIXED** (`03380df9`): the reference must match `HG-05/06:<id>` and a real panel can never be labelled SIMULATED. **Residual:** nothing in code proves that the referenced owner-signed approval exists | `qa-deploy-targets.int.spec.ts::O-15 (fixed by Session 06) …` and `::CONCERN (remains) …` |
+| O-16 | Preview host tag was 32 bits (a guessable unpublished preview) | **FIXED** (`03380df9`): 64-bit tag, HMAC with a vault-held key for real runs | `qa-deploy-targets.int.spec.ts::O-16 (fixed by Session 06) …` |
+Observations O-1 (developer self-confirms a production publish), O-2 (rollback reuses the earlier approval) and O-9 (billing admin can read project content) are implemented as policy switches whose defaults equal today's behaviour; both settings are tested for every role (`qa-deploy-policy-matrix.int.spec.ts`, 26 tests; `builder-policy-route.int.spec.ts` by Session 05). Changing a default needs a recorded owner decision. O-3 … O-10 are listed with their dispositions in the findings document.
+
+## 3. Re-verification on the merged head
+Every QA suite was re-run ONE FILE AT A TIME on the merged head (integration `4feb1d84` + my branch; own PostgreSQL :54347; domain, adapter-model and db `dist` rebuilt first). Counts are from the run output I saw (2026-11-24, 15:50–16:20, machine load 110–290):
+
+| Suite | Result | Covers |
+|---|---|---|
+| `qa-route-inventory` | 8 passed | every public route pinned; platform routes need a platform permission; POSTs without `@Idempotent` pinned |
+| `qa-authz-matrix` | 11 passed | live matrix over every organization route (401 / 404 non-member / 403 per role, five roles), now also asserts the Phase 2 routes (`GET/PUT /v1/deployments/policy`, `GET/PUT /v1/builder/policies/content-access`, run cancellation, approval decisions) are in the scanned set |
+| `qa-exec-gateway` | 79 passed | Execution Gateway policy adversarial suite |
+| `qa-exec-orchestrator` | 19 passed | orchestrator, ports, forged/altered decisions, artifacts |
+| `qa-secret-scan` | 36 passed | 26 shapes + false-positive controls |
+| `qa-ssrf-egress` | 187 passed | 36-address corpus, URL attacks, safeFetch, egress policy |
+| `qa-local-dev-sandbox` | 6 passed | symlink confinement, refusal outside development |
+| `qa-deploy-approval` | 7 passed | deploy tenant isolation, roles, approval replay, API key |
+| `qa-deploy-targets` | 11 passed | target model, preview URL isolation |
+| `qa-deploy-policy-matrix` | 27 passed | O-1/O-2 both settings × five roles, races, expiry |
+| `qa-run-approval` | 5 passed | run approval decisions (DEFECT-6) |
+| `qa-run-concurrency` | first full pass: 5 failed (the ceiling burst overshoot, 4 active vs 3, and four cascades); then rewritten: **10 passed + 1 expected-fail (DEFECT-15)**, twice in a row | one run per session/key, workers, approvals, cancels, ceiling |
+| `qa-credential-custody` | 5 passed | key appears in no response, output or table |
+| `qa-ai-integrity` | 19 passed | ledger/wallet/usage reconciliation, DEFECT-7/8, audit chain concurrency and tamper detection, runtime role limits |
+| `qa-builder-tools` | 19 passed | builder tools HTTP: flag, authz, cross-tenant, no-side-effect dry runs |
+| `qa-agent-loop` | 15 passed | cancel/crash at every boundary, limits, budgets, injection (offline) |
+| `qa-agent-loop-http` | 17 passed | approvals, cancel, idempotency, concurrency, budget, injection (real engine) |
+| `qa-mobile-signing` | 6 passed | signing viewer-forbidden at API level |
+| `qa-migration-roundtrip` | 9 passed | up/down/up of every migration from 1800 with a schema fingerprint |
+Total: 19 suites, 496 tests passed, 1 expected-fail (DEFECT-15). Not run by me: the browser E2E (Master's isolated run), `flutter-local` (heavy slot), `sdk:check` and the repo-wide suites (Master's regression).

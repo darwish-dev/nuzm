@@ -139,8 +139,8 @@ describe('failureKey', () => {
     expect(failureKey('unknown_tool')).toBe('bt.lc.failure.tool_denied');
     expect(failureKey('<script>alert(1)</script>')).toBe('bt.lc.failure.unknown');
     expect(failureKey(null)).toBe('bt.lc.failure.unknown');
-    for (const l of LOCALES)
-      expect(missingKeys(l).filter((k) => k.startsWith('bt.lc.'))).toEqual([]);
+    // `missingKeys()` compares the two catalogues (keys present in one language only)
+    expect(missingKeys().filter((k) => k.startsWith('bt.lc.'))).toEqual([]);
   });
 });
 

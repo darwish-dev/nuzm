@@ -1,0 +1,173 @@
+# PREPARED, NOT ACTIVATED, NEVER RUN: no git remote exists (D-01 = local only) and no runner has been provisioned. Status: NOT VERIFIED.
+# Purpose: the dependency-driven, sharded pipeline for a dedicated remote CI/build runner (see infra/ci/RUNNER-REQUIREMENTS.md), so that integration and browser
+# suites stop competing for one 4-CPU / 8 GB workstation. It complements (does not replace) `ci.yml`. Triggered manually until a runner exists.
+# Every job gets its own database, ports and cache; no job needs a secret; nothing here calls a model provider, deploys, or touches production.
+name: ci-parallel
+on:
+  workflow_dispatch:
+    inputs:
+      run_e2e: { description: 'run the browser E2E jobs', type: boolean, default: true }
+      run_mobile:
+        {
+          description: 'run the Flutter/Android jobs (needs the mobile runner)',
+          type: boolean,
+          default: false,
+        }
+      run_ios:
+        {
+          description: 'run the iOS no-codesign job (needs a macOS runner with Xcode; see B-iOS)',
+          type: boolean,
+          default: false,
+        }
+concurrency:
+  group: ci-parallel-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CI: 'true'
+  TEST_CONCURRENCY: '4'
+jobs:
+  static:
+    runs-on: [self-hosted, linux, nuzm-build]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify # lint, typecheck, unit, build, spec lint/drift, sdk check, secret scan, zatca guard, claims guard
+      - run: pnpm audit --prod --audit-level=high
+  database:
+    needs: static
+    runs-on: [self-hosted, linux, nuzm-build]
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_HOST_AUTH_METHOD: trust, POSTGRES_USER: nuzm_admin }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nuzm_admin" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NUZM_TEST_ADMIN_URL: postgres://nuzm_admin@127.0.0.1:5432/postgres
+      DATABASE_ADMIN_URL: postgres://nuzm_admin@127.0.0.1:5432/nuzm_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec turbo run build --filter='@nuzm/api^...' --concurrency=2
+      - run: pnpm --filter @nuzm/db exec tsx src/cli.ts migrate
+      - run: pnpm db:test-rls
+      - run: pnpm compliance:classification-coverage
+      - run: pnpm compliance:ropa-coverage
+      - run: pnpm compliance:residency-hooks
+      - run: pnpm --filter @nuzm/db test:integration
+      - run: pnpm --filter @nuzm/platform test:integration
+      - run: pnpm --filter @nuzm/worker test:integration
+  api-integration:
+    needs: static
+    runs-on: [self-hosted, linux, nuzm-build]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/4', '2/4', '3/4', '4/4'] # vitest --shard splits the 127 integration files; each shard has its own Postgres service
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_HOST_AUTH_METHOD: trust, POSTGRES_USER: nuzm_admin }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nuzm_admin" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NUZM_TEST_ADMIN_URL: postgres://nuzm_admin@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec turbo run build --filter='@nuzm/api^...' --concurrency=2
+      - run: pnpm --filter @nuzm/api exec vitest run --config vitest.integration.config.mts --shard=${{ matrix.shard }}
+  e2e:
+    if: ${{ inputs.run_e2e }}
+    needs: static
+    runs-on: [self-hosted, linux, nuzm-build]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [ar, en] # Arabic (RTL) and English in parallel; each job builds both consoles for its own free ports
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_HOST_AUTH_METHOD: trust, POSTGRES_USER: nuzm_admin }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nuzm_admin" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      E2E_PG_PORT: '5432'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e:isolated --project=${{ matrix.project }}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.project }}
+          path: e2e/test-results
+          if-no-files-found: ignore
+  security:
+    needs: static
+    runs-on: [self-hosted, linux, nuzm-build]
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_HOST_AUTH_METHOD: trust, POSTGRES_USER: nuzm_admin }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nuzm_admin" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NUZM_TEST_ADMIN_URL: postgres://nuzm_admin@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec turbo run build --filter='@nuzm/api^...' --concurrency=2
+      - run: pnpm scan:secrets
+      - run: pnpm compliance:claims-guard
+      # the QA/security suites, one file at a time (they open their own databases)
+      - run: pnpm --filter @nuzm/api exec vitest run --config vitest.integration.config.mts src/qa --no-file-parallelism
+  mobile-android:
+    if: ${{ inputs.run_mobile }}
+    needs: static
+    runs-on: [self-hosted, linux, nuzm-mobile] # a dedicated, disposable runner: AI-generated project code builds ONLY there (B-Android)
+    timeout-minutes: 60
+    env: { MOBILE_FLUTTER_LOCAL: '1', MOBILE_BUILD_RUNNER: disposable-android }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @nuzm/api exec vitest run --config vitest.integration.config.mts src/modules/mobile/flutter-local.int.spec.ts
+  mobile-ios:
+    if: ${{ inputs.run_ios }}
+    needs: static
+    runs-on: [self-hosted, macos, nuzm-xcode] # needs full Xcode (B-iOS); builds with --no-codesign, no Apple account, no secrets
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version
+      - run: flutter doctor -v
+      # the iOS build command is owned by P3-S06 (infra/mobile/**); this job calls its script when it exists
+      - run: test -x infra/mobile/ios/build-no-codesign.sh && infra/mobile/ios/build-no-codesign.sh

@@ -47,7 +47,7 @@ import {
 } from './index';
 
 const CAPTURE = { runId: 'run-1', approvalRef: 'BUD-1', providerEvidenceRef: 'EV-1', capturedAt: '2026-01-01T00:00:00Z' };
-const asRecorded = (m: Map<string, Recording>) => new Map([...m].map(([k, v]) => [k, { ...v, origin: 'RECORDED' as const, capture: CAPTURE }]));
+const asRecorded = (m: Map<string, Recording>): Map<string, Recording> => new Map([...m].map(([k, v]) => [k, { ...v, origin: 'RECORDED' as const, capture: CAPTURE }]));
 const refs = () => new Map(GOLDEN_TASKS.map((t) => [t.id, referenceRecording(t)]));
 const recordedIdeal = () => asRecorded(mockSuite(GOLDEN_TASKS, 'ideal'));
 const rate = { creditsPerMillionInput: '3', creditsPerMillionOutput: '15' };

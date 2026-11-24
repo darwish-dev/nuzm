@@ -93,10 +93,10 @@ export function availableMemoryMb() {
   }
   return Math.floor(os.freemem() / 1048576);
 }
-/** Concurrent leases allowed: one per CPU, and one per ~1.2 GB of available memory, at least 1; NUZM_TESTENV_MAX_LEASES overrides. */
+/** Concurrent leases allowed: a lease is mostly an idle PostgreSQL cluster, so two per CPU and one per ~500 MB of available memory, at least 1; NUZM_TESTENV_MAX_LEASES overrides. Heavy test processes are throttled separately by scripts/heavy-slot.sh. */
 export function capacity(c = config(), memMb = availableMemoryMb(), cpus = os.cpus().length) {
   if (c.maxLeases !== undefined) return c.maxLeases;
-  return Math.max(1, Math.min(cpus, Math.floor(memMb / 1200)));
+  return Math.max(1, Math.min(cpus * 2, Math.floor(memMb / 500)));
 }
 
 export function listLeases(c = config()) {

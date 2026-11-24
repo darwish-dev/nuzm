@@ -101,8 +101,8 @@ describe('port allocation', () => {
   });
   it('capacity is derived from CPUs and memory when not overridden', () => {
     const c = { ...config(env), maxLeases: undefined };
-    assert.equal(capacity(c, 2400, 8), 2); // memory-bound
-    assert.equal(capacity(c, 64000, 4), 4); // CPU-bound
+    assert.equal(capacity(c, 2400, 8), 4); // memory-bound (500 MB per idle cluster)
+    assert.equal(capacity(c, 64000, 4), 8); // CPU-bound (two idle clusters per CPU)
     assert.equal(capacity(c, 100, 8), 1); // never below one
   });
 });

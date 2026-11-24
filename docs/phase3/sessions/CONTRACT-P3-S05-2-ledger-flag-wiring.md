@@ -40,3 +40,7 @@ No user-visible strings were added by S05 (the generated app carries its own Ara
 
 ## 6. Dependency allowlist note for S08
 The generated app's dependency policy is `pg` (runtime) + `typescript`, `@types/node`, `@types/pg` (dev). A product that needs more must extend the allowlist per project in the gate options; nothing is allowed implicitly.
+
+## 7. One-line change in a Phase 2 test owned by S03 (consequence of S05's revocation table)
+`apps/api/src/modules/appbuilder/generated-app.int.spec.ts` line 104 asserts the exact table list of a fresh generated schema. Generated schemas now also contain `app_revoked_sessions` (server-side logout revocation), so the expected list becomes
+`['app_revoked_sessions', 'app_users', 'audit_log', 'projects', 'tasks']`. S05 applies this only in its working tree to run the suite and does not commit it; the Master applies it with this contract.

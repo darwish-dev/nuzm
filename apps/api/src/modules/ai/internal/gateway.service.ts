@@ -411,7 +411,7 @@ export class GatewayService {
         // a signal that was ALREADY aborted never fires its event: without this the call would go out although the caller had cancelled
         if (call.signal?.aborted) ac.abort();
         const attemptStarted = Date.now();
-        let backoffMs = 0;
+        let backoffMs: number | undefined;
         try {
           const callCtx = { callId: `${call.callId}#${attempt}`, signal: ac.signal };
           const request = {
@@ -519,7 +519,7 @@ export class GatewayService {
           clearTimeout(timer);
           call.signal?.removeEventListener('abort', onAbort);
         }
-        if (backoffMs > 0) {
+        if (backoffMs !== undefined && backoffMs > 0) {
           try {
             await abortableSleep(backoffMs, call.signal);
           } catch {

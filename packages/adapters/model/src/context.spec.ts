@@ -6,7 +6,12 @@ const t = (role: ModelMessage['role'], content: string): ModelMessage => ({ role
 const calls = (...ids: string[]): ModelMessage => ({
   role: 'assistant',
   content: '',
-  blocks: ids.map((id) => ({ type: 'tool_call' as const, id, name: 'read_file', args: { path: 'a' } })),
+  blocks: ids.map((id) => ({
+    type: 'tool_call' as const,
+    id,
+    name: 'read_file',
+    args: { path: 'a' },
+  })),
 });
 const results = (len: number, ...ids: string[]): ModelMessage => ({
   role: 'user',
@@ -21,7 +26,8 @@ const chars = (ms: ModelMessage[]) =>
       n +
       m.content.length +
       (m.blocks ?? []).reduce(
-        (k, b) => k + (b.type === 'text' ? b.text.length : b.type === 'tool_call' ? 10 : b.content.length),
+        (k, b) =>
+          k + (b.type === 'text' ? b.text.length : b.type === 'tool_call' ? 10 : b.content.length),
         0,
       ),
     0,
@@ -30,9 +36,13 @@ const opt = { count: chars, safetyTokens: 0 };
 
 describe('promptBudget', () => {
   it('is window minus output minus safety, never negative', () => {
-    expect(promptBudget({ contextTokens: 200_000, maxOutputTokens: 8000 }, 4000, 1000)).toBe(195_000);
+    expect(promptBudget({ contextTokens: 200_000, maxOutputTokens: 8000 }, 4000, 1000)).toBe(
+      195_000,
+    );
     expect(promptBudget({ contextTokens: 1000, maxOutputTokens: 8000 }, 4000, 0)).toBe(0);
-    expect(promptBudget({ contextTokens: 100_000, maxOutputTokens: 8000 }, 1000)).toBe(100_000 - 1000 - 3000);
+    expect(promptBudget({ contextTokens: 100_000, maxOutputTokens: 8000 }, 1000)).toBe(
+      100_000 - 1000 - 3000,
+    );
   });
 });
 
@@ -74,25 +84,45 @@ describe('fitContext', () => {
     const r = fitContext(ms, { contextTokens: 120, maxTokens: 1, ...opt }); // budget 119: the 300-char result cannot stay
     expect(r.fits).toBe(true);
     const ids = (k: 'tool_call' | 'tool_result') =>
-      r.messages.flatMap((m) => (m.blocks ?? []).filter((b) => b.type === k).map((b) => (b.type === 'tool_call' ? b.id : b.type === 'tool_result' ? b.callId : '')));
+      r.messages.flatMap((m) =>
+        (m.blocks ?? [])
+          .filter((b) => b.type === k)
+          .map((b) => (b.type === 'tool_call' ? b.id : b.type === 'tool_result' ? b.callId : '')),
+      );
     expect(ids('tool_call')).toEqual(ids('tool_result')); // paired
     expect(ids('tool_call')).toEqual(['c2']);
     expect(r.droppedMessages).toBe(2);
   });
   it('keeps the pinned last turn when it is a tool round trip (the assistant message that made the calls stays with the results)', () => {
-    const ms = [t('user', 'TASK'), t('assistant', 'a'.repeat(500)), t('user', 'u'.repeat(500)), calls('c9'), results(20, 'c9')];
+    const ms = [
+      t('user', 'TASK'),
+      t('assistant', 'a'.repeat(500)),
+      t('user', 'u'.repeat(500)),
+      calls('c9'),
+      results(20, 'c9'),
+    ];
     const r = fitContext(ms, { contextTokens: 100, maxTokens: 1, ...opt });
     expect(r.fits).toBe(true);
     expect(r.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'user']);
     expect(r.messages[1]!.blocks![0]).toMatchObject({ type: 'tool_call', id: 'c9' });
   });
   it('without a leading user task, a leading assistant turn left by the trimming is dropped too', () => {
-    const ms = [t('assistant', 'a'.repeat(50)), t('user', 'u'.repeat(50)), t('assistant', 'b'.repeat(5)), t('user', 'LAST')];
+    const ms = [
+      t('assistant', 'a'.repeat(50)),
+      t('user', 'u'.repeat(50)),
+      t('assistant', 'b'.repeat(5)),
+      t('user', 'LAST'),
+    ];
     const r = fitContext(ms, { contextTokens: 70, maxTokens: 1, ...opt });
     expect(r.messages[0]!.role).toBe('user');
   });
   it('reports, and does not cut, a pinned part that alone is too large', () => {
-    const ms = [t('system', 'S'), t('user', 'u'.repeat(500)), t('assistant', 'a'.repeat(5)), t('user', 'q'.repeat(500))];
+    const ms = [
+      t('system', 'S'),
+      t('user', 'u'.repeat(500)),
+      t('assistant', 'a'.repeat(5)),
+      t('user', 'q'.repeat(500)),
+    ];
     const r = fitContext(ms, { contextTokens: 300, maxTokens: 1, ...opt });
     expect(r).toMatchObject({ fits: false, reason: 'pinned_part_too_large' });
     expect(r.messages).toHaveLength(3); // system + first user + last user, uncut
@@ -104,7 +134,12 @@ describe('fitContext', () => {
   });
   it('clips long tool results (start and end kept) and says how many', () => {
     const ms = [t('user', 'TASK'), calls('c1'), results(10_000, 'c1'), t('user', 'LAST')];
-    const r = fitContext(ms, { contextTokens: 100_000, maxTokens: 10, ...opt, maxToolResultChars: 200 });
+    const r = fitContext(ms, {
+      contextTokens: 100_000,
+      maxTokens: 10,
+      ...opt,
+      maxToolResultChars: 200,
+    });
     expect(r.clippedToolResults).toBe(1);
     const b = r.messages[2]!.blocks![0]!;
     expect(b.type === 'tool_result' && b.content.length).toBeLessThan(300);
@@ -112,8 +147,17 @@ describe('fitContext', () => {
     expect(ms[2]!.blocks![0]).toMatchObject({ content: 'r'.repeat(10_000) }); // the input is never mutated
   });
   it('handles only-system and empty input, uses the contract estimate by default, never mutates the input', () => {
-    expect(fitContext([], { contextTokens: 1000, maxTokens: 10, safetyTokens: 0 })).toMatchObject({ fits: true, messages: [] });
-    expect(fitContext([t('system', words(5000))], { contextTokens: 1000, maxTokens: 10, safetyTokens: 0 })).toMatchObject({ fits: false });
+    expect(fitContext([], { contextTokens: 1000, maxTokens: 10, safetyTokens: 0 })).toMatchObject({
+      fits: true,
+      messages: [],
+    });
+    expect(
+      fitContext([t('system', words(5000))], {
+        contextTokens: 1000,
+        maxTokens: 10,
+        safetyTokens: 0,
+      }),
+    ).toMatchObject({ fits: false });
     const ms = [t('user', words(10)), t('assistant', words(10)), t('user', words(10))];
     const copy = JSON.stringify(ms);
     const r = fitContext(ms, { contextTokens: 40, maxTokens: 1, safetyTokens: 0 });

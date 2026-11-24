@@ -271,7 +271,12 @@ export class HealthMonitor {
     if (!countsAgainstHealth(code)) return;
     const at = this.clock.now();
     this.lastErr.set(key, { code, at });
-    this.push(key, { at, ok: false, latencyMs: Math.max(0, Math.floor(latencyMs)), errorCode: code });
+    this.push(key, {
+      at,
+      ok: false,
+      latencyMs: Math.max(0, Math.floor(latencyMs)),
+      errorCode: code,
+    });
   }
   private push(key: string, s: HealthSample): void {
     const arr = this.samples.get(key) ?? [];
@@ -285,7 +290,9 @@ export class HealthMonitor {
     const ok = live.filter((s) => s.ok);
     const lat = ok.map((s) => s.latencyMs).sort((a, b) => a - b);
     const pct = (p: number): number | null =>
-      lat.length === 0 ? null : lat[Math.min(lat.length - 1, Math.ceil((p / 100) * lat.length) - 1)]!;
+      lat.length === 0
+        ? null
+        : lat[Math.min(lat.length - 1, Math.ceil((p / 100) * lat.length) - 1)]!;
     const rate = live.length === 0 ? null : Math.floor((ok.length * 1000) / live.length);
     // the circuit is per PROVIDER (a provider outage hits all its models): `provider/model` keys read their provider's state
     const breaker = this.breaker?.state(key.split('/')[0]!) ?? 'closed';

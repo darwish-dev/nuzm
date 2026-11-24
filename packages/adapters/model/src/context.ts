@@ -68,7 +68,10 @@ export function fitContext(messages: readonly ModelMessage[], o: FitOptions): Fi
   let clipped = 0;
   const work: ModelMessage[] = messages.map((m) => {
     const max = o.maxToolResultChars;
-    if (max === undefined || !m.blocks?.some((b) => b.type === 'tool_result' && b.content.length > max))
+    if (
+      max === undefined ||
+      !m.blocks?.some((b) => b.type === 'tool_result' && b.content.length > max)
+    )
       return m;
     return {
       ...m,
@@ -98,7 +101,15 @@ export function fitContext(messages: readonly ModelMessage[], o: FitOptions): Fi
   }
   if (units.length === 0) {
     const t = count(head);
-    return { messages: head, fits: t <= budget, promptTokens: t, budgetTokens: budget, droppedMessages: 0, clippedToolResults: clipped, ...(t <= budget ? {} : { reason: 'pinned_part_too_large' as const }) };
+    return {
+      messages: head,
+      fits: t <= budget,
+      promptTokens: t,
+      budgetTokens: budget,
+      droppedMessages: 0,
+      clippedToolResults: clipped,
+      ...(t <= budget ? {} : { reason: 'pinned_part_too_large' as const }),
+    };
   }
 
   const pinnedLast = units[units.length - 1]!;

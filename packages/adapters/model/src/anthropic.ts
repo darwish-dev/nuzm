@@ -106,7 +106,10 @@ export interface ClaudeModelListing {
 export interface ClaudeClient {
   /** optional: only model discovery uses it */
   models?: {
-    list(params?: Record<string, unknown>, opts?: { signal?: AbortSignal }): Promise<ClaudeModelListing>;
+    list(
+      params?: Record<string, unknown>,
+      opts?: { signal?: AbortSignal },
+    ): Promise<ClaudeModelListing>;
   };
   messages: {
     create(
@@ -185,7 +188,8 @@ export class AnthropicModelAdapter implements ModelAdapter {
     if (ctx.signal?.aborted) throw new ModelAdapterError('aborted', ERR.aborted);
     this.assertLive();
     const client = await this.client();
-    if (!client.models) throw new ModelAdapterError('unavailable', 'model listing is not available', false);
+    if (!client.models)
+      throw new ModelAdapterError('unavailable', 'model listing is not available', false);
     try {
       const page = await client.models.list({ limit: 100 }, { signal: ctx.signal });
       const out: DiscoveredModel[] = [];
@@ -193,7 +197,9 @@ export class AnthropicModelAdapter implements ModelAdapter {
         if (typeof m.id !== 'string' || !/^[A-Za-z0-9._:-]{1,128}$/.test(m.id)) continue;
         out.push({
           modelId: m.id,
-          ...(typeof m.display_name === 'string' ? { displayName: m.display_name.slice(0, 120) } : {}),
+          ...(typeof m.display_name === 'string'
+            ? { displayName: m.display_name.slice(0, 120) }
+            : {}),
           ...(typeof m.created_at === 'string' ? { createdAt: m.created_at.slice(0, 40) } : {}),
         });
       }

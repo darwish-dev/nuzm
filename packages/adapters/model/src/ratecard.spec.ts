@@ -28,7 +28,18 @@ describe('decimals and currencies', () => {
     expect(parseDec('4.00')).toEqual({ int: 400n, scale: 2 });
     expect(parseDec('0.0375')).toEqual({ int: 375n, scale: 4 });
     expect(parseDec('12')).toEqual({ int: 12n, scale: 0 });
-    for (const bad of ['', '-1', '1e3', '1,5', '.5', '5.', ' 1', '1.1234567890123', 'NaN', '1'.repeat(16)])
+    for (const bad of [
+      '',
+      '-1',
+      '1e3',
+      '1,5',
+      '.5',
+      '5.',
+      ' 1',
+      '1.1234567890123',
+      'NaN',
+      '1'.repeat(16),
+    ])
       expect(() => parseDec(bad), bad).toThrow(RangeError);
   });
   it('knows minor exponents and refuses unknown currencies', () => {
@@ -52,8 +63,12 @@ describe('convertMinor', () => {
     expect(convertMinor(1n, { ...usdSar, rate: '3.4' }, 'half_up')).toBe(3n);
   });
   it('handles different minor exponents (USD→KWD 3 digits, USD→JPY 0 digits)', () => {
-    expect(convertMinor(100n, { from: 'USD', to: 'KWD', rate: '0.3', asOf: 'x', source: 's' })).toBe(300n); // 1.00 USD = 0.300 KWD
-    expect(convertMinor(100n, { from: 'USD', to: 'JPY', rate: '150', asOf: 'x', source: 's' })).toBe(150n);
+    expect(
+      convertMinor(100n, { from: 'USD', to: 'KWD', rate: '0.3', asOf: 'x', source: 's' }),
+    ).toBe(300n); // 1.00 USD = 0.300 KWD
+    expect(
+      convertMinor(100n, { from: 'USD', to: 'JPY', rate: '150', asOf: 'x', source: 's' }),
+    ).toBe(150n);
   });
   it('is exact for huge amounts (no float)', () => {
     expect(convertMinor(10n ** 18n, usdSar)).toBe(375n * 10n ** 16n);
@@ -85,7 +100,11 @@ describe('StaticFxRateSource', () => {
   });
 });
 
-const card = (version: string, from: string, models: RateCardVersion['models']): RateCardVersion => ({
+const card = (
+  version: string,
+  from: string,
+  models: RateCardVersion['models'],
+): RateCardVersion => ({
   version,
   effectiveFrom: from,
   models,
@@ -116,14 +135,18 @@ describe('rate card versions', () => {
     expect(validateRateCardHistory([card('x', v1.effectiveFrom, { a: m('1.5', '2') })])).toEqual(
       expect.arrayContaining([expect.stringContaining('integer strings')]),
     );
-    expect(validateRateCardHistory([card('x', v1.effectiveFrom, { a: m('1'.repeat(16), '2') })]).length).toBe(1);
+    expect(
+      validateRateCardHistory([card('x', v1.effectiveFrom, { a: m('1'.repeat(16), '2') })]).length,
+    ).toBe(1);
     expect(validateRateCardHistory([card('x', v1.effectiveFrom, {})])).toEqual(
       expect.arrayContaining([expect.stringContaining('no models')]),
     );
     expect(() => selectRateCardVersion([{ ...v1, effectiveFrom: 'nope' }], AT)).toThrow(RangeError);
   });
   it('diffs added, changed and removed models', () => {
-    expect(diffRateCards(null, v1)).toEqual([{ modelId: 'a', change: 'added', after: m('100', '500') }]);
+    expect(diffRateCards(null, v1)).toEqual([
+      { modelId: 'a', change: 'added', after: m('100', '500') },
+    ]);
     expect(diffRateCards(v1, v2)).toEqual([
       { modelId: 'a', change: 'changed', before: m('100', '500'), after: m('120', '500') },
       { modelId: 'b', change: 'added', after: m('10', '20') },
@@ -149,7 +172,10 @@ describe('deriveRateCard (a preview; the numbers are synthetic)', () => {
   it('applies fx then margin then the credit unit, rounding up', async () => {
     const c = await deriveRateCard(fx, AT, 'draft-1', base);
     // 4.00 USD = 400 cents → 1500 halalas → +20% = 1800 credits; 20.00 USD → 7500 → 9000
-    expect(c.models['model-x']).toEqual({ creditsPerMillionInput: '1800', creditsPerMillionOutput: '9000' });
+    expect(c.models['model-x']).toEqual({
+      creditsPerMillionInput: '1800',
+      creditsPerMillionOutput: '9000',
+    });
     expect(c.basis).toMatchObject({
       marginBps: 2000,
       vendorPriceRef: 'synthetic-fixture-2026-11-24',
@@ -160,7 +186,10 @@ describe('deriveRateCard (a preview; the numbers are synthetic)', () => {
   });
   it('a credit worth 10 minor units divides the credits, rounding up', async () => {
     const c = await deriveRateCard(fx, AT, 'draft-2', { ...base, creditUnitMinor: 10 });
-    expect(c.models['model-x']).toEqual({ creditsPerMillionInput: '180', creditsPerMillionOutput: '900' });
+    expect(c.models['model-x']).toEqual({
+      creditsPerMillionInput: '180',
+      creditsPerMillionOutput: '900',
+    });
     const odd = await deriveRateCard(fx, AT, 'draft-3', { ...base, creditUnitMinor: 7 });
     expect(odd.models['model-x']!.creditsPerMillionInput).toBe('258'); // ceil(1800/7)
   });
@@ -177,13 +206,24 @@ describe('deriveRateCard (a preview; the numbers are synthetic)', () => {
     await expect(deriveRateCard(new StaticFxRateSource([]), AT, 'd', base)).rejects.toBeInstanceOf(
       FxUnavailableError,
     );
-    await expect(deriveRateCard(fx, AT, 'd', { ...base, marginBps: -1 })).rejects.toThrow(RangeError);
-    await expect(deriveRateCard(fx, AT, 'd', { ...base, marginBps: 1.5 })).rejects.toThrow(RangeError);
-    await expect(deriveRateCard(fx, AT, 'd', { ...base, creditUnitMinor: 0 })).rejects.toThrow(RangeError);
-    await expect(deriveRateCard(fx, AT, 'd', { ...base, vendorPriceRef: ' ' })).rejects.toThrow(RangeError);
+    await expect(deriveRateCard(fx, AT, 'd', { ...base, marginBps: -1 })).rejects.toThrow(
+      RangeError,
+    );
+    await expect(deriveRateCard(fx, AT, 'd', { ...base, marginBps: 1.5 })).rejects.toThrow(
+      RangeError,
+    );
+    await expect(deriveRateCard(fx, AT, 'd', { ...base, creditUnitMinor: 0 })).rejects.toThrow(
+      RangeError,
+    );
+    await expect(deriveRateCard(fx, AT, 'd', { ...base, vendorPriceRef: ' ' })).rejects.toThrow(
+      RangeError,
+    );
     await expect(deriveRateCard(fx, AT, 'd', { ...base, prices: {} })).rejects.toThrow(RangeError);
     await expect(
-      deriveRateCard(fx, AT, 'd', { ...base, prices: { a: { inputPerMillion: '1e3', outputPerMillion: '1' } } }),
+      deriveRateCard(fx, AT, 'd', {
+        ...base,
+        prices: { a: { inputPerMillion: '1e3', outputPerMillion: '1' } },
+      }),
     ).rejects.toThrow(RangeError);
   });
 });

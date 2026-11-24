@@ -55,7 +55,12 @@ export function explainCapabilities(i: ResolveInput): CapabilityExplanation[] {
   const hasTools = i.declared.includes('tool-use');
   return ALL_CAPABILITIES.map((capability): CapabilityExplanation => {
     const declared = i.declared.includes(capability);
-    const out = (effective: boolean, basis: CapabilityBasis) => ({ capability, declared, effective, basis });
+    const out = (effective: boolean, basis: CapabilityBasis) => ({
+      capability,
+      declared,
+      effective,
+      basis,
+    });
     if (!declared) return out(false, 'not_declared');
     if (!V1_1_CAPABILITIES.includes(capability)) return out(true, 'adapter_declared');
     if (!v11) return out(false, 'contract_too_old');
@@ -101,7 +106,9 @@ export interface RegistryEntry {
   /** the declared-but-not-effective capabilities: what a probe or evidence row would still have to establish */
   pending: ModelCapability[];
 }
-export function buildCapabilityRegistry(providers: readonly RegistryProviderInput[]): RegistryEntry[] {
+export function buildCapabilityRegistry(
+  providers: readonly RegistryProviderInput[],
+): RegistryEntry[] {
   const out: RegistryEntry[] = [];
   for (const p of providers) {
     const devReference = /^(mock|local)-/.test(p.providerCode);
@@ -126,7 +133,9 @@ export function buildCapabilityRegistry(providers: readonly RegistryProviderInpu
       });
     }
   }
-  return out.sort((a, b) => `${a.providerCode}/${a.modelId}`.localeCompare(`${b.providerCode}/${b.modelId}`));
+  return out.sort((a, b) =>
+    `${a.providerCode}/${a.modelId}`.localeCompare(`${b.providerCode}/${b.modelId}`),
+  );
 }
 
 // ───────────────────────────── discovery ─────────────────────────────

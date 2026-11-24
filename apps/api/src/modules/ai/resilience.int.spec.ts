@@ -13,7 +13,14 @@ import { LedgerPostingService } from '../billing';
 import { AuditSink } from '../../common/audit';
 import { FieldCipher } from '../../common/field-crypto';
 import { DB } from '../../common/tokens';
-import { AI_CONFIG, AiFlags, BudgetService, GatewayService, ModelProviderService, ModelAdapterRegistry } from './index';
+import {
+  AI_CONFIG,
+  AiFlags,
+  BudgetService,
+  GatewayService,
+  ModelProviderService,
+  ModelAdapterRegistry,
+} from './index';
 import type { AiConfig } from './index';
 import { setupAiEnv, type AiEnv } from './testing/ai-harness';
 
@@ -100,9 +107,18 @@ describe('circuit breaker through the gateway', () => {
     const callId = `c-${uuidv7()}`;
     expect((await gw.invoke({ ...base(), callId })).providerCode).toBe('mock-res-b');
     expect(a.calls.length).toBe(before); // not even tried
-    const held = await e.sql(`SELECT call_id FROM ai.reservations WHERE org_id=$1 AND call_id LIKE $2`, [A(), `${callId}@%`]);
-    expect(held.map((x) => String(x.call_id).split('@')[1]!.startsWith('mock-res-a'))).not.toContain(true); // no hold was taken for A
-    expect(gw.providerHealth().find((h) => h.key.startsWith('mock-res-a/'))).toMatchObject({ breaker: 'open', status: 'unhealthy', lastErrorCode: 'unavailable' });
+    const held = await e.sql(
+      `SELECT call_id FROM ai.reservations WHERE org_id=$1 AND call_id LIKE $2`,
+      [A(), `${callId}@%`],
+    );
+    expect(
+      held.map((x) => String(x.call_id).split('@')[1]!.startsWith('mock-res-a')),
+    ).not.toContain(true); // no hold was taken for A
+    expect(gw.providerHealth().find((h) => h.key.startsWith('mock-res-a/'))).toMatchObject({
+      breaker: 'open',
+      status: 'unhealthy',
+      lastErrorCode: 'unavailable',
+    });
     a.clearFaults();
   });
 
@@ -140,20 +156,27 @@ describe('circuit breaker through the gateway', () => {
   });
 
   it('with every circuit open the caller gets 503 "paused", the reservation table is untouched, and nothing is called', async () => {
-    const r = resilience({ breaker: { failureThreshold: 1, openMs: 10_000, halfOpenMaxProbes: 1 } });
+    const r = resilience({
+      breaker: { failureThreshold: 1, openMs: 10_000, halfOpenMaxProbes: 1 },
+    });
     const gw = gatewayWith({ attemptsPerCandidate: 1 }, r);
     a.failNext(down(), 100);
     b.failNext(down(), 100);
     await expect(gw.invoke(base())).rejects.toMatchObject({ code: 'service_unavailable' });
     const calls = [a.calls.length, b.calls.length];
-    await expect(gw.invoke(base())).rejects.toMatchObject({ code: 'service_unavailable', detail: expect.stringContaining('circuit open') });
+    await expect(gw.invoke(base())).rejects.toMatchObject({
+      code: 'service_unavailable',
+      detail: expect.stringContaining('circuit open'),
+    });
     expect([a.calls.length, b.calls.length]).toEqual(calls);
     a.clearFaults();
     b.clearFaults();
   });
 
-  it('errors that are not the provider\'s fault (content filtered, bad request) never open the circuit', async () => {
-    const r = resilience({ breaker: { failureThreshold: 1, openMs: 10_000, halfOpenMaxProbes: 1 } });
+  it("errors that are not the provider's fault (content filtered, bad request) never open the circuit", async () => {
+    const r = resilience({
+      breaker: { failureThreshold: 1, openMs: 10_000, halfOpenMaxProbes: 1 },
+    });
     const gw = gatewayWith({ attemptsPerCandidate: 1 }, r);
     for (let i = 0; i < 3; i++) {
       a.failNext(new ModelAdapterError('content_filtered', 'no'), 1);
@@ -172,7 +195,9 @@ describe('circuit breaker through the gateway', () => {
     now += 10_000; // half-open
     const ac = new AbortController();
     ac.abort();
-    await expect(gw.invoke({ ...base(), signal: ac.signal })).rejects.toMatchObject({ code: 'conflict' });
+    await expect(gw.invoke({ ...base(), signal: ac.signal })).rejects.toMatchObject({
+      code: 'conflict',
+    });
     // the trial slot is free again: the next call is the trial and closes the circuit
     expect((await gw.invoke(base())).providerCode).toBe('mock-res-a');
   });
@@ -187,19 +212,28 @@ describe('retry backoff through the gateway', () => {
   afterAll(() => disable('mock-retry'));
 
   it('honours a short Retry-After on the same reservation, then succeeds', async () => {
-    const gw = gatewayWith({ attemptsPerCandidate: 3 }, resilience({ retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 200, jitter: 'none' } }));
+    const gw = gatewayWith(
+      { attemptsPerCandidate: 3 },
+      resilience({ retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 200, jitter: 'none' } }),
+    );
     a.failNext(new ModelAdapterError('rate_limited', 'slow', true, 30), 1);
     const callId = `c-${uuidv7()}`;
     const started = Date.now();
     const r = await gw.invoke({ ...base(), callId });
     expect(Date.now() - started).toBeGreaterThanOrEqual(25);
     expect(r.finishReason).toBe('stop');
-    const held = await e.sql(`SELECT count(*) n FROM ai.reservations WHERE org_id=$1 AND call_id LIKE $2`, [A(), `${callId}@%`]);
+    const held = await e.sql(
+      `SELECT count(*) n FROM ai.reservations WHERE org_id=$1 AND call_id LIKE $2`,
+      [A(), `${callId}@%`],
+    );
     expect(Number(held[0]!.n)).toBe(1);
   });
 
   it('a Retry-After longer than the cap is NOT waited for: no further attempt on this provider, the call fails over (here: 503)', async () => {
-    const gw = gatewayWith({ attemptsPerCandidate: 3 }, resilience({ retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 200, jitter: 'none' } }));
+    const gw = gatewayWith(
+      { attemptsPerCandidate: 3 },
+      resilience({ retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 200, jitter: 'none' } }),
+    );
     const calls = a.calls.length;
     a.failNext(new ModelAdapterError('rate_limited', 'slow', true, 60_000), 50);
     const started = Date.now();
@@ -212,23 +246,36 @@ describe('retry backoff through the gateway', () => {
   });
 
   it('a call cancelled while it waits to be retried sends nothing more, releases the reservation and answers conflict', async () => {
-    const gw = gatewayWith({ attemptsPerCandidate: 3 }, resilience({ retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 10_000, jitter: 'none' } }));
+    const gw = gatewayWith(
+      { attemptsPerCandidate: 3 },
+      resilience({ retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 10_000, jitter: 'none' } }),
+    );
     a.failNext(new ModelAdapterError('rate_limited', 'slow', true, 5_000), 1);
     const calls = a.calls.length;
     const ac = new AbortController();
     setTimeout(() => ac.abort(), 50);
     const callId = `c-${uuidv7()}`;
     const started = Date.now();
-    await expect(gw.invoke({ ...base(), callId, signal: ac.signal })).rejects.toMatchObject({ code: 'conflict' });
+    await expect(gw.invoke({ ...base(), callId, signal: ac.signal })).rejects.toMatchObject({
+      code: 'conflict',
+    });
     expect(Date.now() - started).toBeLessThan(2_000);
     expect(a.calls.length).toBe(calls + 1);
-    const open = await e.sql(`SELECT state FROM ai.reservations WHERE org_id=$1 AND call_id LIKE $2`, [A(), `${callId}@%`]);
+    const open = await e.sql(
+      `SELECT state FROM ai.reservations WHERE org_id=$1 AND call_id LIKE $2`,
+      [A(), `${callId}@%`],
+    );
     expect(open.every((x) => x.state !== 'held')).toBe(true);
     a.clearFaults();
   });
 
   it('exponential backoff without a hint is bounded by the policy (deterministic, no jitter)', async () => {
-    const gw = gatewayWith({ attemptsPerCandidate: 3 }, resilience({ retry: { maxAttempts: 3, baseDelayMs: 20, maxDelayMs: 40, jitter: 'none', multiplier: 2 } }));
+    const gw = gatewayWith(
+      { attemptsPerCandidate: 3 },
+      resilience({
+        retry: { maxAttempts: 3, baseDelayMs: 20, maxDelayMs: 40, jitter: 'none', multiplier: 2 },
+      }),
+    );
     a.failNext(down(), 2);
     const started = Date.now();
     await gw.invoke(base());
@@ -256,7 +303,10 @@ describe('approved fallback routing through the gateway', () => {
   const modelOf = (ad: MockModelAdapter) => ad.models()[0]!.modelId;
 
   it('approved_only with nothing approved: a failing primary is NOT replaced by the other allowed provider', async () => {
-    const gw = gatewayWith({ attemptsPerCandidate: 1, fallbackPolicy: { mode: 'approved_only', approved: {} } }, resilience());
+    const gw = gatewayWith(
+      { attemptsPerCandidate: 1, fallbackPolicy: { mode: 'approved_only', approved: {} } },
+      resilience(),
+    );
     a.failNext(down(), 100);
     const bCalls = b.calls.length;
     await expect(gw.invoke(base())).rejects.toMatchObject({ code: 'service_unavailable' });
@@ -264,7 +314,10 @@ describe('approved fallback routing through the gateway', () => {
     a.clearFaults();
   });
   it('approved_only with the pair approved: the fallback serves', async () => {
-    const policy = { mode: 'approved_only' as const, approved: { [`mock-fb-a/${modelOf(a)}`]: [`mock-fb-b/${modelOf(b)}`] } };
+    const policy = {
+      mode: 'approved_only' as const,
+      approved: { [`mock-fb-a/${modelOf(a)}`]: [`mock-fb-b/${modelOf(b)}`] },
+    };
     const gw = gatewayWith({ attemptsPerCandidate: 1, fallbackPolicy: policy }, resilience());
     a.failNext(down(), 100);
     expect((await gw.invoke(base())).providerCode).toBe('mock-fb-b');
@@ -272,7 +325,10 @@ describe('approved fallback routing through the gateway', () => {
   });
   it('the policy can never add a candidate: residency still decides who is allowed', async () => {
     await e.sql(`UPDATE ai.model_providers SET region='de-frankfurt' WHERE code='mock-fb-b'`);
-    const policy = { mode: 'approved_only' as const, approved: { [`mock-fb-a/${modelOf(a)}`]: [`mock-fb-b/${modelOf(b)}`] } };
+    const policy = {
+      mode: 'approved_only' as const,
+      approved: { [`mock-fb-a/${modelOf(a)}`]: [`mock-fb-b/${modelOf(b)}`] },
+    };
     const gw = gatewayWith({ attemptsPerCandidate: 1, fallbackPolicy: policy }, resilience());
     a.failNext(down(), 100);
     const bCalls = b.calls.length;
@@ -292,7 +348,9 @@ describe('approved fallback routing through the gateway', () => {
 describe('health monitor through the gateway', () => {
   it('records successes with latency and failures with the code (per provider and per provider/model); a cancel is not a sample', async () => {
     const { adapter: a } = await e.enableMock('mock-health');
-    const r = resilience({ breaker: { failureThreshold: 1000, openMs: 10_000, halfOpenMaxProbes: 1 } });
+    const r = resilience({
+      breaker: { failureThreshold: 1000, openMs: 10_000, halfOpenMaxProbes: 1 },
+    });
     const gw = gatewayWith({ attemptsPerCandidate: 1 }, r);
     for (let i = 0; i < 4; i++) await gw.invoke(base());
     const before = a.calls.length;
@@ -303,7 +361,9 @@ describe('health monitor through the gateway', () => {
     expect(failures).toBeGreaterThan(0);
     const ac = new AbortController();
     ac.abort();
-    await expect(gw.invoke({ ...base(), signal: ac.signal })).rejects.toMatchObject({ code: 'conflict' });
+    await expect(gw.invoke({ ...base(), signal: ac.signal })).rejects.toMatchObject({
+      code: 'conflict',
+    });
     const h = gw.providerHealth().find((x) => x.key === 'mock-health')!;
     expect(h.samples).toBe(4 + failures);
     expect(h.successPerMille).toBe(Math.floor((4 * 1000) / (4 + failures)));

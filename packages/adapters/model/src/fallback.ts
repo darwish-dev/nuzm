@@ -25,7 +25,12 @@ export function parseFallbackPolicy(raw: unknown): FallbackPolicy | null {
   if (r.approved !== undefined) {
     if (!r.approved || typeof r.approved !== 'object' || Array.isArray(r.approved)) return null;
     for (const [k, v] of Object.entries(r.approved)) {
-      if (!KEY.test(k) || !Array.isArray(v) || v.length > 32 || v.some((x) => typeof x !== 'string' || !KEY.test(x)))
+      if (
+        !KEY.test(k) ||
+        !Array.isArray(v) ||
+        v.length > 32 ||
+        v.some((x) => typeof x !== 'string' || !KEY.test(x))
+      )
         return null;
       approved[k] = [...new Set(v as string[])];
     }

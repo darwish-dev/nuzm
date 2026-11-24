@@ -105,7 +105,12 @@ export class ProviderInsightsService {
 
   /** Aggregated usage from the append-only `ai.model_usage` rows (platform read scope). Totals are integers; nothing is estimated here. */
   async usageReport(q: UsageReportQuery): Promise<UsageReport> {
-    if (!(q.from instanceof Date) || !(q.to instanceof Date) || Number.isNaN(+q.from) || Number.isNaN(+q.to))
+    if (
+      !(q.from instanceof Date) ||
+      !(q.to instanceof Date) ||
+      Number.isNaN(+q.from) ||
+      Number.isNaN(+q.to)
+    )
       throw new ProblemException('validation_failed', 'from and to must be dates');
     if (q.to <= q.from) throw new ProblemException('validation_failed', 'to must be after from');
     if (q.to.getTime() - q.from.getTime() > MAX_RANGE_MS)
@@ -122,10 +127,21 @@ export class ProviderInsightsService {
     if (q.providerCode) where += ` AND provider_code = $${params.push(q.providerCode)}`;
     if (q.orgId) where += ` AND org_id = $${params.push(q.orgId)}`;
     const model = q.groupBy === 'provider' ? `NULL::text` : `model_ref`;
-    const day = q.groupBy === 'day' ? `to_char((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD')` : `NULL::text`;
+    const day =
+      q.groupBy === 'day'
+        ? `to_char((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD')`
+        : `NULL::text`;
     const dayExpr = `(created_at AT TIME ZONE 'UTC')::date`;
-    const groups = ['provider_code', ...(q.groupBy === 'provider' ? [] : ['model_ref']), ...(q.groupBy === 'day' ? [dayExpr] : [])];
-    const order = [...(q.groupBy === 'day' ? [`${dayExpr} DESC`] : []), 'provider_code', ...(q.groupBy === 'provider' ? [] : ['model_ref'])];
+    const groups = [
+      'provider_code',
+      ...(q.groupBy === 'provider' ? [] : ['model_ref']),
+      ...(q.groupBy === 'day' ? [dayExpr] : []),
+    ];
+    const order = [
+      ...(q.groupBy === 'day' ? [`${dayExpr} DESC`] : []),
+      'provider_code',
+      ...(q.groupBy === 'provider' ? [] : ['model_ref']),
+    ];
     const sql = `
       SELECT provider_code, ${model} AS model_ref, ${day} AS day,
              count(DISTINCT cost_currency)::int AS currencies, max(cost_currency) AS cost_currency,
@@ -142,7 +158,9 @@ export class ProviderInsightsService {
        GROUP BY ${groups.join(', ')}
        ORDER BY ${order.join(', ')}
        LIMIT ${USAGE_REPORT_ROW_CAP + 1}`;
-    const rows = (await this.db.withPlatformScope(async (c) => (await c.query(sql, params)).rows)) as Row[];
+    const rows = (await this.db.withPlatformScope(
+      async (c) => (await c.query(sql, params)).rows,
+    )) as Row[];
     const truncated = rows.length > USAGE_REPORT_ROW_CAP;
     return {
       from: q.from.toISOString(),
@@ -162,7 +180,10 @@ export class ProviderInsightsService {
         credits: r.credits as string,
         // calls that cost nothing (errors) carry no currency; two currencies in one group cannot be added up, so the money is withheld
         costMinor: (r.currencies as number) > 1 ? null : (r.cost_minor as string),
-        costCurrency: (r.currencies as number) > 1 ? 'MIXED' : ((r.cost_currency as string | null)?.trim() ?? null),
+        costCurrency:
+          (r.currencies as number) > 1
+            ? 'MIXED'
+            : ((r.cost_currency as string | null)?.trim() ?? null),
         p50LatencyMs: r.p50 === null || r.p50 === undefined ? null : Number(r.p50),
         p95LatencyMs: r.p95 === null || r.p95 === undefined ? null : Number(r.p95),
       })),

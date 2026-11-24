@@ -122,10 +122,16 @@ describe('circuit breaker', () => {
     b.failure('k', 'timeout');
     expect(b.state('k')).toBe('closed');
   });
-  it('errors that are not the provider\'s fault never open it', () => {
+  it("errors that are not the provider's fault never open it", () => {
     const { clock } = clockAt();
     const b = new CircuitBreaker(cfg, clock);
-    for (const code of ['invalid_request', 'content_filtered', 'aborted', 'unsupported_capability', 'invalid_response'] as const) {
+    for (const code of [
+      'invalid_request',
+      'content_filtered',
+      'aborted',
+      'unsupported_capability',
+      'invalid_response',
+    ] as const) {
       expect(countsAgainstHealth(code)).toBe(false);
       for (let i = 0; i < 10; i++) b.failure('k', code);
     }
@@ -184,13 +190,24 @@ describe('circuit breaker', () => {
 });
 
 describe('health monitor', () => {
-  const hc = { windowMs: 60_000, maxSamples: 5, minSamples: 3, healthyPerMille: 900, unhealthyPerMille: 500 };
+  const hc = {
+    windowMs: 60_000,
+    maxSamples: 5,
+    minSamples: 3,
+    healthyPerMille: 900,
+    unhealthyPerMille: 500,
+  };
   it('is unknown with too few samples', () => {
     const { clock } = clockAt();
     const h = new HealthMonitor(hc, clock);
     h.recordSuccess('k', 10);
     expect(h.snapshot('k').status).toBe('unknown');
-    expect(h.snapshot('never-seen')).toMatchObject({ status: 'unknown', samples: 0, successPerMille: null, p50LatencyMs: null });
+    expect(h.snapshot('never-seen')).toMatchObject({
+      status: 'unknown',
+      samples: 0,
+      successPerMille: null,
+      p50LatencyMs: null,
+    });
   });
   it('derives healthy / degraded / unhealthy from the success rate, in integers', () => {
     const { clock } = clockAt();
@@ -199,7 +216,11 @@ describe('health monitor', () => {
     expect(h.snapshot('good')).toMatchObject({ status: 'healthy', successPerMille: 1000 });
     for (let i = 0; i < 7; i++) h.recordSuccess('mid', 50);
     for (let i = 0; i < 3; i++) h.recordFailure('mid', 'timeout', 5000);
-    expect(h.snapshot('mid')).toMatchObject({ status: 'degraded', successPerMille: 700, lastErrorCode: 'timeout' });
+    expect(h.snapshot('mid')).toMatchObject({
+      status: 'degraded',
+      successPerMille: 700,
+      lastErrorCode: 'timeout',
+    });
     for (let i = 0; i < 2; i++) h.recordSuccess('bad', 50);
     for (let i = 0; i < 4; i++) h.recordFailure('bad', 'unavailable', 10);
     expect(h.snapshot('bad')).toMatchObject({ status: 'unhealthy', successPerMille: 333 });
@@ -230,7 +251,9 @@ describe('health monitor', () => {
     expect(h.snapshot('k').samples).toBe(0);
   });
   it('an open breaker makes the key unhealthy whatever the window says', () => {
-    const r = createResilience({ breaker: { failureThreshold: 2, openMs: 10_000, halfOpenMaxProbes: 1 } });
+    const r = createResilience({
+      breaker: { failureThreshold: 2, openMs: 10_000, halfOpenMaxProbes: 1 },
+    });
     for (let i = 0; i < 10; i++) r.health.recordSuccess('k', 1);
     r.breaker.failure('k', 'timeout');
     r.breaker.failure('k', 'timeout');
@@ -238,7 +261,9 @@ describe('health monitor', () => {
     expect(r.health.all().map((s) => s.key)).toEqual(['k']);
   });
   it('a provider/model key reads the circuit of its PROVIDER', () => {
-    const r = createResilience({ breaker: { failureThreshold: 1, openMs: 10_000, halfOpenMaxProbes: 1 } });
+    const r = createResilience({
+      breaker: { failureThreshold: 1, openMs: 10_000, halfOpenMaxProbes: 1 },
+    });
     for (let i = 0; i < 10; i++) r.health.recordSuccess('acme/m1', 1);
     r.breaker.failure('acme', 'unavailable');
     expect(r.health.snapshot('acme/m1')).toMatchObject({ status: 'unhealthy', breaker: 'open' });

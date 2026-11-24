@@ -151,7 +151,14 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
         g: GatewayService,
         cfg: AiConfig,
       ) => new ProviderInsightsService(db, a, p, r, g, cfg),
-      inject: [DB, AuditSink, ModelProviderService, ModelAdapterRegistry, GatewayService, AI_CONFIG],
+      inject: [
+        DB,
+        AuditSink,
+        ModelProviderService,
+        ModelAdapterRegistry,
+        GatewayService,
+        AI_CONFIG,
+      ],
     },
     { provide: UrlFetchPort, useFactory: () => new SafeUrlFetcher() },
     // D-46 / S-AG2: the read-only agent tool gateway and the registry the app builder fills with its project workspaces

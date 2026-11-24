@@ -78,7 +78,10 @@ const draft = (id: DraftProviderId, displayName: string): ProviderDraft => ({
   id,
   displayName,
   status: 'DRAFT_NOT_IMPLEMENTED',
-  sequencing: { decision: 'D11', rule: 'no adapter work for this provider until Claude is verified (approved 2026-11-22)' },
+  sequencing: {
+    decision: 'D11',
+    rule: 'no adapter work for this provider until Claude is verified (approved 2026-11-22)',
+  },
   requiredDecisions: COMMON_DECISIONS,
   mustNotBeAssumed: COMMON_UNASSUMED,
   wireMapping: ELEMENTS.map((element) => ({ element, source: null, verified: false as const })),
@@ -100,11 +103,16 @@ export const PROVIDER_DRAFTS: Readonly<Record<DraftProviderId, ProviderDraft>> =
 export function modelErrorFromHttpStatus(status: number, retryAfterMs?: number): ModelAdapterError {
   const make = (code: ModelErrorCode, message: string, retryable: boolean) =>
     new ModelAdapterError(code, message, retryable, retryable ? retryAfterMs : undefined);
-  if (status === 408 || status === 504 || status === 524) return make('timeout', 'the model did not answer in time', true);
+  if (status === 408 || status === 504 || status === 524)
+    return make('timeout', 'the model did not answer in time', true);
   if (status === 429) return make('rate_limited', 'the model provider is limiting requests', true);
   if (status >= 500 && status <= 599)
     return make('unavailable', `the model provider answered with an error (HTTP ${status})`, true);
   if (status === 401 || status === 403)
     return make('invalid_request', `the model provider rejected the key (HTTP ${status})`, false);
-  return make('invalid_request', `the model provider rejected the request (HTTP ${Number.isFinite(status) ? status : 'unknown'})`, false);
+  return make(
+    'invalid_request',
+    `the model provider rejected the request (HTTP ${Number.isFinite(status) ? status : 'unknown'})`,
+    false,
+  );
 }

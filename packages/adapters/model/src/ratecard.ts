@@ -103,7 +103,11 @@ export class StaticFxRateSource implements FxRateSource {
 }
 
 /** Convert a non-negative amount in MINOR units of `quote.from` into minor units of `quote.to`. The caller picks the rounding; charges round `up`. */
-export function convertMinor(amountMinor: bigint, quote: FxQuote, rounding: Rounding = 'up'): bigint {
+export function convertMinor(
+  amountMinor: bigint,
+  quote: FxQuote,
+  rounding: Rounding = 'up',
+): bigint {
   if (amountMinor < 0n) throw new RangeError('amount must be non-negative');
   const r = parseDec(quote.rate);
   if (r.int === 0n) throw new RangeError('a rate must be positive');
@@ -143,12 +147,14 @@ export function validateRateCardHistory(versions: readonly RateCardVersion[]): s
   const seenV = new Set<string>();
   const seenAt = new Set<number>();
   for (const v of versions) {
-    if (!v.version || v.version.length > 40) problems.push(`version "${String(v.version).slice(0, 20)}": 1–40 characters`);
+    if (!v.version || v.version.length > 40)
+      problems.push(`version "${String(v.version).slice(0, 20)}": 1–40 characters`);
     if (seenV.has(v.version)) problems.push(`version ${v.version}: duplicate`);
     seenV.add(v.version);
     const t = Date.parse(v.effectiveFrom);
     if (Number.isNaN(t)) problems.push(`version ${v.version}: effectiveFrom is not a date`);
-    else if (seenAt.has(t)) problems.push(`version ${v.version}: same effectiveFrom as another version`);
+    else if (seenAt.has(t))
+      problems.push(`version ${v.version}: same effectiveFrom as another version`);
     else seenAt.add(t);
     if (Object.keys(v.models).length === 0) problems.push(`version ${v.version}: no models`);
     for (const [id, e] of Object.entries(v.models))

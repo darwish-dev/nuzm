@@ -123,6 +123,8 @@ function tableSetup() {
     ) =>
       fn({
         query: async (sql: string, p: unknown[] = []) => {
+          // the rate card history (migration 1900) is not what these tests are about: no history rows exist and writing one changes nothing here
+          if (/model_rate_card_versions/i.test(sql)) return { rows: [] };
           if (/^\s*INSERT/i.test(sql)) {
             const r = {
               id: p[0],

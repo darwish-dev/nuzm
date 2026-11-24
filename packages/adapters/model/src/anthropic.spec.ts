@@ -168,7 +168,7 @@ describe('Claude adapter: request and response shape (stubbed fetch, no real cal
       expect(sent).toHaveLength(1); // the gateway decides about retries, not the adapter
     },
   );
-  it('carries the provider\'s Retry-After hint on a 429 and a 529 (offline, stubbed): a hint, never a decision', async () => {
+  it("carries the provider's Retry-After hint on a 429 and a 529 (offline, stubbed): a hint, never a decision", async () => {
     stub(
       () =>
         new Response(JSON.stringify({ type: 'error', error: { type: 'x', message: 'm' } }), {

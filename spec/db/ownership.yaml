@@ -117,6 +117,11 @@ schemas:
     created_by: M08
     extended_by: []
     tables: [ aliases, email_domains, email_events, mailboxes, messages, sender_identities, suppressions, templates ]
+  execution:
+    owner_module: execution
+    created_by: P3-S02
+    extended_by: []
+    tables: [ approvals, attestations, job_transitions, jobs, kill_switch, quota_reservations, runtime_nodes, usage_records, workspaces ]
   ai:
     owner_module: ai
     created_by: M09
@@ -148,8 +153,8 @@ schemas:
   builder:
     owner_module: builder
     created_by: M09
-    extended_by: [ M10, M10-INT, M10B-INT, AS ]
-    tables: [ app_specs, changes, claude_code_sessions, cms_collections, cms_items, exports, form_submissions, forms, git_repos, github_connections, github_events, github_repos, instruction_versions, pages, previews, project_files, project_instructions, project_skills, project_versions, projects, sandboxes, skill_reviews, skill_versions, skills, test_runs ]
+    extended_by: [ M10, M10-INT, M10B-INT, AS, P3-S09 ]
+    tables: [ app_specs, changes, claude_code_sessions, cms_collections, cms_items, exports, form_submissions, forms, git_repos, github_connections, github_events, github_repos, instruction_versions, pages, previews, project_files, project_instructions, project_skills, project_versions, projects, sandboxes, skill_reviews, skill_versions, skills, test_runs, vcs_blobs, vcs_commits, vcs_events, vcs_refs, vcs_repo_state, vcs_trees ]
   deploy:
     owner_module: deploy
     created_by: M09
@@ -255,6 +260,8 @@ schemas:
       - uploads
       - usage_events
 tenant_less:
+  - execution.runtime_nodes
+  - execution.attestations
   - identity.users
   - identity.credentials
   - identity.auth_tokens
@@ -403,6 +410,8 @@ migration_ranges:
   # AI-engine line (join with the hosting line, P3-S07 reconciliation): the AI/deploy migrations that collided with the hosting line's 1900/1920/1921/1980 are renumbered 2210-2213; Phase 2 block of session 06 (deployment policy switches) stays 2180
   AG-JOIN: "2210-2219"
   S06-DEPLOY2: "2180-2199" # Phase 2 block of session 06 (see docs/parallel/PHASE-2-PLAN.md)
+  P3-S02: "2310-2319" # Phase 3 session 02 (real runtime): durable execution stores
+  P3-S09: "2380-2389" # Phase 3 session 09: production version store (builder.vcs_*), migrations 2380-2382
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.
@@ -410,6 +419,7 @@ classification:
   classes: [ public, internal, customer-content, personal, financial, credentials ]
   # Columns whose NAME looks sensitive but whose content is not; each needs a reason (10+ characters).
   exceptions:
+    execution.jobs.lease_token: an opaque worker lease id that proves which worker holds a running job, not an authentication token
     data.database_instances.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
     email.email_domains.ownership_token: the public DNS TXT value that proves ownership of a domain (published in DNS by design), not a secret
     email.mailboxes.password_setup: holds only the kind of password setup and a vault REFERENCE to the reset link or one-time secret, never the secret itself
@@ -518,6 +528,128 @@ classification:
     builder.sandboxes.ws_ticket_hash: hash
     # <<< M09 protection
   columns:
+    execution.approvals:
+      id: internal
+      org_id: internal
+      job_id: internal
+      decision_digest: internal
+      requested_at: internal
+      expires_at: internal
+      decided_by: internal
+      decider_kind: internal
+      decided_at: internal
+      consumed_at: internal
+      revoked_at: internal
+      revoke_reason: internal
+      data_region: internal
+    execution.attestations:
+      id: internal
+      attestation_id: internal
+      node_id: internal
+      label: internal
+      issued_at: internal
+      expires_at: internal
+      report_sha256: internal
+      reviewer: internal
+      review_ref: internal
+      evidence_ref: internal
+      revoked_at: internal
+      revoke_reason: internal
+      recorded_at: internal
+    execution.job_transitions:
+      id: internal
+      job_id: internal
+      org_id: internal
+      from_state: internal
+      to_state: internal
+      cause: internal
+      at: internal
+      data_region: internal
+    execution.jobs:
+      id: internal
+      org_id: internal
+      run_id: internal
+      idempotency_key: internal
+      profile: internal
+      decision_digest: internal
+      state: internal
+      origin: internal
+      requires_approval: internal
+      approval_id: internal
+      node_id: internal
+      lease_token: internal
+      lease_expires_at: internal
+      attempts: internal
+      queued_at: internal
+      started_at: internal
+      ended_at: internal
+      outcome_status: internal
+      exit_code: internal
+      duration_ms: internal
+      truncated: internal
+      artifact_count: internal
+      data_region: internal
+      updated_at: internal
+    execution.kill_switch:
+      id: internal
+      scope: internal
+      org_id: internal
+      engaged: internal
+      by_user_id: internal
+      reason_code: internal
+      at: internal
+    execution.quota_reservations:
+      id: internal
+      org_id: internal
+      job_id: internal
+      currency: internal
+      reserved_minor: financial
+      concurrency_slots: internal
+      state: internal
+      at: internal
+      data_region: internal
+    execution.runtime_nodes:
+      id: internal
+      node_id: internal
+      endpoint_id: internal
+      environment: internal
+      runtime_class: internal
+      state: internal
+      quarantine_reason: internal
+      admitted_at: internal
+      updated_at: internal
+      data_region: public
+    execution.usage_records:
+      id: internal
+      org_id: internal
+      run_id: internal
+      job_id: internal
+      node_id: internal
+      runtime_class: internal
+      profile: internal
+      cpu_seconds: internal
+      wall_ms: internal
+      peak_memory_mb: internal
+      peak_pids: internal
+      disk_mb: internal
+      output_bytes: internal
+      status: internal
+      estimated_minor: financial
+      currency: internal
+      billed: internal
+      created_at: internal
+      data_region: internal
+    execution.workspaces:
+      id: internal
+      org_id: internal
+      run_id: internal
+      job_id: internal
+      node_id: internal
+      state: internal
+      created_at: internal
+      last_activity_at: internal
+      destroyed_at: internal
+      data_region: internal
     audit.audit_checkpoints:
       id: internal
       org_id: internal
@@ -3938,6 +4070,63 @@ classification:
       data_region: internal
       created_at: internal
       updated_at: internal
+    builder.vcs_repo_state:
+      repo_id: internal
+      org_id: internal
+      stored_bytes: internal
+      data_region: internal
+      created_at: internal
+      updated_at: internal
+    builder.vcs_blobs:
+      repo_id: internal
+      oid: internal
+      org_id: internal
+      sha256: internal
+      size: internal
+      is_binary: internal
+      content: customer-content
+      data_region: internal
+      created_at: internal
+    builder.vcs_trees:
+      repo_id: internal
+      oid: internal
+      org_id: internal
+      entries: customer-content
+      data_region: internal
+      created_at: internal
+    builder.vcs_commits:
+      repo_id: internal
+      oid: internal
+      org_id: internal
+      tree_oid: internal
+      parents: internal
+      author: internal
+      committed_at: internal
+      message: customer-content
+      replay_key: internal
+      data_region: internal
+      created_at: internal
+    builder.vcs_refs:
+      repo_id: internal
+      name: internal
+      org_id: internal
+      oid: internal
+      version: internal
+      data_region: internal
+      created_at: internal
+      updated_at: internal
+    builder.vcs_events:
+      id: internal
+      org_id: internal
+      repo_id: internal
+      action: internal
+      ref_name: internal
+      commit_oid: internal
+      actor_user_id: internal
+      trace_id: internal
+      detail: internal
+      data_region: internal
+      created_at: internal
     builder.test_runs:
       id: internal
       org_id: internal

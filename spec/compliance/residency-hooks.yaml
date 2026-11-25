@@ -233,6 +233,34 @@ tables:
     owner: M10
     hook: m10-agent-runs
     note: redacted tool-call summaries inherit the region of their run
+  execution.jobs:
+    owner: P3-S02
+    hook: m10-sandbox-builds
+    note: "a job carries the data_region of its run; WHICH NODE REGION a real run may use is a placement decision the orchestrator must evaluate through ResidencyPolicyService before createWorkspace: NOT WIRED yet (the orchestrator and the real port are behind the flag ai.agent.exec_tools, synthetic data only, D1); nodes have no region in the registry yet"
+  execution.job_transitions:
+    owner: P3-S02
+    hook: m10-sandbox-builds
+    note: "inherits the region of its job"
+  execution.workspaces:
+    owner: P3-S02
+    hook: m10-sandbox-builds
+    note: "one workspace per run on one node; the node region must equal the run region once nodes carry one (see jobs)"
+  execution.approvals:
+    owner: P3-S02
+    hook: m10-sandbox-builds
+    note: "an approval names the region of the action it is bound to"
+  execution.quota_reservations:
+    owner: P3-S02
+    hook: m10-sandbox-builds
+    note: "inherits the region of its job"
+  execution.usage_records:
+    owner: P3-S02
+    hook: m10-sandbox-builds
+    note: "measured use inherits the region of its run"
+  execution.runtime_nodes:
+    owner: P3-S02
+    hook: m10-sandbox-builds
+    note: "the region of a sandbox node pool; RealRuntimeService (flag residency enforcement, default off) refuses placement when it is unknown or the residency policy says no for the project's data_region"
   ai.approval_requests:
     owner: M10
     hook: m10-agent-runs
@@ -253,6 +281,30 @@ tables:
     owner: M10
     hook: m10-sandbox-builds
     note: the repository stays in the region of its project; there is no Git remote
+  builder.vcs_repo_state:
+    owner: M10
+    hook: m10-version-store
+    note: the repository state row inherits the region of its project (builder.git_repos)
+  builder.vcs_blobs:
+    owner: M10
+    hook: m10-version-store
+    note: file contents stay in the region of the project; there is no Git remote and no object leaves the database
+  builder.vcs_trees:
+    owner: M10
+    hook: m10-version-store
+    note: file names inherit the region of the project
+  builder.vcs_commits:
+    owner: M10
+    hook: m10-version-store
+    note: commit history inherits the region of the project
+  builder.vcs_refs:
+    owner: M10
+    hook: m10-version-store
+    note: references inherit the region of the project
+  builder.vcs_events:
+    owner: M10
+    hook: m10-version-store
+    note: the version-store journal inherits the region of the project
   builder.test_runs:
     owner: M10
     hook: m10-sandbox-builds
@@ -462,6 +514,14 @@ hooks:
     enforcement: enforced
     flag: residency.enforce.builds
     call_site: apps/api/src/modules/appbuilder/internal/sandbox/sandbox.service.ts
+  - id: m10-version-store
+    milestone: M10
+    where: 'Production version store (P3-S09): the region of a project repository is evaluated before it is first placed in the version-store tables (Git has no remote)'
+    data_classes:
+      - customer-content
+    enforcement: enforced
+    flag: residency.enforce.builds
+    call_site: apps/api/src/modules/appbuilder/internal/versionstore/object-version-store.ts
   - id: m10-source-export
     milestone: M10
     where: 'Source exports: the destination region of the archive and its signed URL'

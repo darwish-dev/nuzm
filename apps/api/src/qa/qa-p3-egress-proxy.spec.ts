@@ -84,11 +84,8 @@ describe.skipIf(!available)(
         expect(proxy!(a), JSON.stringify(a)).toBe(false);
     });
     // DEFECT-18: fixed by P3-S02 (the proxy delegates to the shared classifier)
-    it.fails(
-      'DEFECT-18: refuses everything the Phase 2 classifier refuses (100::/64, IPv4-compatible ::a.b.c.d, site-local fec0::/10)',
-      () => {
-        for (const a of OPEN_DEFECT_18) expect(proxy!(a), a).toBe(false);
-      },
-    );
+    it('DEFECT-18: refuses everything the Phase 2 classifier refuses (100::/64, IPv4-compatible ::a.b.c.d, site-local fec0::/10)', () => {
+      for (const a of OPEN_DEFECT_18) expect(proxy!(a), a).toBe(false);
+    });
   },
 );

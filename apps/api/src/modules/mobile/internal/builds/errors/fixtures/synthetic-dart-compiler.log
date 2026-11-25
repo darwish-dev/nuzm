@@ -1,0 +1,9 @@
+Running Gradle task 'assembleDebug'...
+lib/ui/screens/list_screen.dart:21:34: Error: The argument type 'String' can't be assigned to the parameter type 'int'.
+        count: item.title,
+                    ^
+lib/core/theme.dart:12:20: Error: Undefined name 'kPrimaryColour'.
+  final c = kPrimaryColour;
+            ^^^^^^^^^^^^^^
+/work/build/lib/core/auth.dart:60:22: Error: A value of type 'String?' can't be assigned to a variable of type 'String'.
+Target kernel_snapshot_program failed: Exception

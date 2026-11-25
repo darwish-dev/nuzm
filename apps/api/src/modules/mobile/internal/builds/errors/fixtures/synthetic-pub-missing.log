@@ -1,0 +1,5 @@
+Resolving dependencies...
+Because app depends on flutter_charts_pro any which doesn't exist (could not find package flutter_charts_pro at https://pub.dev), version solving failed.
+
+You can try one of the following:
+ * Check that "flutter_charts_pro" is spelled correctly.

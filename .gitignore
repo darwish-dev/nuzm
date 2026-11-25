@@ -34,3 +34,5 @@ apps/api/.gen-tmp/
 
 # desktop installers served by the website locally (large binaries never go in git; see apps/web/lib/desktop-downloads.ts)
 apps/web/.downloads/
+# test fixtures of the build-error parsers (S06): committed logs, not run output
+!apps/api/src/modules/mobile/internal/builds/errors/fixtures/*.log

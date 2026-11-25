@@ -109,7 +109,7 @@ describe('offline repair evaluation: real compiler verifier, scripted model', ()
     if (process.env.P3S03_EVAL_WRITE === '1') {
       const file = resolve(
         __dirname,
-        '../../../../../../../../docs/phase3/EVIDENCE/repair-offline/2026-11-24-offline-eval.json',
+        '../../../../../../../../docs/phase3/reports/repair-offline/2026-11-24-offline-eval.json',
       );
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(

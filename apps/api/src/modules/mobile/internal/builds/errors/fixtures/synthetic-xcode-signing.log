@@ -1,0 +1,4 @@
+Building com.example.app for device (ios-release)...
+Automatically signing iOS for device deployment using specified development team in Xcode project: (null)
+error: Signing for "Runner" requires a development team. Select a development team in the Signing & Capabilities editor. (in target 'Runner' from project 'Runner')
+Encountered error while building for device.

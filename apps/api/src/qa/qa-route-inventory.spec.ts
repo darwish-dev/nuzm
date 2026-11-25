@@ -19,7 +19,13 @@ const diff = (actual: string[], pinned: string[]) => ({
   stale: pinned.filter((x) => !actual.includes(x)).sort(),
 });
 
-/** Unauthenticated routes (each one authenticates itself: webhook signatures, tokens, credentials, SCIM bearer, preview tokens). */
+/**
+ * Unauthenticated routes (each one authenticates itself: webhook signatures, tokens, credentials, SCIM bearer, preview tokens).
+ * Reviewed at the Phase 3 reconciliation (hosting line): `GET /v1/public/{compute-plans,hosting-plans,usage-prices}` are read-only price catalogues (no organization data, no provider identity, off in production
+ * until PUBLIC_PLANS_ENABLED=true); `GET /v1/public/domains/search` has a per-address limit (at most 12 a minute), records nothing about the caller and is off in production until PUBLIC_DOMAIN_SEARCH_ENABLED=true;
+ * `POST /v1/docs-feedback` validates its body strictly, stores nothing identifying and has a total and a per-client limiter; `POST /v1/bootstrap/panel/{events,register}` need a single-use bearer secret bound to one
+ * order and one server (the registering address must be one the provider reports for that server) and are rate limited per address.
+ */
 const PUBLIC_ROUTES: string[] = [
   'DELETE /_preview/:token/*',
   'DELETE /scim/v2/Users/:id',
@@ -35,6 +41,10 @@ const PUBLIC_ROUTES: string[] = [
   'GET /scim/v2/Users/:id',
   'GET /v1/auth/oidc/callback',
   'GET /v1/auth/oidc/login',
+  'GET /v1/public/compute-plans',
+  'GET /v1/public/domains/search',
+  'GET /v1/public/hosting-plans',
+  'GET /v1/public/usage-prices',
   'PATCH /_preview/:token/*',
   'PATCH /scim/v2/Groups/:id',
   'PATCH /scim/v2/Users/:id',
@@ -46,6 +56,9 @@ const PUBLIC_ROUTES: string[] = [
   'POST /v1/auth/password/login',
   'POST /v1/auth/password/reset',
   'POST /v1/auth/register',
+  'POST /v1/bootstrap/panel/events',
+  'POST /v1/bootstrap/panel/register',
+  'POST /v1/docs-feedback',
   'POST /v1/internal/metering/events',
   'POST /v1/webhooks/cloud/:provider',
   'POST /v1/webhooks/email/:provider',
@@ -61,6 +74,8 @@ const POST_WITHOUT_IDEMPOTENCY_KEY: string[] = [
   // builder tools (Session 05), Master decision 2026-11-24: pure dry-run computations, nothing stored, no model call, no ledger; PROVEN by qa-builder-tools.int.spec.ts (row counts unchanged)
   'POST /v1/builder/plan-previews',
   'POST /v1/builder/projects/:projectId/change-previews',
+  // hosting line: the ONE-TIME WordPress admin handover is deliberately not @Idempotent (the idempotency store would keep the password for replay); a repeat is 409 conflict, the answer is no-store (site-wordpress.controller.ts)
+  'POST /v1/hosting/sites/:id/wordpress/handover',
   'POST /v1/ai/runs/:id/cancellation',
   'POST /v1/auth/email/verification/resend',
   'POST /v1/auth/logout',

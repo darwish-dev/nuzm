@@ -214,6 +214,9 @@ importers:
       '@nuzm/registrar-conformance':
         specifier: workspace:*
         version: link:../../packages/adapters/registrar-conformance
+      '@nuzm/runtime-agent':
+        specifier: workspace:*
+        version: link:../../packages/runtime-agent
       '@swc/core':
         specifier: ^1.16.22
         version: 1.16.22(@swc/helpers@0.5.23)

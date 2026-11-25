@@ -42,6 +42,7 @@ describe('platform scope usage', () => {
           !f.startsWith('modules/marketplace/') &&
           !f.startsWith('modules/programs/') &&
           !f.startsWith('modules/domains/') &&
+          !f.startsWith('modules/execution/') && // ADR-069 / P3-S02: the execution store's reaper, queue sweep and tenant-less tables (runtime_nodes, attestations) are platform-scoped; every tenant row still carries org_id + RLS
           !f.startsWith('modules/appbuilder/') && // M10A: sandbox reaper and CPU metering sweep across organizations
           !f.startsWith('modules/knowledge/') && // ADR-065: the AI knowledge library is platform-owned (org_id NULL) and managed by staff; customers never use this scope
           // >>> M09: model provider registry, run oversight and sweepers (admin console register tables, service-level callers)

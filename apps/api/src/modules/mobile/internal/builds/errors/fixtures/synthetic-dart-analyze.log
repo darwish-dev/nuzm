@@ -1,0 +1,14 @@
+Analyzing app...
+
+   error • The argument type 'String' can't be assigned to the parameter type 'int' • lib/ui/screens/list_screen.dart:21:34 • argument_type_not_assignable
+   error • Undefined name 'kPrimaryColour' • lib/core/theme.dart:12:20 • undefined_identifier
+   error • Target of URI doesn't exist: 'package:fl_chart/fl_chart.dart' • lib/ui/screens/home_screen.dart:3:8 • uri_does_not_exist
+   error • Target of URI doesn't exist: '../core/modles.dart' • lib/ui/shell.dart:4:8 • uri_does_not_exist
+   error • The named parameter 'title' is required, but there's no corresponding argument • lib/app.dart:18:9 • missing_required_argument
+   error • A value of type 'String?' can't be assigned to a variable of type 'String' • lib/core/auth.dart:60:22 • invalid_assignment
+   error • Expected to find ';' • lib/core/router.dart:30:5 • expected_token
+   error • The generated screen is wrong • lib/generated/app_spec.dart:7:1 • invalid_assignment
+warning • Unused import: 'dart:async' • lib/main.dart:1:8 • unused_import
+   info • Don't use 'BuildContext's across async gaps • lib/ui/screens/form_screen.dart:90:10 • use_build_context_synchronously
+
+8 issues found. (ran in 2.1s)

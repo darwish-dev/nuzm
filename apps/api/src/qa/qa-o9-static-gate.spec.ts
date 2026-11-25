@@ -91,6 +91,11 @@ describe('O-9 static gate: content routes carry the shared guard', () => {
       'GET /v1/builder/skills',
       'GET /v1/deployments',
       'GET /v1/builder/github/repositories',
+      // hosting line, reviewed at the Phase 3 reconciliation: site files and logs need hosting:files:read / hosting:logs:read, which only owner, admin and developer hold (billing_admin and viewer hold none: migration hosting/1993), so RBAC already keeps billing administrators out
+      'GET /v1/hosting/sites/:id/files',
+      'GET /v1/hosting/sites/:id/files/download',
+      'GET /v1/hosting/sites/:id/files/text',
+      'GET /v1/hosting/sites/:id/logs',
     ];
     const suspect = mine
       .filter((r) => cls.metadata[key(r)] !== undefined && CONTENT_WORDS.test(r.path))

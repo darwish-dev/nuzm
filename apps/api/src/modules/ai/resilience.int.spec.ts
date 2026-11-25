@@ -354,13 +354,13 @@ describe('approved fallback routing through the gateway', () => {
 
 describe('output ceiling through the gateway (AI_MAX_OUTPUT_TOKENS)', () => {
   it('lowers what the provider is asked for and the reservation made for it, and never raises a smaller request', async () => {
-    const { adapter } = await e.enableMock('mock-ceiling');
+    const { adapter } = await e.enableMock('mock-model');
     const gw = gatewayWith({ attemptsPerCandidate: 1, maxOutputTokensCeiling: 32 }, resilience());
     const before = adapter.calls.length;
     await gw.invoke({ ...base(), maxTokens: 800 });
     await gw.invoke({ ...base(), maxTokens: 20 });
     expect(adapter.calls.slice(before).map((c) => c.req.maxTokens)).toEqual([32, 20]);
-    await disable('mock-ceiling');
+    await disable('mock-model');
   });
 });
 

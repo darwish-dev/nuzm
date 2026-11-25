@@ -91,7 +91,9 @@ test('customer console: onboarding, projects, security and team screens', async 
 
   // --- team: members, invitations, organization settings
   await go('/settings/team');
-  await expect(page.locator('#members').getByRole('cell', { name: email })).toBeVisible();
+  await expect(
+    page.locator('#members').getByRole('listitem').filter({ hasText: email }),
+  ).toBeVisible();
   await audit(page, info, 'members');
 
   const inv = page.locator('#invitations');

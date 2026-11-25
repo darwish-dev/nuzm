@@ -2919,7 +2919,8 @@ html[dir='rtl'] .nzc .bld-msg[data-role='user'] { border-radius: 18px 18px 18px 
 .bcx-link-form button { flex: none; padding: 0 14px; border: 0; border-radius: 10px; background: var(--sig-send, var(--nzc-orange-grad)); color: var(--sig-send-ink, var(--nzc-orange-ink)); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
 .bcx-link-form button:disabled { opacity: 0.5; cursor: default; }
 .bld-composer-note { margin: 6px 6px 0; color: var(--nzc-warn); font-size: 12px; line-height: 1.5; }
-.bcx-keys { opacity: 0.8; }
+/* the keyboard hint stays at full strength: at opacity .8 its muted text fell to 4.04:1 (axe color-contrast, WCAG AA needs 4.5) */
+.bcx-keys { opacity: 1; }
 
 /* the composer as one compact row (attach · words · send · microphone), with a quiet status line under it */
 .nzc .bld-composer-box { padding: 6px; border-radius: 18px; }

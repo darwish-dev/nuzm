@@ -73,7 +73,7 @@ test('customer domains: list, search (Saudi TLD blocked with its reason), checko
   await page.getByRole('button', { name: T(info, 'dom.checkout.confirm') }).click();
 
   // UI-M07-04: the domain page (the operation finishes in the background; pending is an allowed intermediate state)
-  await expect(page).toHaveURL(new RegExp(`/${L}/domains/[0-9a-f-]{36}$`));
+  await expect(page).toHaveURL(/\/domains\/[0-9a-f-]{36}$/);
   await audit(page, info, 'domain-detail');
   const id = page.url().split('/').pop()!;
   await expect

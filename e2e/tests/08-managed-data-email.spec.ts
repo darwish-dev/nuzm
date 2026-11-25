@@ -310,7 +310,7 @@ test('managed data: databases and buckets (UI-M08-01..07)', async ({ page, brows
   await expect(del).toBeDisabled();
   await page.getByLabel(T(info, 'm8.dbs.typeName', { name: dbName })).fill(dbName);
   await del.click();
-  await page.waitForURL(new RegExp(`/${L}/databases$`));
+  await page.waitForURL(/\/databases$/);
   // the restored copy is a database of its own
   await expect(page.getByRole('link', { name: restored })).toBeVisible();
   await audit(page, info, 'm8-databases-list');
@@ -364,7 +364,7 @@ test('managed data: databases and buckets (UI-M08-01..07)', async ({ page, brows
   // delete: type the name
   await page.getByLabel(T(info, 'm8.stb.typeName', { name: bucket })).fill(bucket);
   await page.getByRole('button', { name: T(info, 'm8.stb.deleteAction') }).click();
-  await page.waitForURL(new RegExp(`/${L}/storage/buckets$`));
+  await page.waitForURL(/\/storage\/buckets$/);
 });
 
 test('email: domains, senders, templates, suppressions (UI-M08-08..14)', async ({

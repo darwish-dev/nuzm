@@ -7,6 +7,7 @@ import { CodeBlock } from './CodeBlock';
 import { GUIDES, doc } from '../../lib/docs-content';
 import { REF, opsOfTag } from '../../lib/api-docs';
 import { pick } from '../../lib/site-content';
+import { landingText } from '../../lib/landing-text';
 
 afterEach(cleanup);
 
@@ -37,7 +38,7 @@ describe('documentation pages', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
-  it('has a slim top bar only: a back arrow to the website, the logo and search (no site navigation, no footer)', () => {
+  it('has a slim top bar only: a back arrow to the website, the logo and search (no site navigation in it), and ends with the shared site footer', () => {
     render(
       <DocsFrame locale="ar" path="/docs" mode="dark" title="x">
         <p>x</p>
@@ -56,7 +57,9 @@ describe('documentation pages', () => {
         .getAttribute('href'),
     ).toBe('/ar/docs');
     expect(screen.queryByRole('link', { name: 'Get started' })).toBeNull();
-    expect(document.querySelector('footer')).toBeNull();
+    // the top bar stays slim; the one shared website footer closes the page (one footer on the whole public site)
+    expect(top.querySelector('footer')).toBeNull();
+    expect(document.querySelectorAll('footer.site-footer').length).toBe(1);
     // the same page in the other language
     expect(within(top).getByRole('link', { name: 'English' }).getAttribute('href')).toBe(
       '/en/docs',
@@ -158,7 +161,8 @@ describe('documentation pages', () => {
         <p>x</p>
       </DocsFrame>,
     );
-    fireEvent.click(screen.getByRole('button', { name: doc('themeLight', 'en') }));
+    // the appearance switch lives in the shared footer (and the dock); either one switches the page
+    fireEvent.click(screen.getAllByRole('button', { name: landingText('en').themeLight })[0]!);
     expect(document.querySelector('.doc-app')!.getAttribute('data-mode')).toBe('light');
     expect(document.cookie).toContain('nuzm_theme=light');
   });

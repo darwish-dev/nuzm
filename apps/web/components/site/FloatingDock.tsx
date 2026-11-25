@@ -37,7 +37,8 @@ function pageTop(el: HTMLElement): number {
 /** The element that scrolls right now: the landing panel when it is scrollable, otherwise the page. */
 function scroller(): Scroller {
   const root = document.querySelector<HTMLElement>('.landing');
-  const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // matchMedia is missing in some environments (jsdom, very old browsers): treat that as "motion allowed".
+  const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
   const sections = root
     ? Array.from(

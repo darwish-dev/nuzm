@@ -10,7 +10,8 @@ describe('generated API reference', () => {
     expect(REF.operations.length).toBeGreaterThan(200);
     for (const o of REF.operations) {
       expect(o.path.startsWith('/v1/')).toBe(true);
-      expect(o.path).not.toMatch(/\/admin\b|\/scim\b/);
+      // whole path segments: customer routes such as `.../wordpress/admin-resets` are fine, `/v1/admin/...` and `/scim/...` are not
+      expect(o.path).not.toMatch(/\/(admin|scim)(\/|$)/);
     }
     const spec = JSON.stringify(openapi);
     expect(spec).not.toMatch(/sessionCookie|scimToken|sourceKey|x-nuzm-realm/);

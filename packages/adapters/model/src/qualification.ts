@@ -8,7 +8,12 @@ import {
 import { runCapabilityProbe, probeWorstCase, PROBE_INPUT_ALLOWANCE, PROBE_PLAN } from './probe';
 import { tokenCostNano } from './probe-cost';
 import { reconcileDiscovery } from './registry';
-import { ModelAdapterError, type CompleteRequest, type ModelErrorCode } from './types';
+import {
+  ModelAdapterError,
+  type CompleteRequest,
+  type ModelErrorCode,
+  type ModelMessage,
+} from './types';
 
 /**
  * QUALIFICATION TRACKS A, B, C (S-AG4, Phase 2): three small, bounded, runnable checks of a provider, each with the SAME gates as the live-verification suite and each writing ONE
@@ -22,12 +27,14 @@ import { ModelAdapterError, type CompleteRequest, type ModelErrorCode } from './
  * What the evidence record holds (and never holds): per request the step, the provider's request id (when it sent one), tokens, whether the tokens were estimated, cost, latency and
  * outcome; per check a fixed sentence. No prompt, no completion, no tool argument, no key. `validateEvidence` enforces the shape before a record is ever written.
  */
-export type QualificationTrack = 'A' | 'B' | 'C';
+export type QualificationTrack = 'A' | 'B' | 'C' | 'D' | 'E';
 export const QUALIFICATION_TRACKS: Record<QualificationTrack, { name: string; checks: string[] }> =
   {
     A: { name: 'provider connection', checks: ['listing', 'complete', 'stream'] },
     B: { name: 'tool calling', checks: ['tool_calling'] },
     C: { name: 'code generation', checks: ['codegen_slugify', 'codegen_sum'] },
+    D: { name: 'controlled error mapping', checks: ['error_mapping'] },
+    E: { name: 'agent tool loop', checks: ['agent_loop'] },
   };
 
 const A_ALLOWANCE = 300;
@@ -55,6 +62,40 @@ const C_STEPS = [
   },
 ] as const;
 
+/**
+ * Track D (CONTROLLED ERROR MAPPING): ONE request that a real vendor refuses before generating anything (an output ceiling above the model's limit), to see a REAL error status mapped onto
+ * the contract (`invalid_request`, not retryable) and to confirm nothing was billed. It cannot show 401/429/5xx handling (those cannot be provoked safely) and says so. If the vendor
+ * unexpectedly ACCEPTS the request, the prompt asks for one word, the actual usage is recorded and the check fails.
+ */
+const D_ALLOWANCE = 100;
+const D_MAX_OUT = 100;
+/**
+ * Track E (AGENT TOOL LOOP, acceptance A2): a synthetic read-tool loop. The model is offered one read tool over a constant in-memory note, must call it, receives the result and must
+ * answer with the code word that was IN the result (so it provably used it). Two requests; the tool is a pure function of a constant: nothing is executed, read or written outside.
+ */
+const E_STEPS = 2;
+const E_ALLOWANCE = 400;
+const E_MAX_OUT = 300;
+const E_NOTE_ID = 'alpha';
+const E_CODE_WORD = 'PELICAN-4821';
+const E_TOOL = {
+  name: 'read_note',
+  description: 'Read a note by its id and return its text.',
+  inputSchema: {
+    type: 'object',
+    properties: { id: { type: 'string' } },
+    required: ['id'],
+    additionalProperties: false,
+  },
+} as const;
+/** The synthetic read tool: a pure function over constants (never a file, a process or the network). */
+export function syntheticReadNote(args: unknown): string {
+  const id = (args as { id?: unknown } | null)?.id;
+  return id === E_NOTE_ID
+    ? `Note ${E_NOTE_ID}: the code word is ${E_CODE_WORD}.`
+    : `No note with that id exists.`;
+}
+
 /** What a track may use at most (shown to the approver before approving). */
 export function trackWorstCase(track: QualificationTrack): WorstCase {
   if (track === 'A') {
@@ -76,6 +117,18 @@ export function trackWorstCase(track: QualificationTrack): WorstCase {
       outputTokens: w.totalTokens - inn,
       totalTokens: w.totalTokens,
     };
+  }
+  if (track === 'D')
+    return {
+      requests: 1,
+      inputTokens: D_ALLOWANCE,
+      outputTokens: D_MAX_OUT,
+      totalTokens: D_ALLOWANCE + D_MAX_OUT,
+    };
+  if (track === 'E') {
+    const inn = E_ALLOWANCE * E_STEPS;
+    const out = E_MAX_OUT * E_STEPS;
+    return { requests: E_STEPS, inputTokens: inn, outputTokens: out, totalTokens: inn + out };
   }
   const out = C_STEPS.reduce((n, s) => n + s.maxTokens, 0);
   const inn = C_ALLOWANCE * C_STEPS.length;
@@ -481,6 +534,111 @@ export async function runQualification(
         `not run: ${e instanceof Error ? e.name : 'refused'} (the adapter build must be on contract 1.1 and declare tool-use)`,
       );
     }
+  } else if (track === 'D') {
+    if (room(D_MAX_OUT, D_ALLOWANCE)) {
+      const t0 = Date.now();
+      const over = (adapter.models().find((m) => m.modelId === model)?.maxOutputTokens ?? 0) + 1;
+      try {
+        const r = await adapter.complete(ctx('error_mapping'), {
+          ...base('qual:error', 'Reply with exactly the word: ok', over),
+        });
+        record('error_mapping', t0, r.usage, D_MAX_OUT, D_ALLOWANCE, 'ok', null, r.requestId);
+        check(
+          'error_mapping',
+          false,
+          true,
+          'the provider ACCEPTED an output ceiling above the model limit: no error was produced to map',
+        );
+      } catch (e) {
+        const code = codeOf(e);
+        const retryable = e instanceof ModelAdapterError && e.retryable;
+        // nothing was generated: the request failed before any output, so no usage is charged
+        record(
+          'error_mapping',
+          t0,
+          { inputTokens: 0, outputTokens: 0 },
+          D_MAX_OUT,
+          D_ALLOWANCE,
+          'error',
+          code,
+        );
+        const ok = code === 'invalid_request' && !retryable;
+        check(
+          'error_mapping',
+          ok,
+          true,
+          ok
+            ? 'a real provider refusal was mapped to invalid_request, not retryable (401/429/5xx handling is NOT exercised)'
+            : `the refusal was mapped to ${code}${retryable ? ' (retryable)' : ''}, not to a non-retryable invalid_request`,
+        );
+        if (!ok) fail(code);
+      }
+    } else check('error_mapping', false, false, 'not run: a cap or a stop was reached first');
+  } else if (track === 'E') {
+    const history: ModelMessage[] = [
+      {
+        role: 'user',
+        content: `Use the read_note tool to read the note with id "${E_NOTE_ID}", then reply with only the code word that the note contains.`,
+      },
+    ];
+    const req = (): CompleteRequest => ({
+      model,
+      messages: history,
+      maxTokens: E_MAX_OUT,
+      task: 'qual:agent-loop',
+      tools: [E_TOOL],
+      toolChoice: 'auto',
+      maxToolCalls: 1,
+    });
+    let loopOk = false;
+    let detail = 'not run: a cap or a stop was reached first';
+    let ran = false;
+    if (room(E_MAX_OUT, E_ALLOWANCE)) {
+      ran = true;
+      const t0 = Date.now();
+      try {
+        const r1 = await adapter.complete(ctx('agent_call'), req());
+        record('agent_call', t0, r1.usage, E_MAX_OUT, E_ALLOWANCE, 'ok', null, r1.requestId);
+        const call = r1.toolCalls?.[0];
+        if (r1.finishReason !== 'tool_calls' || !call || call.name !== E_TOOL.name) {
+          detail = 'the model did not call the read tool';
+        } else if (!room(E_MAX_OUT, E_ALLOWANCE)) {
+          detail = 'not completed: a cap or a stop was reached before the second request';
+          ran = false;
+        } else {
+          // the harness executes the synthetic tool and returns its result as a tool_result block
+          history.push(
+            {
+              role: 'assistant',
+              content: r1.text,
+              blocks: [{ type: 'tool_call', id: call.id, name: call.name, args: call.args }],
+            },
+            {
+              role: 'user',
+              content: '',
+              blocks: [
+                { type: 'tool_result', callId: call.id, content: syntheticReadNote(call.args) },
+              ],
+            },
+          );
+          const t1 = Date.now();
+          const r2 = await adapter.complete(ctx('agent_answer'), req());
+          record('agent_answer', t1, r2.usage, E_MAX_OUT, E_ALLOWANCE, 'ok', null, r2.requestId);
+          const usedResult = r2.finishReason === 'stop' && r2.text.includes(E_CODE_WORD);
+          loopOk = usedResult && (call.args as { id?: unknown })?.id === E_NOTE_ID;
+          detail = loopOk
+            ? 'the model called the read tool, received its result and answered with the code word it contained'
+            : (call.args as { id?: unknown })?.id !== E_NOTE_ID
+              ? 'the model called the read tool with the wrong note id'
+              : 'the final answer did not contain the code word from the tool result';
+        }
+      } catch (e) {
+        record('agent_loop', t0, null, E_MAX_OUT, E_ALLOWANCE, 'error', codeOf(e));
+        detail = `the loop failed (${codeOf(e)})`;
+        fail(codeOf(e));
+      }
+    }
+    check('agent_loop', loopOk, ran, detail);
   } else {
     for (const s of C_STEPS) {
       if (!room(s.maxTokens, C_ALLOWANCE)) {

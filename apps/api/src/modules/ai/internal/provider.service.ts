@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import {
   ProbeRefused,
+  validateEvidence,
+  type QualificationEvidence,
   diffRateCards,
   type RateCardChange,
   contractAtLeast,
@@ -15,6 +17,7 @@ import { ProblemException } from '../../../common/errors';
 import { AI_KILLSWITCH, isUuid, type AiConfig, type Row } from './model';
 import type { ModelAdapterRegistry } from './registry';
 import type { ConnectionProbe, ProbeResult } from './claude-probe';
+import { recordSha256, scanForLeaks } from './live-executor';
 
 const SLUG = /^[a-z][a-z0-9-]{1,40}$/;
 const INT = /^\d{1,15}$/;
@@ -734,6 +737,92 @@ export class ModelProviderService {
   }
 
   /**
+   * EVIDENCE INGESTION (P3-S01, D8). Turns the envelope written by the live executor (`qualify:p3`, run by an operator outside the application) into capability evidence rows, and
+   * ONLY from a genuine LIVE-VERIFIED tool-calling record: the envelope must be a live run (never a mock twin), of THIS provider and the adapter's model and contract version, within its
+   * hard cap, free of anything key-shaped, with a track-B record whose own validation passes, whose verdict is LIVE-VERIFIED and whose stored digest matches. `tool-use` is recorded
+   * VERIFIED; the streamed and parallel capabilities are VERIFIED only when that record's fixed sentence says so, else recorded NOT VERIFIED. Anything else is refused and nothing is
+   * written. It adds integrity checks, not authentication: the caller needs `admin:ai:approve`, who could record the same rows by hand.
+   */
+  async ingestExecutorEvidence(actor: string, id: string, envelope: unknown): Promise<ProviderDto> {
+    const r = await this.load(id);
+    const adapter = this.registry.get(r.code as string);
+    if (!adapter)
+      throw new ProblemException(
+        'unsupported_capability',
+        'no adapter is registered for this provider',
+      );
+    const refuse = (m: string): never => {
+      throw new ProblemException('validation_failed', `the evidence envelope was refused: ${m}`);
+    };
+    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope))
+      return refuse('it is not an object');
+    const e = envelope as Record<string, unknown>;
+    if (JSON.stringify(envelope).length > 2_000_000) refuse('it is too large');
+    if (scanForLeaks(JSON.stringify(envelope)).length > 0)
+      refuse('it contains something key-shaped');
+    if (e.schema !== 'nuzm.p3-provider-evidence' || e.schemaVersion !== 1) refuse('unknown schema');
+    if (typeof e.id !== 'string' || !isUuid(e.id)) refuse('it has no valid id');
+    if (e.mode !== 'live') refuse('only a LIVE run counts: a mock twin run is never evidence');
+    if (e.provider !== r.code || e.contractVersion !== adapter.contractVersion)
+      refuse('it is not for this provider and the registered adapter contract');
+    const model = typeof e.model === 'string' ? e.model : '';
+    if (!adapter.models().some((m) => m.modelId === model))
+      refuse("the model is not one of the adapter's models");
+    if ((e.cap as { overran?: unknown } | undefined)?.overran !== false)
+      refuse('the run overran its hard cap');
+    const rec = (Array.isArray(e.records) ? (e.records as QualificationEvidence[]) : []).find(
+      (x) => x?.track === 'B',
+    );
+    if (!rec) return refuse('it has no tool-calling (track B) record');
+    if (rec.mode !== 'live' || rec.verdict !== 'LIVE-VERIFIED')
+      refuse('the tool-calling record is not LIVE-VERIFIED');
+    if (
+      rec.provider !== r.code ||
+      rec.model !== model ||
+      rec.contractVersion !== adapter.contractVersion
+    )
+      refuse('the tool-calling record is for another provider, model or contract');
+    if (validateEvidence(rec).length > 0)
+      refuse('the tool-calling record is not a valid evidence record');
+    const entry = (
+      Array.isArray(e.tracks)
+        ? (e.tracks as { track?: unknown; status?: unknown; recordSha256?: unknown }[])
+        : []
+    ).find((t) => t?.track === 'B');
+    if (entry?.status !== 'ran' || entry.recordSha256 !== recordSha256(rec))
+      refuse('the stored digest of the tool-calling record does not match');
+    const detail = rec.checks.find((c) => c.id === 'tool_calling')?.detail ?? '';
+    const streamed = /(^|[; (])streamed calls verified/.test(detail);
+    const parallel = /(^|[; (])parallel calls verified/.test(detail);
+    const evidenceRef = `p3-envelope:${e.id}`;
+    const model1 = model;
+    const rows: [EvidenceCapability, 'VERIFIED' | 'NOT VERIFIED'][] = [
+      ['tool-use', 'VERIFIED'],
+      ['streaming-tool-calls', streamed ? 'VERIFIED' : 'NOT VERIFIED'],
+      ['parallel-tool-calls', parallel ? 'VERIFIED' : 'NOT VERIFIED'],
+    ];
+    let out = await this.view(r);
+    for (const [capability, state] of rows) {
+      // a capability the adapter does not declare for the model cannot be verified: skip it instead of failing the whole ingest
+      if (
+        state === 'VERIFIED' &&
+        !adapter
+          .models()
+          .find((m) => m.modelId === model1)
+          ?.capabilities.includes(capability)
+      )
+        continue;
+      out = await this.recordCapabilityEvidence(actor, id, {
+        model: model1,
+        capability,
+        state,
+        evidenceRef,
+      });
+    }
+    return out;
+  }
+
+  /**
    * The live capability probe (S-AG4, SCR-K-11 item 4). The action is part of the contract but is NOT available yet: running it is a live provider call that needs the owner's
    * approval of the probe (D9), the agreement (D2), a credential (D4) and the live gate (D3). The request is validated and the refusal is audited; nothing is sent anywhere.
    */
@@ -897,6 +986,145 @@ export class ModelProviderService {
       detail: { code: r.code, outcome: res.outcome, httpStatus: res.httpStatus ?? null },
     });
     return { ...res, checkedAt: new Date().toISOString(), live: true };
+  }
+
+  /**
+   * KEY ROTATION (P3-S01). The new key is typed into the admin console like the first one (write-only, never echoed). It is sealed under a STAGING name first and tested with the
+   * provider (a read-only model listing: nothing billed, behind the same live gate as any call); only when the provider accepts it does it replace the current key. A key that is
+   * refused leaves the current key untouched and the staging copy deleted. The provider stays enabled (it never runs without a working key), the audit event carries only the vault
+   * REFERENCE and the outcome, never a key. Dev profile only until the production vault is decided (D-12). Rotating does not revoke the OLD key at the vendor: that is a human step
+   * in the vendor console, which this platform cannot and does not perform (the result says so).
+   */
+  async rotateCredential(
+    actor: string,
+    id: string,
+    apiKey: unknown,
+  ): Promise<{ provider: ProviderDto; rotatedAt: string; vendorSteps: string[] }> {
+    if (!this.secrets || !this.probe || process.env.NODE_ENV === 'production')
+      throw new ProblemException(
+        'unsupported_capability',
+        'rotating a key here is not available in this profile: the production vault is not decided yet (D-12)',
+      );
+    const key = typeof apiKey === 'string' ? apiKey.trim() : '';
+    if (!API_KEY.test(key))
+      throw new ProblemException(
+        'validation_failed',
+        'the key must be 20 to 400 printable characters with no spaces',
+      );
+    const r = await this.load(id);
+    if (r.adapter !== 'anthropic')
+      throw new ProblemException('unsupported_capability', 'key rotation exists for Claude only');
+    const current = (r.vault_ref as string | null) ?? null;
+    if (!current || !/^vault:\/\/(dev|mem)\/ai-/.test(current))
+      throw new ProblemException(
+        'validation_failed',
+        'there is no key to rotate: save the first key instead',
+      );
+    // the new key is tested with a LIVE request: it needs the owner's approval for live calls to this provider, like any call
+    if (!this.cfg.liveProviders?.includes(r.code as string))
+      throw new ProblemException(
+        'unsupported_capability',
+        'live calls to this provider are not approved in this environment: a new key cannot be tested, so it is not swapped in',
+      );
+    const code = r.code as string;
+    const staging = await this.secrets.put(`ai-${code}-next`, key);
+    const res = await this.probe(key).catch(() => ({ outcome: 'error' }) as ProbeResult);
+    if (res.outcome !== 'ok') {
+      await this.secrets.delete(staging).catch(() => undefined);
+      await this.audit.record({
+        action: 'ai.provider.credential_rotation_failed',
+        actorUserId: actor,
+        actorType: 'user',
+        resource: { type: 'model_provider', id },
+        outcome: 'failure',
+        detail: {
+          code,
+          outcome: res.outcome,
+          httpStatus: res.httpStatus ?? null,
+          vaultRef: current,
+        },
+      });
+      throw new ProblemException(
+        'validation_failed',
+        `the provider did not accept the new key (${res.outcome}): the current key is unchanged`,
+      );
+    }
+    const ref = await this.secrets.put(`ai-${code}`, key); // same name: the reference stays the same
+    await this.secrets.delete(staging).catch(() => undefined);
+    const row = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `UPDATE ai.model_providers SET vault_ref=$2, updated_at=now(), version=version+1 WHERE id=$1 RETURNING *`,
+            [id, ref],
+          )
+        ).rows[0] as Row,
+    );
+    const rotatedAt = new Date().toISOString();
+    await this.audit.record({
+      action: 'ai.provider.credential_rotated',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: 'success',
+      detail: { code, vaultRef: ref, tested: true, modelCount: res.modelCount ?? null, rotatedAt },
+    });
+    return {
+      provider: await this.view(row),
+      rotatedAt,
+      vendorSteps: [
+        'Revoke the OLD key in the vendor console (a human step: this platform cannot do it).',
+        'Record the rotation date with the key owner (D4).',
+      ],
+    };
+  }
+
+  /**
+   * KEY REVOCATION (P3-S01): the emergency and the scheduled path. Removes the stored key and the reference and disables the provider (as `clearCredential`), records WHY, and for a
+   * suspected compromise also engages the GLOBAL kill switch first, so no call can use the key while it is being replaced. The vendor-side revocation is a human step this platform
+   * cannot perform: the result lists what remains.
+   */
+  async revokeCredential(
+    actor: string,
+    id: string,
+    b: Record<string, unknown>,
+  ): Promise<{ provider: ProviderDto; killSwitch: boolean; vendorSteps: string[] }> {
+    const reason = b.reason;
+    if (
+      reason !== 'compromised' &&
+      reason !== 'scheduled' &&
+      reason !== 'offboarding' &&
+      reason !== 'other'
+    )
+      throw new ProblemException(
+        'validation_failed',
+        'reason must be compromised, scheduled, offboarding or other',
+      );
+    const engage =
+      typeof b.engageKillSwitch === 'boolean' ? b.engageKillSwitch : reason === 'compromised';
+    const r = await this.load(id);
+    if (engage) await this.setKillSwitch(actor, true);
+    const provider = await this.clearCredential(actor, id);
+    await this.audit.record({
+      action: 'ai.provider.credential_revoked',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: 'success',
+      detail: { code: r.code, reason, killSwitchEngaged: engage, hadCredential: !!r.vault_ref },
+    });
+    return {
+      provider,
+      killSwitch: engage,
+      vendorSteps: [
+        'Revoke the key in the vendor console NOW (a human step: this platform cannot do it).',
+        ...(engage
+          ? [
+              'Lift the kill switch only after a replacement key is saved, tested and the incident is closed.',
+            ]
+          : []),
+      ],
+    };
   }
 
   /** Removes the stored key and the reference; the provider is disabled (it cannot run without a credential). */

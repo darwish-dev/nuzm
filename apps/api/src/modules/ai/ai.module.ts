@@ -39,6 +39,7 @@ import { AgentWorkspaceRegistry, StaticAgentWorkspaceRegistry } from './internal
 import { AI_CONFIG, loadAiConfig, type AiConfig } from './internal/model';
 import { probeAnthropic } from './internal/claude-probe';
 import { ModelProviderService } from './internal/provider.service';
+import { KillSwitchDrillService } from './internal/kill-switch-drill.service';
 import { ProviderInsightsService } from './internal/provider-insights.service';
 import { AiContentAccess } from './internal/ai-content-access.service';
 import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/registry';
@@ -111,6 +112,12 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
         sec: SecretStore,
       ) => new ModelProviderService(db, a, r, cfg, sec, probeAnthropic),
       inject: [DB, AuditSink, ModelAdapterRegistry, AI_CONFIG, SecretStore],
+    },
+    {
+      provide: KillSwitchDrillService,
+      useFactory: (db: Db, a: AuditSink, p: ModelProviderService, g: GatewayService) =>
+        new KillSwitchDrillService(db, a, p, g),
+      inject: [DB, AuditSink, ModelProviderService, GatewayService],
     },
     {
       provide: BudgetService,
@@ -237,6 +244,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     AiFlags,
     AiEnabledGuard,
     ModelProviderService,
+    KillSwitchDrillService,
     BudgetService,
     GatewayService,
     ProviderInsightsService,

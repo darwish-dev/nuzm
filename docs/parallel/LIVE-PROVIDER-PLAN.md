@@ -178,3 +178,36 @@ If a run is stuck: Ctrl-C cancels the request in flight; the run stops at the fi
 "rate-card:preview": "tsx src/modules/ai/internal/rate-card-preview-cli.ts"
 ```
 Until they exist the commands above work as written with `pnpm --filter @nuzm/api exec tsx …`.
+
+---
+# 10. Phase 3 additions (P3-S01, 2026-11-24): the live executor, tracks D and E, rotation, drills, invoice check
+Status: **BUILT AND TESTED OFFLINE (SIMULATED). Nothing in this section has run against a real provider.** The gates of §2 are unchanged; every new path is behind them and has refusal tests.
+
+## 10.1 One command for the live run (`live-executor-cli.ts`, script line `qualify:p3` pending CONTRACT-P3-S01-1)
+```bash
+# rehearsal on the mock twin: no key, no network, verdict SIMULATED
+pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-executor-cli.ts --twin --tracks A,B,C,D,E
+# dry run: gates + the plan, the HARD USD CAP printed FIRST, nothing sent, no key read
+pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-executor-cli.ts --vault-ref vault://dev/ai-claude --approval ~/nuzm-live/approval.json --evidence ~/nuzm-live/evidence.json
+# the run (adds --execute; writes docs/phase3/EVIDENCE/provider/<date>-<id>.json, mode 0600)
+pnpm --filter @nuzm/api exec tsx src/modules/ai/internal/live-executor-cli.ts --vault-ref vault://dev/ai-claude --approval ~/nuzm-live/approval.json --evidence ~/nuzm-live/evidence.json --execute
+```
+Options: `--tracks A,B,C` (default; D = one controlled real vendor refusal, E = synthetic read-tool agent loop, S = the nine-check suite, which replaces B because it already contains the whole probe), `--cap-usd <decimal>` (a hard cap at or below the plan's worst case). Exit codes: 0 every claim passed, 1 a claim failed or is NOT VERIFIED, 2 refused (nothing sent), 3 unexpected.
+- **The cap is cumulative and enforced twice:** the remaining budget is what each track is APPROVED to use (a track that does not fit is not run and says so), and the actual cost is added after each track. The approval file must cover the SUM of the selected tracks (the dry run prints `approvalMustCover`): A+B+C = 17 requests, USD 0.117520 at the list price read 2026-11-24 (the per-track maxima of D9 are A 0.006400, B 0.080720, C 0.030400, suite 0.116720; D adds 1 request and 0, E at most USD 0.015200: **D and E are opt-in because they are outside the D9 maxima**, the owner approves them by raising the approval).
+- **Stops:** a credential, availability or rate-limit failure ends the whole run; nothing is retried. The key is read lazily (never when no track fits the cap) and only after every gate.
+- **The envelope** (`nuzm.p3-provider-evidence` v1) holds the model id, adapter contract and component versions, the approval references (D2–D9 rows, references only), hashes of the plan (`inputsSha256`) and of the records (`outputsSha256`, per-track `recordSha256`), the cap and cost, one **claim per check** labelled LIVE-VERIFIED / SIMULATED / FAIL / NOT VERIFIED, and a leak scan (the credential and key-shaped text discard the envelope instead of writing it). Claims that stay SIMULATED or NOT VERIFIED even in a live run are written into every envelope (retry/breaker, fallback, 401/429/5xx, model quality).
+- **Track D** only shows a real vendor refusal (an output ceiling above the model's limit) mapped to a non-retryable `invalid_request`; if the vendor accepts it the check FAILS and the actual usage is recorded. It cannot show 401/429/5xx handling and says so.
+- **Track E** (acceptance A2): the model must call a synthetic `read_note` tool, receive its result and answer with the code word that was in the result.
+
+## 10.2 After the run
+1. Usage reconciliation (tokens): unchanged, §9.2 E8 (`live-smoke-cli --reconcile`).
+2. **Invoice check** (arithmetic, no key): `live-executor-cli.ts --reconcile-invoice <envelope.json> --invoice invoice.json [--tolerance-usd 0.005]` with `invoice.json = {amountUsd, currency, source, vendorInputTokens?, vendorOutputTokens?}` read from the dedicated workspace's console for the run window. Two claims: our computed cost equals the invoice, and the vendor's own token counts at our list price equal the invoice (this checks the price list). Without the vendor token counts the second claim is NOT VERIFIED.
+3. **Capability evidence** (D8): the admin action `ingest_executor_evidence` (CONTRACT-P3-S01-1) records `tool-use` VERIFIED only from a LIVE-VERIFIED track-B record of that envelope (live run, this provider/model/contract, within its cap, digest matches, nothing key-shaped); dependent capabilities are VERIFIED only if that record says so, else NOT VERIFIED. The existing `probe_tool_use` and `record_capability_evidence` paths stay.
+
+## 10.3 Credentials and the kill switch (service level now; admin actions pending CONTRACT-P3-S01-1)
+- **Rotation:** the new key is typed into the console, sealed under a staging name, tested with a read-only model listing (live gate required) and swapped in only if the provider accepts it; the old key stays on any failure; the vault reference does not change; audit holds the reference and the outcome only. Revoking the OLD key at the vendor stays a human step.
+- **Revocation:** reason `compromised|scheduled|offboarding|other`; clears the key, disables the provider; a compromise also engages the global kill switch first.
+- **Kill switch drill:** engages the switch, sees the gateway refuse on the next call (within 5 s), always lifts it, sees AI served again; uses the gateway pre-flight only, so it sends nothing to a provider; refuses to start while the switch is already engaged.
+
+## 10.4 OpenAI and Gemini (D11)
+Adapters exist (`openai.ts`, `gemini.ts`, `docs/adapters/openai.md`, `gemini.md`) against a stubbed transport only. They are not registered, cannot be probed and refuse every call unless their own live gate, key and decisions exist. The live executor refuses any provider but `claude` (D11). Open obligations (tool calling on Chat Completions for the declared model, Gemini parallel/streamed calls and thought signatures, error bodies) are listed in the adapter notes.

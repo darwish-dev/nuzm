@@ -17,9 +17,41 @@ describe('OpenAI and Gemini integration contracts (D11: contracts only, no adapt
       expect(d.mustNotBeAssumed.join(' ')).toMatch(/prices/);
     },
   );
-  it('the package exports no OpenAI or Gemini adapter class', () => {
-    const names = Object.keys(pkg);
-    expect(names.filter((n) => /openai|gemini/i.test(n) && /adapter/i.test(n))).toEqual([]);
+  it('P3-S01: the OpenAI and Gemini adapters now exist (behind D11) but are inert: a closed live gate or a missing key sends nothing, and the wire mapping stays unverified', async () => {
+    let sent = 0;
+    const f = async () => {
+      sent++;
+      return new Response('{}');
+    };
+    for (const a of [
+      new pkg.OpenAIModelAdapter({
+        getApiKey: async () => 'k'.repeat(30),
+        fetchImpl: f,
+        liveEnabled: () => false,
+      }),
+      new pkg.GeminiModelAdapter({
+        getApiKey: async () => 'k'.repeat(30),
+        fetchImpl: f,
+        liveEnabled: () => false,
+      }),
+      new pkg.OpenAIModelAdapter({ getApiKey: async () => null, fetchImpl: f }),
+      new pkg.GeminiModelAdapter({ getApiKey: async () => null, fetchImpl: f }),
+    ])
+      await expect(
+        a.complete(
+          { callId: 'x' },
+          {
+            model: a.models()[0]!.modelId,
+            messages: [{ role: 'user', content: 'hi' }],
+            maxTokens: 8,
+          },
+        ),
+      ).rejects.toMatchObject({ code: 'unavailable', retryable: false });
+    expect(sent).toBe(0);
+    // the draft records still say nothing was exercised against the real services
+    expect(
+      Object.values(PROVIDER_DRAFTS).every((d) => d.wireMapping.every((r) => r.verified === false)),
+    ).toBe(true);
   });
   it('maps statuses to contract errors the same way for every provider', () => {
     const e = (s: number, ra?: number) => modelErrorFromHttpStatus(s, ra);

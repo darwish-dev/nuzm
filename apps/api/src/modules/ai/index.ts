@@ -3,6 +3,9 @@ export { AiModule } from './ai.module';
 export { GatewayService } from './internal/gateway.service';
 export { BudgetService, BudgetDenied, withDeadlockRetry } from './internal/budget.service';
 export { ModelProviderService } from './internal/provider.service';
+export { KillSwitchDrillService } from './internal/kill-switch-drill.service';
+export { runKillSwitchDrill, KILL_SWITCH_BOUND_MS } from './internal/kill-switch-drill';
+export type { DrillReport, DrillStep } from './internal/kill-switch-drill';
 export { ProviderInsightsService } from './internal/provider-insights.service';
 export type {
   DiscoveryResult,

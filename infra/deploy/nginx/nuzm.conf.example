@@ -1,0 +1,23 @@
+# EXAMPLE ONLY. The server already serves https://www.nuzm.dev with its own nginx + certificate: merge the `location /` proxy
+# into that vhost; do not replace it. The API is NOT exposed here: the web app proxies it over 127.0.0.1:4000.
+server {
+  listen 443 ssl http2;
+  server_name www.nuzm.dev nuzm.dev;
+  # ssl_certificate / ssl_certificate_key: keep the ones already configured (certbot).
+  location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
+server {
+  listen 443 ssl http2;
+  server_name admin.nuzm.dev;   # needs a DNS A record -> 89.116.29.136 and its own certificate
+  location / {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}

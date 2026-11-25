@@ -1,0 +1,18 @@
+[Unit]
+Description=Nuzm admin (Next.js)
+After=network.target
+
+[Service]
+User=deploy
+WorkingDirectory=/srv/nuzm/current/apps/admin
+EnvironmentFile=/etc/nuzm/admin.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/env pnpm exec next start -p 3001 -H 127.0.0.1
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

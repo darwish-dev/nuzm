@@ -32,7 +32,7 @@ export interface PlanOption {
   versionId: string;
 }
 const key = () => crypto.randomUUID();
-const returnUrl = (locale: Locale) => `${window.location.origin}/billing/payment-return`;
+const returnUrl = (_locale: Locale) => `${window.location.origin}/billing/payment-return`;
 const REMEMBER = 'nuzm.lastPayment';
 
 // ---- UI-M03-01: payment methods ------------------------------------------------------------------------------------------

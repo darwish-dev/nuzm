@@ -28,6 +28,25 @@ export default tseslint.config(
     languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly' } },
   },
   {
+    // Design render/export scripts: Node drivers whose page.evaluate callbacks run in the browser (carried from main's config, which the hosting line's design/ scripts need).
+    files: ['design/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        fetch: 'readonly',
+        performance: 'readonly',
+        setTimeout: 'readonly',
+        Blob: 'readonly',
+        btoa: 'readonly',
+        Buffer: 'readonly',
+        MediaRecorder: 'readonly',
+        createImageBitmap: 'readonly',
+      },
+    },
+  },
+  {
     // Module boundaries (docs/02 §3, ADR-001): import only a module's public index and
     // a package's public entry, never internals. Violations must fail lint (bootstrap B6).
     rules: {
@@ -132,5 +151,10 @@ export default tseslint.config(
   {
     files: ['**/*.mjs', '**/*.js', 'scripts/**'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // Operator tool (P3-S08): a read-only checker that reuses the QA evidence verifier of apps/api; it is not application code and nothing imports it.
+    files: ['docs/phase3/validate/**/*.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
 );

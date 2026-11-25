@@ -8737,13 +8737,15 @@ export const messages = {
     'bt.lc.evidence.title': 'سجل الأدلة',
     'bt.lc.evidence.SIMULATED': 'محاكاة: لم يشارك أي مكوّن حقيقي.',
     'bt.lc.evidence.MIXED': 'مختلط: مكوّن حقيقي واحد فقط (النموذج أو البناء). لا يُعدّ تحققًا حيًّا.',
-    'bt.lc.evidence.REAL_COMPONENTS': 'مكوّنات حقيقية: النموذج والبناء حقيقيان. ينتظر مراجعة التأهيل قبل اعتباره تحققًا حيًّا.',
+    'bt.lc.evidence.REAL_COMPONENTS':
+      'مكوّنات حقيقية: النموذج والبناء حقيقيان. ينتظر مراجعة التأهيل قبل اعتباره تحققًا حيًّا.',
     'bt.lc.evidence.models': 'النموذج المستخدم',
     'bt.lc.evidence.models.none': 'لم يُستدعَ أي نموذج',
     'bt.lc.evidence.reconciled': 'الحسابات متطابقة: الرموز والرصيد في الوكيل وفي بوابة النماذج.',
     'bt.lc.evidence.unreconciled': 'الحسابات غير متطابقة: يراجعها مسؤول ولا تُصحَّح تلقائيًا.',
     'bt.lc.evidence.unavailable': 'تعذّرت قراءة الأدلة.',
-    'bt.lc.failure.real_path_approval_missing': 'المسار الحقيقي غير مصرّح به: موافقات المالك غير مسجلة.',
+    'bt.lc.failure.real_path_approval_missing':
+      'المسار الحقيقي غير مصرّح به: موافقات المالك غير مسجلة.',
     'bt.lc.failure.model_generation_off': 'المسار الحقيقي يتطلب تفعيل التوليد بالنموذج.',
     'bt.lc.failure.model_unavailable': 'بوابة النماذج غير متاحة.',
     'bt.lc.failure.real_runtime_unavailable': 'بيئة التنفيذ الحقيقية غير متاحة.',
@@ -17867,18 +17869,24 @@ export const messages = {
     'bt.lc.repair.refused': 'Proposals refused by the safety rules: {n}',
     'bt.lc.evidence.title': 'Evidence record',
     'bt.lc.evidence.SIMULATED': 'SIMULATED: no real component took part.',
-    'bt.lc.evidence.MIXED': 'MIXED: only one real component (the model or the build). Not live-verified.',
-    'bt.lc.evidence.REAL_COMPONENTS': 'REAL COMPONENTS: the model and the build are real. Awaiting qualification review before it counts as live-verified.',
+    'bt.lc.evidence.MIXED':
+      'MIXED: only one real component (the model or the build). Not live-verified.',
+    'bt.lc.evidence.REAL_COMPONENTS':
+      'REAL COMPONENTS: the model and the build are real. Awaiting qualification review before it counts as live-verified.',
     'bt.lc.evidence.models': 'Model used',
     'bt.lc.evidence.models.none': 'No model was called',
-    'bt.lc.evidence.reconciled': 'Accounts agree: tokens and credits match between the agent and the model gateway.',
-    'bt.lc.evidence.unreconciled': 'Accounts do not agree: an operator reviews them; nothing is corrected automatically.',
+    'bt.lc.evidence.reconciled':
+      'Accounts agree: tokens and credits match between the agent and the model gateway.',
+    'bt.lc.evidence.unreconciled':
+      'Accounts do not agree: an operator reviews them; nothing is corrected automatically.',
     'bt.lc.evidence.unavailable': 'The evidence could not be read.',
-    'bt.lc.failure.real_path_approval_missing': 'The real path is not authorized: the owner approvals are not recorded.',
+    'bt.lc.failure.real_path_approval_missing':
+      'The real path is not authorized: the owner approvals are not recorded.',
     'bt.lc.failure.model_generation_off': 'The real path requires model generation to be on.',
     'bt.lc.failure.model_unavailable': 'The model gateway is not available.',
     'bt.lc.failure.real_runtime_unavailable': 'The real execution runtime is not available.',
-    'bt.lc.failure.real_runtime_simulated': 'The available runtime is simulated, not real, so the run was refused.',
+    'bt.lc.failure.real_runtime_simulated':
+      'The available runtime is simulated, not real, so the run was refused.',
     'bt.lc.failure.protected_path': 'A repair proposal tried to change protected files.',
     'bt.lc.class.type_mismatch': 'Type mismatch',
     'bt.lc.class.missing_property': 'Missing property',

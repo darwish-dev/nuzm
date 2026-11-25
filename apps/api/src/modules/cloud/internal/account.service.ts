@@ -140,7 +140,10 @@ export class ProviderAccountService {
     const { credentials, ...rest } = body(input);
     rejectCredentialValues(rest);
     if ('credentialRef' in rest)
-      throw new ProblemException('validation_failed', 'send credentials or credentialRef, not both');
+      throw new ProblemException(
+        'validation_failed',
+        'send credentials or credentialRef, not both',
+      );
     const providerId = rest.providerId;
     if (typeof providerId !== 'string' || !UUID.test(providerId))
       throw new ProblemException('validation_failed', 'providerId must be a UUID');

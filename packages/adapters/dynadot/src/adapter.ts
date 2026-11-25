@@ -71,21 +71,33 @@ const str = (v: unknown): string | null =>
   typeof v === 'string' && v !== '' ? v : typeof v === 'number' ? String(v) : null;
 const yes = (v: unknown): boolean | null => {
   const s = str(v)?.toLowerCase();
-  return s === 'yes' || s === 'true' || s === '1' ? true : s === 'no' || s === 'false' || s === '0' ? false : null;
+  return s === 'yes' || s === 'true' || s === '1'
+    ? true
+    : s === 'no' || s === 'false' || s === '0'
+      ? false
+      : null;
 };
 
 /** The vendor documents no error codes: classification is by message text and is itself an assumption (NOT VERIFIED). */
 export function classifyMessage(msg: string): { category: ErrorCategory; retryable: boolean } {
   const m = msg.toLowerCase();
-  if (/(invalid|wrong|missing|unknown|disabled|expired) (api )?key|api (access|key)|not authori[sz]ed|permission|ip (is )?not (allowed|whitelisted)|access denied|authenticat/.test(m))
+  if (
+    /(invalid|wrong|missing|unknown|disabled|expired) (api )?key|api (access|key)|not authori[sz]ed|permission|ip (is )?not (allowed|whitelisted)|access denied|authenticat/.test(
+      m,
+    )
+  )
     return { category: 'auth', retryable: false };
   if (/too many|rate limit|slow down|exceed|thread/.test(m))
     return { category: 'rate_limit', retryable: true };
-  if (/temporar|unavailable|try again|timed out|maintenance|busy|internal error|system error/.test(m))
+  if (
+    /temporar|unavailable|try again|timed out|maintenance|busy|internal error|system error/.test(m)
+  )
     return { category: 'provider_outage', retryable: true };
   if (/insufficient|not enough|low balance|balance/.test(m))
     return { category: 'quota', retryable: false };
-  if (/not (found|exist)|does not exist|no such|not in your account|not belong|can ?not find/.test(m))
+  if (
+    /not (found|exist)|does not exist|no such|not in your account|not belong|can ?not find/.test(m)
+  )
     return { category: 'not_found', retryable: false };
   if (/already|not available|is taken|unavailable for registration|registered/.test(m))
     return { category: 'conflict', retryable: false };
@@ -107,7 +119,12 @@ const STATE = (s: string | null): ProviderDomainState => {
   return 'unknown';
 };
 
-type Failure = { ok: false; status: 'failed' | 'uncertain'; error: NormalizedError; ev: RawEvidence };
+type Failure = {
+  ok: false;
+  status: 'failed' | 'uncertain';
+  error: NormalizedError;
+  ev: RawEvidence;
+};
 type Success = { ok: true; data: Obj; ev: RawEvidence };
 type Params = Record<string, string | number | boolean | undefined>;
 
@@ -137,7 +154,8 @@ export class DynadotAdapter implements RegistrarAdapter {
     };
   }
   private async creds(ctx: AccountContext) {
-    if (!isVaultRef(ctx.credentialRef)) throw new Error('credentialRef must be a vault:// reference');
+    if (!isVaultRef(ctx.credentialRef))
+      throw new Error('credentialRef must be a vault:// reference');
     const m = await this.o.vault.resolve(ctx.credentialRef);
     return { m, apiKey: m.fields.apiKey ?? '' };
   }
@@ -169,39 +187,70 @@ export class DynadotAdapter implements RegistrarAdapter {
       } catch {
         return fail(
           opts.mutating ? 'uncertain' : 'failed',
-          normalizedError('provider_outage', `http_${res.status}`, 'the registrar returned an unreadable answer', true),
+          normalizedError(
+            'provider_outage',
+            `http_${res.status}`,
+            'the registrar returned an unreadable answer',
+            true,
+          ),
         );
       }
       if (res.status === 429)
-        return fail('failed', normalizedError('rate_limit', 'rate_limit', 'the registrar rate limit was reached', true));
+        return fail(
+          'failed',
+          normalizedError('rate_limit', 'rate_limit', 'the registrar rate limit was reached', true),
+        );
       if (res.status >= 500)
         return fail(
           opts.mutating ? 'uncertain' : 'failed',
-          normalizedError('provider_outage', `http_${res.status}`, 'the registrar had a server error', true),
+          normalizedError(
+            'provider_outage',
+            `http_${res.status}`,
+            'the registrar had a server error',
+            true,
+          ),
         );
       const root = obj(json);
       // the documented envelope has one top-level node per command; a malformed key/command answers a bare node too
-      const node = obj(Object.values(root).find((v) => v && typeof v === 'object' && !Array.isArray(v)) ?? root);
+      const node = obj(
+        Object.values(root).find((v) => v && typeof v === 'object' && !Array.isArray(v)) ?? root,
+      );
       const header = obj(
         Object.values(node).find((v) => {
           const x = obj(v);
           return x.ResponseCode !== undefined || x.SuccessCode !== undefined;
         }),
       );
-      const code = String(node.ResponseCode ?? node.SuccessCode ?? header.ResponseCode ?? header.SuccessCode ?? root.ResponseCode ?? '');
+      const code = String(
+        node.ResponseCode ??
+          node.SuccessCode ??
+          header.ResponseCode ??
+          header.SuccessCode ??
+          root.ResponseCode ??
+          '',
+      );
       const status = str(node.Status ?? header.Status ?? root.Status)?.toLowerCase() ?? '';
       const message = str(node.Error ?? header.Error ?? root.Error);
       if (code !== '' && code !== '0') {
         const k = classifyMessage(message ?? status);
         return fail(
           'failed',
-          normalizedError(k.category, k.category, red.string(message ?? 'registrar error'), k.retryable),
+          normalizedError(
+            k.category,
+            k.category,
+            red.string(message ?? 'registrar error'),
+            k.retryable,
+          ),
         );
       }
       if (code === '' && (status === 'error' || message))
         return fail(
           'failed',
-          normalizedError('unknown', 'unreadable', red.string(message ?? 'the registrar answer was not understood')),
+          normalizedError(
+            'unknown',
+            'unreadable',
+            red.string(message ?? 'the registrar answer was not understood'),
+          ),
         );
       return {
         ok: true,
@@ -217,7 +266,12 @@ export class DynadotAdapter implements RegistrarAdapter {
       )
         return fail(
           opts.mutating ? 'uncertain' : 'failed',
-          normalizedError('provider_outage', 'timeout', 'the registrar did not answer in time', true),
+          normalizedError(
+            'provider_outage',
+            'timeout',
+            'the registrar did not answer in time',
+            true,
+          ),
         );
       throw e;
     }
@@ -228,7 +282,11 @@ export class DynadotAdapter implements RegistrarAdapter {
   private unsupported<T>(op: string, what: string): OperationResult<T> {
     return {
       status: 'failed',
-      error: normalizedError('unsupported', 'unsupported', `${what} is not supported by this registrar adapter`),
+      error: normalizedError(
+        'unsupported',
+        'unsupported',
+        `${what} is not supported by this registrar adapter`,
+      ),
       raw: this.ev(op, `unsupported: ${what}`),
     };
   }
@@ -240,12 +298,28 @@ export class DynadotAdapter implements RegistrarAdapter {
   async probe(ctx: AccountContext): Promise<RegistrarCapabilityReport> {
     const caps: Partial<Record<RegistrarCapabilityId, CapabilityState>> = {};
     const ev: RawEvidence[] = [];
-    const bal = await this.call(ctx, 'get_account_balance', {}, { mutating: false, op: 'probe.balance' });
+    const bal = await this.call(
+      ctx,
+      'get_account_balance',
+      {},
+      { mutating: false, op: 'probe.balance' },
+    );
     ev.push(bal.ev);
-    if (!bal.ok) return { capabilities: completeCapabilities({}), evidence: ev, probedAt: this.now() };
-    const price = await this.call(ctx, 'tld_price', { ...this.cur(), count_per_page: 1, page_index: 1 }, { mutating: false, op: 'probe.tld-price' });
+    if (!bal.ok)
+      return { capabilities: completeCapabilities({}), evidence: ev, probedAt: this.now() };
+    const price = await this.call(
+      ctx,
+      'tld_price',
+      { ...this.cur(), count_per_page: 1, page_index: 1 },
+      { mutating: false, op: 'probe.tld-price' },
+    );
     ev.push(price.ev);
-    const s = await this.call(ctx, 'search', { domain0: 'nuzm-probe-check.com', ...this.cur() }, { mutating: false, op: 'probe.search' });
+    const s = await this.call(
+      ctx,
+      'search',
+      { domain0: 'nuzm-probe-check.com', ...this.cur() },
+      { mutating: false, op: 'probe.search' },
+    );
     ev.push(s.ev);
     caps['registrar.search'] = s.ok ? 'supported' : 'unsupported';
     // register/renew/transfer/… cannot be proven without a side effect: derived from authenticated reads, exactly as the other registrar adapters do
@@ -295,8 +369,14 @@ export class DynadotAdapter implements RegistrarAdapter {
   }
 
   private async tldMap(ctx: AccountContext): Promise<Map<string, TldSupport>> {
-    if (this.priceCache && Date.now() - this.priceCache.at < 15 * 60_000) return this.priceCache.byTld;
-    const r = await this.call(ctx, 'tld_price', { ...this.cur(), count_per_page: TLD_PAGE, page_index: 1 }, { mutating: false, op: 'tld-price' });
+    if (this.priceCache && Date.now() - this.priceCache.at < 15 * 60_000)
+      return this.priceCache.byTld;
+    const r = await this.call(
+      ctx,
+      'tld_price',
+      { ...this.cur(), count_per_page: TLD_PAGE, page_index: 1 },
+      { mutating: false, op: 'tld-price' },
+    );
     const byTld = new Map<string, TldSupport>();
     if (!r.ok) return byTld;
     const currency = (str(r.data.Currency) ?? this.o.currency ?? 'USD').toUpperCase();
@@ -327,7 +407,11 @@ export class DynadotAdapter implements RegistrarAdapter {
         minYears: Number.isInteger(min) && min >= 1 ? min : 1,
         maxYears: Number.isInteger(max) && max >= 1 && max <= 10 ? max : 10,
         requiredContactFields: [],
-        prices: { register: money(price.Register), renew: money(price.Renew), transfer: money(price.Transfer) },
+        prices: {
+          register: money(price.Register),
+          renew: money(price.Renew),
+          transfer: money(price.Transfer),
+        },
       });
     }
     this.priceCache = { at: Date.now(), byTld };
@@ -338,7 +422,11 @@ export class DynadotAdapter implements RegistrarAdapter {
     return [...(await this.tldMap(ctx)).values()];
   }
 
-  async search(ctx: AccountContext, names: string[], tlds: string[]): Promise<AvailabilityResult[]> {
+  async search(
+    ctx: AccountContext,
+    names: string[],
+    tlds: string[],
+  ): Promise<AvailabilityResult[]> {
     const full = names.flatMap((n) => tlds.map((t) => ({ name: `${n}.${t}`, tld: t })));
     const batch = Math.min(Math.max(this.o.searchBatch ?? 1, 1), 100);
     const answers = new Map<string, { available: boolean | 'unknown'; premium: boolean }>();
@@ -403,7 +491,12 @@ export class DynadotAdapter implements RegistrarAdapter {
   }
 
   async inspect(ctx: AccountContext, name: string): Promise<OperationResult<DomainRef | null>> {
-    const r = await this.call(ctx, 'domain_info', { domain: name }, { mutating: false, op: 'inspect' });
+    const r = await this.call(
+      ctx,
+      'domain_info',
+      { domain: name },
+      { mutating: false, op: 'inspect' },
+    );
     if (!r.ok) {
       // absence has no documented message: only a not_found-looking message is read as absent, anything else stays a failure (never "absent" by guess)
       return r.error.category === 'not_found'
@@ -411,7 +504,12 @@ export class DynadotAdapter implements RegistrarAdapter {
         : { status: 'failed', error: r.error, raw: r.ev };
     }
     const info = obj(r.data.DomainInfo);
-    const n = await this.call(ctx, 'get_ns', { domain: name }, { mutating: false, op: 'inspect.ns' });
+    const n = await this.call(
+      ctx,
+      'get_ns',
+      { domain: name },
+      { mutating: false, op: 'inspect.ns' },
+    );
     const ns = n.ok
       ? Object.entries(obj(n.data.NsContent))
           .filter(([k]) => /^Host\d+$/.test(k))
@@ -441,7 +539,10 @@ export class DynadotAdapter implements RegistrarAdapter {
   }
 
   // ---- contacts / register / transfer / renew ---------------------------------------------------------------------------------
-  private async contactIds(ctx: AccountContext, contacts: ContactSet): Promise<{ ok: true; ids: Record<string, string> } | Failure> {
+  private async contactIds(
+    ctx: AccountContext,
+    contacts: ContactSet,
+  ): Promise<{ ok: true; ids: Record<string, string> } | Failure> {
     const byKey = new Map<string, string>();
     const ids: Record<string, string> = {};
     for (const role of ['registrant', 'admin', 'tech', 'billing'] as const) {
@@ -473,7 +574,11 @@ export class DynadotAdapter implements RegistrarAdapter {
           return {
             ok: false,
             status: 'uncertain',
-            error: normalizedError('unknown', 'unreadable', 'the registrar did not return a contact id'),
+            error: normalizedError(
+              'unknown',
+              'unreadable',
+              'the registrar did not return a contact id',
+            ),
             ev: r.ev,
           };
         id = got;
@@ -485,11 +590,25 @@ export class DynadotAdapter implements RegistrarAdapter {
   }
 
   private pendingRef(name: string, state: 'pending' | 'transferring'): DomainRef {
-    return { providerRef: name, name, state, expiresAt: null, nameservers: [], locked: null, autoRenew: null, privacy: null };
+    return {
+      providerRef: name,
+      name,
+      state,
+      expiresAt: null,
+      nameservers: [],
+      locked: null,
+      autoRenew: null,
+      privacy: null,
+    };
   }
 
   /** After an accepted order: read it back; a domain not yet readable is still an accepted order, never a failure. */
-  private async afterAction(ctx: AccountContext, name: string, ev: RawEvidence, pending: 'pending' | 'transferring'): Promise<OperationResult<DomainRef>> {
+  private async afterAction(
+    ctx: AccountContext,
+    name: string,
+    ev: RawEvidence,
+    pending: 'pending' | 'transferring',
+  ): Promise<OperationResult<DomainRef>> {
     const d = await this.inspect(ctx, name);
     if (d.status === 'succeeded' && d.data) {
       const done = d.data.state === 'active';
@@ -512,7 +631,8 @@ export class DynadotAdapter implements RegistrarAdapter {
         data: prior.data,
         raw: this.ev('register', 'already registered under our account'),
       };
-    if (prior.status !== 'succeeded') return { status: 'uncertain', error: prior.error, raw: prior.raw };
+    if (prior.status !== 'succeeded')
+      return { status: 'uncertain', error: prior.error, raw: prior.raw };
     const ids = await this.contactIds(ctx, req.contacts);
     if (!ids.ok) return this.res(ids);
     const r = await this.call(
@@ -532,16 +652,34 @@ export class DynadotAdapter implements RegistrarAdapter {
     if (!r.ok) return this.res(r);
     // settings that are separate commands in this API; the registration stands even if one of them is refused (the next inspect shows the real state)
     if (req.nameservers?.length) await this.setNameservers(ctx, req.name, req.nameservers);
-    if (req.privacy) await this.call(ctx, 'set_privacy', { domain: req.name, option: 'full', whois_privacy_option: 'yes' }, { mutating: true, op: 'register.privacy' });
-    await this.call(ctx, 'set_renew_option', { domain: req.name, renew_option: req.autoRenew ? 'auto' : 'donot' }, { mutating: true, op: 'register.renewOption' });
+    if (req.privacy)
+      await this.call(
+        ctx,
+        'set_privacy',
+        { domain: req.name, option: 'full', whois_privacy_option: 'yes' },
+        { mutating: true, op: 'register.privacy' },
+      );
+    await this.call(
+      ctx,
+      'set_renew_option',
+      { domain: req.name, renew_option: req.autoRenew ? 'auto' : 'donot' },
+      { mutating: true, op: 'register.renewOption' },
+    );
     return this.afterAction(ctx, req.name, r.ev, 'pending');
   }
 
-  async transferIn(ctx: AccountContext, req: TransferInRequest): Promise<OperationResult<DomainRef>> {
+  async transferIn(
+    ctx: AccountContext,
+    req: TransferInRequest,
+  ): Promise<OperationResult<DomainRef>> {
     if (!isVaultRef(req.authCodeRef))
       return {
         status: 'failed',
-        error: normalizedError('validation', 'auth_code_ref', 'authCodeRef must be a vault:// reference'),
+        error: normalizedError(
+          'validation',
+          'auth_code_ref',
+          'authCodeRef must be a vault:// reference',
+        ),
         raw: this.ev('transferIn', 'invalid ref'),
       };
     const prior = await this.findByToken(ctx, req.idempotencyToken, { name: req.name });
@@ -552,12 +690,17 @@ export class DynadotAdapter implements RegistrarAdapter {
         data: prior.data,
         raw: this.ev('transferIn', 'already under our account'),
       };
-    if (prior.status !== 'succeeded') return { status: 'uncertain', error: prior.error, raw: prior.raw };
+    if (prior.status !== 'succeeded')
+      return { status: 'uncertain', error: prior.error, raw: prior.raw };
     const code = (await this.o.vault.resolve(req.authCodeRef)).fields.authCode;
     if (!code)
       return {
         status: 'failed',
-        error: normalizedError('validation', 'auth_code_missing', 'the vault entry holds no authCode'),
+        error: normalizedError(
+          'validation',
+          'auth_code_missing',
+          'the vault entry holds no authCode',
+        ),
         raw: this.ev('transferIn', 'missing'),
       };
     const ids = await this.contactIds(ctx, req.contacts);
@@ -593,10 +736,18 @@ export class DynadotAdapter implements RegistrarAdapter {
     if (!cur.data)
       return {
         status: 'failed',
-        error: normalizedError('not_found', 'not_found', 'the domain does not exist at the registrar'),
+        error: normalizedError(
+          'not_found',
+          'not_found',
+          'the domain does not exist at the registrar',
+        ),
         raw: cur.raw,
       };
-    if (req.currentExpiresAt && cur.data.expiresAt && Date.parse(cur.data.expiresAt) > Date.parse(req.currentExpiresAt))
+    if (
+      req.currentExpiresAt &&
+      cur.data.expiresAt &&
+      Date.parse(cur.data.expiresAt) > Date.parse(req.currentExpiresAt)
+    )
       return {
         status: 'succeeded',
         providerRef: cur.data.providerRef,
@@ -621,31 +772,56 @@ export class DynadotAdapter implements RegistrarAdapter {
   }
 
   // ---- changes on an existing domain ----------------------------------------------------------------------------------------------
-  private async existing(ctx: AccountContext, name: string): Promise<{ ok: true; ref: DomainRef } | { ok: false; res: OperationResult<DomainRef> }> {
+  private async existing(
+    ctx: AccountContext,
+    name: string,
+  ): Promise<{ ok: true; ref: DomainRef } | { ok: false; res: OperationResult<DomainRef> }> {
     const cur = await this.inspect(ctx, name);
     if (cur.status !== 'succeeded' || !cur.data)
       return {
         ok: false,
         res: {
           status: 'failed',
-          error: cur.error ?? normalizedError('not_found', 'not_found', 'the domain does not exist at the registrar'),
+          error:
+            cur.error ??
+            normalizedError('not_found', 'not_found', 'the domain does not exist at the registrar'),
           raw: cur.raw,
         },
       };
     return { ok: true, ref: cur.data };
   }
-  private async changed(ctx: AccountContext, name: string, before: DomainRef, ev: RawEvidence): Promise<OperationResult<DomainRef>> {
+  private async changed(
+    ctx: AccountContext,
+    name: string,
+    before: DomainRef,
+    ev: RawEvidence,
+  ): Promise<OperationResult<DomainRef>> {
     const after = await this.inspect(ctx, name);
-    return { status: 'succeeded', providerRef: before.providerRef, data: after.data ?? before, raw: ev };
+    return {
+      status: 'succeeded',
+      providerRef: before.providerRef,
+      data: after.data ?? before,
+      raw: ev,
+    };
   }
 
-  async setNameservers(ctx: AccountContext, name: string, nameservers: string[]): Promise<OperationResult<DomainRef>> {
+  async setNameservers(
+    ctx: AccountContext,
+    name: string,
+    nameservers: string[],
+  ): Promise<OperationResult<DomainRef>> {
     const o = await this.existing(ctx, name);
     if (!o.ok) return o.res;
     // set_ns only accepts name servers that already exist in the account: add each first (an "already exists" answer is fine)
     for (const host of nameservers) {
-      const a = await this.call(ctx, 'add_ns', { host }, { mutating: true, op: 'setNameservers.add' });
-      if (!a.ok && a.error.category !== 'conflict' && !/exist|already/i.test(a.error.message)) return this.res(a);
+      const a = await this.call(
+        ctx,
+        'add_ns',
+        { host },
+        { mutating: true, op: 'setNameservers.add' },
+      );
+      if (!a.ok && a.error.category !== 'conflict' && !/exist|already/i.test(a.error.message))
+        return this.res(a);
     }
     const params: Params = { domain: name };
     nameservers.slice(0, 13).forEach((h, i) => (params[`ns${i}`] = h));
@@ -654,35 +830,73 @@ export class DynadotAdapter implements RegistrarAdapter {
     return this.changed(ctx, name, o.ref, r.ev);
   }
 
-  async setLock(ctx: AccountContext, name: string, locked: boolean): Promise<OperationResult<DomainRef>> {
+  async setLock(
+    ctx: AccountContext,
+    name: string,
+    locked: boolean,
+  ): Promise<OperationResult<DomainRef>> {
     const o = await this.existing(ctx, name);
     if (!o.ok) return o.res;
-    const r = await this.call(ctx, locked ? 'lock_domain' : 'unlock_domain', { domain: name }, { mutating: true, op: 'setLock' });
+    const r = await this.call(
+      ctx,
+      locked ? 'lock_domain' : 'unlock_domain',
+      { domain: name },
+      { mutating: true, op: 'setLock' },
+    );
     if (!r.ok) return this.res(r);
     return this.changed(ctx, name, o.ref, r.ev);
   }
 
-  async setAutoRenew(ctx: AccountContext, name: string, autoRenew: boolean): Promise<OperationResult<DomainRef>> {
+  async setAutoRenew(
+    ctx: AccountContext,
+    name: string,
+    autoRenew: boolean,
+  ): Promise<OperationResult<DomainRef>> {
     const o = await this.existing(ctx, name);
     if (!o.ok) return o.res;
-    const r = await this.call(ctx, 'set_renew_option', { domain: name, renew_option: autoRenew ? 'auto' : 'donot' }, { mutating: true, op: 'setAutoRenew' });
+    const r = await this.call(
+      ctx,
+      'set_renew_option',
+      { domain: name, renew_option: autoRenew ? 'auto' : 'donot' },
+      { mutating: true, op: 'setAutoRenew' },
+    );
     if (!r.ok) return this.res(r);
     return this.changed(ctx, name, o.ref, r.ev);
   }
 
-  async setContacts(_c: AccountContext, _n: string, _x: ContactSet): Promise<OperationResult<DomainRef>> {
-    return this.unsupported('setContacts', 'changing the contacts of an existing domain (set_whois was not read in full)');
+  async setContacts(
+    _c: AccountContext,
+    _n: string,
+    _x: ContactSet,
+  ): Promise<OperationResult<DomainRef>> {
+    return this.unsupported(
+      'setContacts',
+      'changing the contacts of an existing domain (set_whois was not read in full)',
+    );
   }
 
-  async authCode(ctx: AccountContext, name: string, store: AuthCodeStore): Promise<OperationResult<{ authCodeRef: string }>> {
+  async authCode(
+    ctx: AccountContext,
+    name: string,
+    store: AuthCodeStore,
+  ): Promise<OperationResult<{ authCodeRef: string }>> {
     // documented precondition: "You must unlock your domain and account before requesting auth code" — the caller unlocks first (setLock)
-    const r = await this.call(ctx, 'get_transfer_auth_code', { domain: name }, { mutating: false, op: 'authCode' });
+    const r = await this.call(
+      ctx,
+      'get_transfer_auth_code',
+      { domain: name },
+      { mutating: false, op: 'authCode' },
+    );
     if (!r.ok) return this.res(r);
     const code = str(r.data.AuthCode);
     if (!code)
       return {
         status: 'failed',
-        error: normalizedError('unknown', 'unreadable', 'the registrar returned no authorization code'),
+        error: normalizedError(
+          'unknown',
+          'unreadable',
+          'the registrar returned no authorization code',
+        ),
         raw: r.ev,
       };
     const ref = await store.put(code, `dynadot-${name}`);

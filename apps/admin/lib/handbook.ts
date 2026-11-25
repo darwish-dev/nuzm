@@ -26,12 +26,7 @@ export const HANDBOOK_GROUPS = [
   },
   {
     key: 'identity',
-    slugs: [
-      'break-glass-draft',
-      'customer-accounts',
-      'rotating-dev-secrets',
-      'field-encryption',
-    ],
+    slugs: ['break-glass-draft', 'customer-accounts', 'rotating-dev-secrets', 'field-encryption'],
   },
   {
     key: 'compliance',

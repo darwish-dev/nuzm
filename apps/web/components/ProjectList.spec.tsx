@@ -46,9 +46,7 @@ describe('project list filter', () => {
     expect(names()).toEqual(['n-a1', 'n-a2']);
     expect(tab('webapp').getAttribute('aria-current')).toBe('page');
     expect(tab('all').getAttribute('aria-current')).toBeNull();
-    expect(window.location.pathname + window.location.search).toBe(
-      '/builder/projects?type=webapp',
-    );
+    expect(window.location.pathname + window.location.search).toBe('/builder/projects?type=webapp');
     fireEvent.click(tab('mobile'));
     expect(names()).toEqual(['n-m1']);
     fireEvent.click(tab('all'));

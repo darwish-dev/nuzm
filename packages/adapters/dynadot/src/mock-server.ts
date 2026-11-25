@@ -73,13 +73,16 @@ export async function startDynadotMock(): Promise<DynadotMock> {
     const fault = op ? takeFault(op) : null;
     if (fault === 'timeout_before_side_effect') return void req.socket.destroy();
     if (fault === 'rate_limit') return send(fail(resp, 'Too many requests, please slow down'));
-    if (fault === 'outage') return send(fail(resp, 'Service temporarily unavailable, please try again later'));
+    if (fault === 'outage')
+      return send(fail(resp, 'Service temporarily unavailable, please try again later'));
     if (fault === 'auth_failure') return send(fail(resp, 'Invalid API key'));
     if (u.pathname !== '/api3.json') return send(fail(resp, 'unknown endpoint'));
     if (q.get('key') !== credentials.apiKey) return send(fail(resp, 'Invalid API key'));
     const after = fault === 'timeout_after_side_effect';
     const reply = (o: unknown) => (after ? req.socket.destroy() : send(o));
-    const ok = (extra: Obj) => ({ [`${resp}Response`]: { ResponseCode: 0, Status: 'success', ...extra } });
+    const ok = (extra: Obj) => ({
+      [`${resp}Response`]: { ResponseCode: 0, Status: 'success', ...extra },
+    });
     const dom = (name: string) => doms.get(name.toLowerCase());
 
     switch (command) {
@@ -97,7 +100,13 @@ export async function startDynadotMock(): Promise<DynadotMock> {
               Restrictions: tld === 'ae' ? 'Local presence required' : '--',
               OnSale: 'Yes',
               Privacy: '10.00',
-              Price: { Unit: '(Price/1 year)', Register: p.reg, Renew: p.renew, Transfer: p.transfer, Restore: '10.00' },
+              Price: {
+                Unit: '(Price/1 year)',
+                Register: p.reg,
+                Renew: p.renew,
+                Transfer: p.transfer,
+                Restore: '10.00',
+              },
               GracePeriod: { Unit: 'days', Renew: '10', Delete: '30', Restore: 'YES' },
               maxDuration: 10,
               minDuration: 1,
@@ -123,7 +132,15 @@ export async function startDynadotMock(): Promise<DynadotMock> {
         const n = (q.get('domain') ?? '').toLowerCase();
         if (taken.has(n) || doms.has(n)) return send(fail(resp, 'Domain already registered'));
         const years = Number(q.get('duration') ?? 1);
-        const d: Dom = { name: n, end: Date.now() + years * 365 * 86_400_000, ns: [], locked: true, renew: 'donot', privacy: 'none', transferring: false };
+        const d: Dom = {
+          name: n,
+          end: Date.now() + years * 365 * 86_400_000,
+          ns: [],
+          locked: true,
+          renew: 'donot',
+          privacy: 'none',
+          transferring: false,
+        };
         doms.set(n, d);
         return reply(ok({ RegisterContent: { DomainName: n, Expiration: d.end } }));
       }
@@ -131,8 +148,23 @@ export async function startDynadotMock(): Promise<DynadotMock> {
         const n = (q.get('domain') ?? '').toLowerCase();
         if (!q.get('auth')) return send(fail(resp, 'auth is required'));
         if (doms.has(n)) return send(fail(resp, 'Domain already exists in your account'));
-        doms.set(n, { name: n, end: Date.now() + 365 * 86_400_000, ns: [], locked: false, renew: 'donot', privacy: 'none', transferring: true });
-        return reply({ TransferResponse: { ResponseCode: 0, Status: 'order created', DomainName: n, OrderId: 1234567 } });
+        doms.set(n, {
+          name: n,
+          end: Date.now() + 365 * 86_400_000,
+          ns: [],
+          locked: false,
+          renew: 'donot',
+          privacy: 'none',
+          transferring: true,
+        });
+        return reply({
+          TransferResponse: {
+            ResponseCode: 0,
+            Status: 'order created',
+            DomainName: n,
+            OrderId: 1234567,
+          },
+        });
       }
       case 'domain_info': {
         const d = dom(q.get('domain') ?? '');
@@ -169,7 +201,8 @@ export async function startDynadotMock(): Promise<DynadotMock> {
         if (!d) return send(fail(resp, 'Domain not found in your account'));
         const list: string[] = [];
         for (let i = 0; q.get(`ns${i}`); i++) list.push(q.get(`ns${i}`)!);
-        if (list.some((h) => !servers.has(h))) return send(fail(resp, 'Name server is not in your account'));
+        if (list.some((h) => !servers.has(h)))
+          return send(fail(resp, 'Name server is not in your account'));
         d.ns = list;
         return send(ok({}));
       }
@@ -195,7 +228,10 @@ export async function startDynadotMock(): Promise<DynadotMock> {
       case 'get_transfer_auth_code': {
         const d = dom(q.get('domain') ?? '');
         if (!d) return send(fail(resp, 'Domain not found in your account'));
-        if (d.locked) return send(fail(resp, 'The domain is locked: unlock it before requesting the auth code'));
+        if (d.locked)
+          return send(
+            fail(resp, 'The domain is locked: unlock it before requesting the auth code'),
+          );
         return send(ok({ AuthCode: 'MOCK-AUTH-CODE-7731' }));
       }
       case 'renew': {

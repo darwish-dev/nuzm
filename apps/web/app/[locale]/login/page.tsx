@@ -39,8 +39,7 @@ export default async function Login({
         <a href={`/forgot-password`}>{t(locale, 'login.forgot')}</a>
       </p>
       <p className="nzc-split-links">
-        {t(locale, 'login.noAccount')}{' '}
-        <a href={`/register`}>{t(locale, 'login.register')}</a>
+        {t(locale, 'login.noAccount')} <a href={`/register`}>{t(locale, 'login.register')}</a>
       </p>
     </AuthShell>
   );

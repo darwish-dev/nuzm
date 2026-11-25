@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ArtifactTransportError,
-  artifactManifestHash,
-  type TransportSite,
-} from './contract';
+import { ArtifactTransportError, artifactManifestHash, type TransportSite } from './contract';
 import {
   artifactTransportConformanceCases,
   buildConformanceArtifact,

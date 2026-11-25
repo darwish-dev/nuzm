@@ -34,9 +34,7 @@ export function ServiceBanner({
               : 'Choose your resources and region. Build, launch, and manage your cloud server in one place.'}
         </p>
         {canCreate && (
-          <ButtonLink
-            href={`/${hosting ? 'hosting/sites/new' : 'compute/instances/new'}`}
-          >
+          <ButtonLink href={`/${hosting ? 'hosting/sites/new' : 'compute/instances/new'}`}>
             <Icon name="plus" size={18} />
             {ar
               ? hosting

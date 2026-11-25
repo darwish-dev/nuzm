@@ -32,9 +32,7 @@ export function RunDetail({
       <p className="nz-row">
         <Ltr>{run.id}</Ltr>
         {run.projectId && (
-          <a href={`/builder/projects/${run.projectId}`}>
-            {t(locale, 'bld.run.toProject')}
-          </a>
+          <a href={`/builder/projects/${run.projectId}`}>{t(locale, 'bld.run.toProject')}</a>
         )}
       </p>
       <dl>

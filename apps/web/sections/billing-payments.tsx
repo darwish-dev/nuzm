@@ -48,9 +48,7 @@ export default async function Payments({
                 header: t(locale, 'pay.col.for'),
                 render: (p) =>
                   p.invoiceId ? (
-                    <a href={`/billing/invoices/${p.invoiceId}`}>
-                      {t(locale, 'pay.for.invoice')}
-                    </a>
+                    <a href={`/billing/invoices/${p.invoiceId}`}>{t(locale, 'pay.for.invoice')}</a>
                   ) : (
                     <a href={`/billing/wallet`}>{t(locale, 'pay.for.topup')}</a>
                   ),

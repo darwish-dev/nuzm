@@ -365,9 +365,7 @@ export function DeploymentsPanel({
               </Field>
               <p className="nz-muted">
                 {t(locale, 'bld.dep.willPublish', { name: projectName, seq: headSeq ?? 0 })}{' '}
-                <a href={`/hosting/sites/${siteId}/domains`}>
-                  {t(locale, 'bld.dep.domainHint')}
-                </a>
+                <a href={`/hosting/sites/${siteId}/domains`}>{t(locale, 'bld.dep.domainHint')}</a>
               </p>
               {call.problem && <ProblemNote locale={locale} problem={call.problem} />}
               <Button

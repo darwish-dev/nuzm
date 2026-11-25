@@ -75,9 +75,7 @@ export function Checkout(p: {
         title={t(locale, 'checkout.empty.title')}
         body={t(locale, 'checkout.empty.body')}
         action={
-          <ButtonLink href={`/hosting/plans`}>
-            {t(locale, 'checkout.empty.action')}
-          </ButtonLink>
+          <ButtonLink href={`/hosting/plans`}>{t(locale, 'checkout.empty.action')}</ButtonLink>
         }
       />
     );

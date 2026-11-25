@@ -154,16 +154,10 @@ export default async function InvoicePage({
               <p className="nz-muted">{t(locale, 'inv.heldClearance')}</p>
             ) : (
               <>
-                <ButtonLink
-                  variant="secondary"
-                  href={`/billing/invoices/${inv.id}/pdf?lang=ar`}
-                >
+                <ButtonLink variant="secondary" href={`/billing/invoices/${inv.id}/pdf?lang=ar`}>
                   {t(locale, 'inv.pdfAr')}
                 </ButtonLink>
-                <ButtonLink
-                  variant="secondary"
-                  href={`/billing/invoices/${inv.id}/pdf?lang=en`}
-                >
+                <ButtonLink variant="secondary" href={`/billing/invoices/${inv.id}/pdf?lang=en`}>
                   {t(locale, 'inv.pdfEn')}
                 </ButtonLink>
               </>

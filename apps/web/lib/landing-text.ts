@@ -165,7 +165,8 @@ const en: LandingText = {
   showEyebrow: 'IMAGINE IT. BUILD IT.',
   showTitle1: 'One idea.',
   showTitle2: 'Any possibility.',
-  showText: 'Describe it in your own words. Nuzm AI designs and builds your app, website or web app.',
+  showText:
+    'Describe it in your own words. Nuzm AI designs and builds your app, website or web app.',
   showOptions: ['Mobile app', 'Website', 'Dashboard'],
   showCreate: ['Create a mobile app', 'Create a website', 'Create a web app'],
   showBadge: 'Powered by Nuzm AI',

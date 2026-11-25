@@ -322,7 +322,9 @@ export class RegistrarAdminService {
         );
     }
 
-    const existing = (await this.access.listAccounts()).find((a) => a.providerCode === providerCode);
+    const existing = (await this.access.listAccounts()).find(
+      (a) => a.providerCode === providerCode,
+    );
     const id = existing?.id ?? uuidv7();
     let vaultRef: string | null =
       typeof body.vaultRef === 'string' && body.vaultRef !== '' ? body.vaultRef : null;
@@ -349,7 +351,9 @@ export class RegistrarAdminService {
         );
       } else {
         const reg = (
-          await c.query(`SELECT id FROM domains.registrars WHERE provider_code = $1`, [providerCode])
+          await c.query(`SELECT id FROM domains.registrars WHERE provider_code = $1`, [
+            providerCode,
+          ])
         ).rows[0];
         if (!reg) throw new ProblemException('not_found', 'unknown registrar');
         await c.query(

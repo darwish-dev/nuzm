@@ -106,9 +106,7 @@ export default async function NewSite({
               <span className="nz-muted">{t(locale, 'host.method.chosen')}: </span>
               <strong>{t(locale, `host.method.${method.id}` as MessageKey)}</strong>
             </span>
-            <a
-              href={`/hosting/sites/new${domain ? `?domain=${encodeURIComponent(domain)}` : ''}`}
-            >
+            <a href={`/hosting/sites/new${domain ? `?domain=${encodeURIComponent(domain)}` : ''}`}>
               {t(locale, 'host.method.change')}
             </a>
           </div>

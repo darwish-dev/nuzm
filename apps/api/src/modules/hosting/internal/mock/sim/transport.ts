@@ -51,7 +51,12 @@ export class DirectSimTransport implements SimTransport {
     try {
       const r = await this.channel.deliver(
         req.nodeId,
-        { commandId: req.commandId, args: req.args, idempotencyToken: req.idempotencyToken, operationId: req.operationId },
+        {
+          commandId: req.commandId,
+          args: req.args,
+          idempotencyToken: req.idempotencyToken,
+          operationId: req.operationId,
+        },
         req.deadlineMs,
       );
       const raw = `${req.commandId}: ${r.status}${r.reason ? ' (' + r.reason + ')' : ''}`; // never the args
@@ -64,7 +69,8 @@ export class DirectSimTransport implements SimTransport {
         rawSummary: raw,
       };
     } catch (e) {
-      if (e instanceof AdapterTimeoutError) return { status: 'uncertain', rawSummary: `${req.commandId}: channel timeout` };
+      if (e instanceof AdapterTimeoutError)
+        return { status: 'uncertain', rawSummary: `${req.commandId}: channel timeout` };
       return { status: 'uncertain', rawSummary: `${req.commandId}: channel error` };
     }
   }

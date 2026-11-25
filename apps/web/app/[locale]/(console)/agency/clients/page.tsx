@@ -93,9 +93,7 @@ export default async function AgencyClients({ params }: { params: Promise<{ loca
                         <a href={`/agency/clients/${l.clientOrgId}/access`}>
                           {t(locale, 'm11.ag.manageAccess')}
                         </a>
-                        <a href={`/agency/acting/${l.clientOrgId}`}>
-                          {t(locale, 'm11.ag.act')}
-                        </a>
+                        <a href={`/agency/acting/${l.clientOrgId}`}>{t(locale, 'm11.ag.act')}</a>
                       </span>
                     ) : (
                       <span className="nz-muted">

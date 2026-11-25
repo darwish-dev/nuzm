@@ -110,7 +110,14 @@ describe('the generated web app is a real, working project (S43/S44)', () => {
         )
       ).rows.map((r) => r.table_name as string);
     await c.query(up);
-    expect(await tables()).toEqual(['app_users', 'audit_log', 'projects', 'tasks']);
+    // P3-S05: server-side logout revocation adds app_revoked_sessions to the generated initial migration
+    expect(await tables()).toEqual([
+      'app_revoked_sessions',
+      'app_users',
+      'audit_log',
+      'projects',
+      'tasks',
+    ]);
     await c.query(down);
     expect(await tables()).toEqual([]);
     await c.query(up);

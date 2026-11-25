@@ -50,9 +50,7 @@ export default async function Dns({ params }: { params: Promise<{ locale: string
           )}
           {s.can('domain:write') && d.capabilities.nameservers && (
             <p style={{ margin: '16px 0 0' }}>
-              <ButtonLink href={`/domains/${id}#settings`}>
-                {t(locale, 'dom.ns.change')}
-              </ButtonLink>
+              <ButtonLink href={`/domains/${id}#settings`}>{t(locale, 'dom.ns.change')}</ButtonLink>
             </p>
           )}
         </section>

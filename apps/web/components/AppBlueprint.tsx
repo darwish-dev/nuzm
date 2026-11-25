@@ -563,9 +563,7 @@ export function AppVersions({
           key: 'f',
           header: t(locale, 'm10a.ver.files'),
           render: () => (
-            <a href={`/builder/projects/${projectId}/ide`}>
-              {t(locale, 'm10a.ver.browse')}
-            </a>
+            <a href={`/builder/projects/${projectId}/ide`}>{t(locale, 'm10a.ver.browse')}</a>
           ),
         },
       ]}

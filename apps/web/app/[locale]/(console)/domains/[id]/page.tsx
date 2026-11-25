@@ -132,13 +132,7 @@ export default async function DomainPage({
                         'dom.ov.site.desc',
                         true,
                       ],
-                      [
-                        `/email/domains`,
-                        'mail',
-                        'dom.ov.email',
-                        'dom.ov.email.desc',
-                        false,
-                      ],
+                      [`/email/domains`, 'mail', 'dom.ov.email', 'dom.ov.email.desc', false],
                       [`${base}/dns`, 'globe', 'dom.link.dns', 'dom.link.dns.desc', false],
                       [
                         `${base}/hosting`,

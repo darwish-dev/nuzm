@@ -59,12 +59,7 @@ describe('delete a project', () => {
 
     del.mockResolvedValue({ response: { ok: true, status: 200 }, data: { id: 'p1' } });
     render(
-      <DeleteProject
-        locale="en"
-        project={project}
-        variant="menu"
-        redirectTo="/builder/projects"
-      />,
+      <DeleteProject locale="en" project={project} variant="menu" redirectTo="/builder/projects" />,
     );
     fireEvent.click(screen.getByRole('button', { name: t('en', 'pdel.menu') }));
     typeName(project.name);

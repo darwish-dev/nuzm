@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { DisposableAndroidRunner } from './internal/builds/disposable-runner';
 import { LocalAndroidRunner, buildEnv } from './internal/builds/runner';
 import { SAMPLE_MOBILE_SPEC } from './internal/fixtures/sample-spec';
 import { generateFlutterProject } from './internal/flutter/templates';
@@ -19,6 +20,12 @@ import { StaticPubAdvisories, evaluatePubLock } from './internal/policy/pub-poli
  * The result is never isolation evidence and never a signed artifact.
  */
 const ON = process.env.MOBILE_FLUTTER_LOCAL === '1';
+/**
+ * P3-S06: when the process runs inside a declared disposable build environment (NUZM_BUILD_ENV=disposable, see infra/mobile/android/README.md) the build test uses the
+ * `DisposableAndroidRunner` (guard, toolchain record, APK evidence). Otherwise it is the labelled LOCAL runner on the template project (first-party code), as in M10B.
+ * `infra/mobile/android/run-flutter-local-tests.sh` runs both tests reproducibly (pinned environment, heavy lock, evidence file).
+ */
+const DISPOSABLE = process.env.NUZM_BUILD_ENV === 'disposable';
 const env = buildEnv();
 
 describe.skipIf(!ON)(
@@ -60,7 +67,8 @@ describe.skipIf(!ON)(
       async () => {
         const lines: string[] = [];
         let lockPackages = 0;
-        const out = await new LocalAndroidRunner().run(
+        const runner = DISPOSABLE ? new DisposableAndroidRunner() : new LocalAndroidRunner();
+        const out = await runner.run(
           {
             buildId: '00000000-0000-7000-8000-000000000001',
             platform: 'android',
@@ -80,20 +88,33 @@ describe.skipIf(!ON)(
         );
         const apk = out.artifacts[0]!;
         expect(apk.kind).toBe('apk');
+        // optional: keep the built APK for infra/mobile/android/verify-apk.sh (a directory the caller owns)
+        if (process.env.MOBILE_KEEP_APK_DIR) {
+          mkdirSync(process.env.MOBILE_KEEP_APK_DIR, { recursive: true });
+          writeFileSync(join(process.env.MOBILE_KEEP_APK_DIR, apk.fileName), apk.bytes);
+        }
         expect(apk.bytes.subarray(0, 2).toString('latin1')).toBe('PK'); // an APK is a zip
         expect(apk.bytes.includes(Buffer.from('AndroidManifest.xml'))).toBe(true);
         expect(apk.bytes.length).toBeGreaterThan(1_000_000);
         expect(out.signed).toBe(false);
-        expect(out.toolchain).toMatchObject({
-          runner: 'local-android',
-          isolation: 'none',
-          flutter: PINNED_TOOLCHAIN.flutter,
-          signed: false,
-        });
+        expect(out.toolchain).toMatchObject(
+          DISPOSABLE
+            ? { runner: 'disposable-android', flutter: PINNED_TOOLCHAIN.flutter, signed: false }
+            : {
+                runner: 'local-android',
+                isolation: 'none',
+                flutter: PINNED_TOOLCHAIN.flutter,
+                signed: false,
+              },
+        );
+        if (DISPOSABLE)
+          expect((out.toolchain.apk as { structuralIssues: string[] }).structuralIssues).toEqual(
+            [],
+          );
         expect(lockPackages).toBeGreaterThan(20);
         expect(lockPackages).toBeLessThanOrEqual(200);
         console.log(
-          `LOCAL-ANDROID-DEBUG apk=${apk.fileName} bytes=${apk.bytes.length} sha256=${createHash('sha256').update(apk.bytes).digest('hex')} lockPackages=${lockPackages}`,
+          `${DISPOSABLE ? 'DISPOSABLE-ANDROID-DEBUG' : 'LOCAL-ANDROID-DEBUG'} apk=${apk.fileName} bytes=${apk.bytes.length} sha256=${createHash('sha256').update(apk.bytes).digest('hex')} lockPackages=${lockPackages}`,
         );
       },
     );

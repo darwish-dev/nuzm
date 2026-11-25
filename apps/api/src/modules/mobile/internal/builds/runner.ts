@@ -4,6 +4,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { executionGateway as eg } from '@nuzm/domain';
 import { PINNED_TOOLCHAIN } from '../flutter/toolchain';
+import {
+  applyAndroidSdkConfig,
+  checkPlatformFiles,
+  validatePlatformSettings,
+  type PlatformSettings,
+} from '../flutter/platform-config';
+import { failureFromStage, type BuildStage, type ParseResult } from './errors';
 
 export type Platform = 'android' | 'ios';
 export type Profile = 'debug' | 'release';
@@ -31,6 +38,9 @@ export class BuildFailure extends Error {
   constructor(
     readonly code: string,
     message: string,
+    /** structured errors parsed from the failing stage's output, for the repair loop (P3-S03); absent for failures that have no tool output */
+    readonly parsed?: ParseResult,
+    readonly stage?: BuildStage,
   ) {
     super(message);
   }
@@ -122,12 +132,12 @@ export const buildEnv = (src: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEn
   return out;
 };
 
-interface Run {
+export interface Run {
   code: number | null;
   timedOut: boolean;
   out: string;
 }
-function exec(
+export function exec(
   cmd: string,
   args: string[],
   cwd: string,
@@ -224,7 +234,12 @@ export class LocalAndroidRunner extends BuildRunnerPort {
     );
     const started = Date.now();
     try {
-      const step = async (args: string[], what: string, ms = timeout - (Date.now() - started)) => {
+      const step = async (
+        args: string[],
+        what: string,
+        ms = timeout - (Date.now() - started),
+        stage?: BuildStage,
+      ) => {
         log(`$ flutter ${args.join(' ')}`);
         const r = await exec(flutter, args, root, env, log, Math.max(1000, ms), i.signal);
         if (r.timedOut) throw new BuildFailure('build_timeout', `${what} timed out`);
@@ -232,6 +247,8 @@ export class LocalAndroidRunner extends BuildRunnerPort {
           throw new BuildFailure(
             `${what.replace(/\s+/g, '_')}_failed`,
             `${what} failed (exit ${String(r.code)})`,
+            failureFromStage(r.out, r.code, { ...(stage ? { stage } : {}), roots: [root] }),
+            stage,
           );
         return r.out;
       };
@@ -270,7 +287,13 @@ export class LocalAndroidRunner extends BuildRunnerPort {
         applicationId?: string;
         packageName?: string;
         permissions?: string[];
-      };
+      } & PlatformSettings;
+      const settingIssues = validatePlatformSettings(manifest as Record<string, unknown>);
+      if (settingIssues.length)
+        throw new BuildFailure(
+          'manifest_invalid',
+          `tool/nuzm-mobile.json: ${settingIssues.join('; ')}`,
+        );
       if (!manifest.applicationId || !manifest.packageName)
         throw new BuildFailure(
           'manifest_missing',
@@ -295,14 +318,45 @@ export class LocalAndroidRunner extends BuildRunnerPort {
         mf,
         applyAndroidPermissions(await readFile(mf, 'utf8'), manifest.permissions ?? ['internet']),
       );
-      await step(['pub', 'get'], 'pub get');
+      if (manifest.android) {
+        const gradlePath = join(root, 'android/app/build.gradle.kts');
+        const alt = join(root, 'android/app/build.gradle');
+        const gp = await readFile(gradlePath, 'utf8')
+          .then(() => gradlePath)
+          .catch(() => alt);
+        try {
+          await writeFile(gp, applyAndroidSdkConfig(await readFile(gp, 'utf8'), manifest.android));
+        } catch (e) {
+          throw new BuildFailure('platform_config_failed', String((e as Error).message));
+        }
+      }
+      // cleartext traffic and undeclared permissions in the created platform files stop the build before anything is compiled
+      const platformIssues = checkPlatformFiles(
+        {
+          androidManifests: Object.fromEntries(
+            await Promise.all(
+              ['main', 'debug'].map(async (v) => {
+                const f = `android/app/src/${v}/AndroidManifest.xml`;
+                return [f, await readFile(join(root, f), 'utf8').catch(() => '')] as const;
+              }),
+            ),
+          ),
+        },
+        manifest.permissions ?? ['internet'],
+      );
+      if (platformIssues.length)
+        throw new BuildFailure(
+          'platform_policy_violation',
+          platformIssues.map((x) => `${x.rule}: ${x.file}: ${x.detail}`).join('; '),
+        );
+      await step(['pub', 'get'], 'pub get', undefined, 'pub_get');
       // 4. the supply-chain gate sees the resolved lockfile before anything is compiled
       const lock = await readFile(join(root, 'pubspec.lock'), 'utf8').catch(() => '');
       await i.verifyLock(lock);
       // 5. the checks the template promises, then the debug build
-      await step(['analyze'], 'flutter analyze');
-      await step(['test'], 'flutter test');
-      await step(['build', 'apk', '--debug'], 'flutter build apk');
+      await step(['analyze'], 'flutter analyze', undefined, 'analyze');
+      await step(['test'], 'flutter test', undefined, 'test');
+      await step(['build', 'apk', '--debug'], 'flutter build apk', undefined, 'build_apk');
       const dir = join(root, 'build/app/outputs/flutter-apk');
       const apk = (await readdir(dir).catch(() => [] as string[])).find(
         (f) => f === 'app-debug.apk',

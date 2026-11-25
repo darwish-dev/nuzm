@@ -203,3 +203,26 @@ Today it runs against `InMemoryArtifactTransport` (`artifact-transport.conforman
 ## 11. What this specification does not decide
 
 Who builds it (memo), the final bounds and retention, metering event names and rates, the strength of per-account isolation on a shared node, server applications (Session 04), production publish for customers (D-42), and the vault decision that gates the file manager in production (D-12).
+
+---
+
+## 12. Option B implemented (P3-S07, 2026-11-24): the transport over the hosting file manager's PUBLIC operations
+
+Status: **implemented and SIMULATED**; nothing was run against a node. The owner's HOST-TRANSPORT decision is still open (memo options A to D); this is the option-B fallback of the memo, built so that whichever line the owner picks, the shared conformance suite is the same. It duplicates none of the hosting architecture: it uses only the six file-manager operations the hosting module already has (list, download, upload, folder, rename, delete), through a structural port.
+
+Code: `packages/domain/src/deploy-transport/file-manager-transport.ts` (`FileManagerArtifactTransport`, ports `SiteFileTreePort`, `DocrootSwitchPort`, `HttpStatusProbePort`), SIMULATED stand-ins in `file-manager-transport.sim.ts`, the adapter over the hosting `FilesService` surface in `apps/api/src/modules/deploy/internal/file-manager-site-tree.ts`.
+
+| Port operation | Built from | Verified? |
+|---|---|---|
+| `putRelease` | `mkdir` of `.nuzm/tmp/<id>-<attempt>` and its folders, one `upload` per file, read-back of the whole tmp tree and its manifest hash, ONE directory `rename` to `.nuzm/releases/<id>` (the only step that makes the release visible), then a zero-byte creation marker `.nuzm/index/<13-digit ms>-<id>`; any failure removes the tmp tree | SIMULATED (19 cases + 12 transport-specific tests). Directory-rename atomicity on a real SFTP/Hestia node: NOT VERIFIED (probe question 6, new) |
+| `readReleaseHash` | `list` + `download` of every file, hashed with the shared manifest rule | SIMULATED. Cost on a real node (one session per file): NOT VERIFIED (question 8) |
+| `hasRelease`, `listReleases` | `list` of `.nuzm/releases` and `.nuzm/index`, oldest first by marker name | SIMULATED |
+| `removeRelease` | marker first, then recursive `remove` of the release folder; live release refused | SIMULATED |
+| `switchCurrent`, `currentRelease` | **not available through the file manager** (symlinks and renaming the web root are refused by its guard). They call the injected `DocrootSwitchPort` (strategy S1, `v-change-web-domain-docroot`); without it they refuse with `node_unavailable` and nothing is faked. The transport verifies the release folder exists BEFORE the panel command and reads the stored docroot back AFTER it (the script's order quirk, section 4) | SIMULATED switch only; the real command is not in the hosting allow-list: NOT VERIFIED, owner decision (memo question 2) |
+| `probe` | injected HTTPS status probe; "no live release yet" is 404 | SIMULATED probe; a real one needs a staged host (section 4.4): NOT VERIFIED |
+
+Layout inside the site's web root: `.nuzm/releases/<id>/…`, `.nuzm/tmp/…`, `.nuzm/index/…` (strategy S1; the exposure risk of section 4.1 applies unchanged: before the first switch these folders are reachable under the served root, and a dot-directory being served is unknown).
+
+Behaviour proven over the stand-ins (all SIMULATED): idempotent put, `release_exists` for a different tree under an id, cut-short transfer leaves nothing (T-19), wrongly stored bytes are caught at put time and nothing becomes visible (T-18), per-site serialisation of put/switch/remove (T-17), a panel that rejects the command leaves the previous release serving, a panel that answers OK without applying it is caught by the read-back, the plan's per-file and disk limits become `limit_exceeded`, a truncated listing or a symbolic link in a listing is an error (never a silent partial tree), another organization's site is `site_not_found` on every call.
+
+Probe checklist additions (to section 4.5): 6b. Does a directory `rename` inside `public_html` over SFTP stay atomic with respect to a concurrent HTTP request (no window with a half-moved folder)? 8b. Wall-clock time and number of SFTP sessions for a 2000-file / 60 MiB release when every file is its own call. 10. Does the file manager's 1000-entry listing cap affect any release (a folder over the cap is refused by the adapter)?

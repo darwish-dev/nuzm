@@ -399,3 +399,38 @@ Indicative total for a one-week window on the smallest Contabo plan, if the mont
 | Real mode seal | `hosting-target.spec.ts`, `rehearsal.spec.ts`, `live-track.spec.ts`: BLOCKED without both references, target record, preview domain or transport | pass |
 
 All of it is SIMULATED. None of it is evidence about a real node.
+
+## 20. Phase 3 update (P3-S07, 2026-11-24): what was added, what is still blocked
+
+Everything below is **SIMULATED** unless it says otherwise. No node, panel key, domain, DNS record or certificate exists; nothing was provisioned, deployed or purchased, and every real path still refuses without `HG-05` and `HG-06` references.
+
+| Piece | Where | State |
+|---|---|---|
+| The staging checklist rows 1 to 12 of section 11 as ONE run | `internal/staging-checklist.ts`, CLI `internal/staging-checklist.cli.ts` (`run`, `validate`, `rows`) | SIMULATED run: rows 1 to 11 PASS over stand-ins, row 12 NOT VERIFIED until a human attests the node deletion and the bill. Real mode: BLOCKED, exit 3, no row creates anything, unless both references, a usable target, a real node port and a real transport exist |
+| `HostingSiteOps` over the real `HestiaHostingAdapter` surface | `internal/hestia-site-ops.ts` | structural mapping of `findByToken` and `issueCertificate`; `uncertain`/`failed` are never read as absent or done; deterministic certificate token. SIMULATED (a stand-in adapter); not wired |
+| Real-transport design (option B) | `@nuzm/domain` `FileManagerArtifactTransport`, `internal/file-manager-site-tree.ts` | passes T-01..T-19 over stand-ins; see HOST-TRANSPORT-SPEC section 12. The switch is refused until a `DocrootSwitchPort` exists |
+| Health checks and failure recovery | `internal/health-check.ts` (`waitUntilHealthy`, `watchDuringSwitch`, `halfStates`, `recoverToLastGood`); optional `health` policy on `HostingTargetPublisher` | SIMULATED; default behaviour of the product unchanged (one round) |
+| Preview-domain configuration, routing, TLS and validation | `internal/preview-domain-workflow.ts` | five checks (config, wildcard DNS, wildcard TLS, routing, cookies) assuming nothing exists: a check without its port or its decision is NOT VERIFIED with what is needed; the report lists the next step |
+| Server-app deployment target | `internal/server-app-target.ts` | design as a port; the only implementation refuses with the three blockers (P3-S02 runtime, B-DB, HG-05/HG-06). NOT VERIFIED |
+
+### 20.1 Rows of section 11 and what drives them
+
+| # | Row | Driven by | SIMULATED result | Real-run need |
+|---|---|---|---|---|
+| 1 | Panel probe | `StagingNodePort.probe` | PASS | HG-05/06, adapter probe |
+| 2 | Create site, reconcile after a forced timeout | `StagingNodePort.createSite/findByToken` | PASS | HG-05/06 |
+| 3 | Upload release 1, hash read back | `HostingTargetPublisher.stage` | PASS | HOST-TRANSPORT |
+| 4 | Staged smoke | `smoke('staged')` | PASS | staged host (B-DOMAIN) |
+| 5 | Switch, probe loop during the switch, no half state | `watchDuringSwitch` + `activate` | PASS | docroot switch decision |
+| 6 | Document root survives a rebuild | `StagingNodePort.rebuildDomain` | PASS | node |
+| 7 | Temporary subdomain | `validatePreviewDomain` | PASS (stand-in DNS/TLS/routing) | B-DOMAIN, wildcard DNS and certificate |
+| 8 | Failed release | `recoverToLastGood` | PASS | a way to force a 503 on the node |
+| 9 | Cancel between stage and switch | `discard` | PASS | node |
+| 10 | Rollback without re-upload | `restore` | PASS | node |
+| 11 | Isolation of two sites | `StagingNodePort.isolationProbe` | PASS | two sites on the node, isolation test code (hosting line) |
+| 12 | Teardown | `StagingNodePort.teardown` + attestation | NOT VERIFIED (no attestation) | human facts |
+
+Each row can fail: the specs run a node that forgets the document root, a leaky isolation, a wipe with leftovers, a corrupting transport.
+
+### 20.2 What the live run still needs from people (unchanged gates)
+HG-05 (a non-production node), HG-06 (panel key in the vault), the HOST-TRANSPORT decision and its docroot-switch security decision, B-DOMAIN (preview domain, wildcard DNS, wildcard certificate), and the hosting module exporting its file manager (CONTRACT-P3-S07-1). Production publish to a customer domain remains a separate human decision.

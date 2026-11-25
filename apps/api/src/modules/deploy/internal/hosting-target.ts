@@ -25,6 +25,7 @@ import {
 import { assertStagingTargetUsable, type StagingTarget } from './targets';
 import { temporarySubdomain } from './preview-url';
 import type { SslAction } from './ssl-flow';
+import { waitUntilHealthy, type HealthPolicy } from './health-check';
 
 export interface HostingSiteOps {
   /** does the site exist on the node and is it serving (reconcile-before-retry: asked before any retried segment) */
@@ -204,6 +205,13 @@ export interface HostingTargetOptions {
   /** server-side key (vault-held) for the temporary-host tag; a real run supplies it (QA O-16) */
   tagKey?: string;
   protectedDomains?: readonly string[];
+  /**
+   * A real node needs a moment after a switch or a reload: with this set, every smoke check repeats (see `waitUntilHealthy`) until every page answers 200 on
+   * `requiredConsecutive` rounds in a row, or the attempts run out. Unset (the default) = one round, exactly as before. `paths` come from the caller of `smoke`.
+   */
+  health?: Omit<HealthPolicy, 'paths'>;
+  /** injected sleep for the retry waits (tests pass an instant one) */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export class HostingTargetPublisher extends SitePublisherPort {
@@ -259,6 +267,14 @@ export class HostingTargetPublisher extends SitePublisherPort {
     paths: string[],
   ): Promise<SmokeResult> {
     const w = where === 'live' ? ('live' as const) : { release: stagingRef ?? '' };
+    if (this.opts.health) {
+      const v = await waitUntilHealthy(
+        (p) => this.transport.probe(site, w, p).then((r) => r.status),
+        { ...this.opts.health, paths },
+        this.opts.sleep,
+      );
+      return { ok: v.healthy, tls: true, results: v.last };
+    }
     const results: { path: string; status: number }[] = [];
     for (const p of paths)
       results.push({ path: p, status: (await this.transport.probe(site, w, p)).status });

@@ -9,6 +9,7 @@ import {
 import { artifactHash, type Artifact, type TargetSite } from './ports';
 import { SIMULATED_STAGING_TARGET, type StagingTarget } from './targets';
 import { planSsl } from './ssl-flow';
+import { syntheticApp } from './rehearsal';
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const art = (body: string): Artifact => {
@@ -191,5 +192,51 @@ describe('HostingTargetPublisher (release layout, SIMULATED transport)', () => {
       pub.applySsl(site, { kind: 'issue_managed', domains: ['x.example.sa'] }),
     ).rejects.toThrow(/HG-05/);
     expect(transport.puts).toBe(0);
+  });
+});
+
+describe('HostingTargetPublisher: optional health policy on the smoke checks', () => {
+  const a = syntheticApp(1);
+  const s: TargetSite = {
+    id: 'hp-site',
+    name: 'hp',
+    status: 'active',
+    runtime: 'static',
+    dataRegion: 'local',
+    domain: null,
+  };
+  it('without a policy the smoke is one round (a transient 503 fails it)', async () => {
+    const t = new InMemoryArtifactTransport();
+    const pub = new HostingTargetPublisher(
+      new InMemoryHostingSiteOps(),
+      t,
+      SIMULATED_STAGING_TARGET,
+    );
+    await pub.stage(s, a, 'release-0001');
+    t.failPaths.set('/', 503);
+    expect((await pub.smoke(s, 'staged', 'release-0001', ['/'])).ok).toBe(false);
+  });
+  it('with a policy a node that needs a moment becomes healthy; a node that stays broken still fails', async () => {
+    const t = new InMemoryArtifactTransport();
+    const waits: number[] = [];
+    const pub = new HostingTargetPublisher(
+      new InMemoryHostingSiteOps(),
+      t,
+      SIMULATED_STAGING_TARGET,
+      {
+        health: { attempts: 5, delayMs: 7, requiredConsecutive: 2 },
+        sleep: async (ms) => void waits.push(ms),
+      },
+    );
+    await pub.stage(s, a, 'release-0001');
+    const real = t.probe.bind(t);
+    let n = 0;
+    t.probe = async (site, where, path) => (n++ < 3 ? { status: 503 } : real(site, where, path));
+    expect((await pub.smoke(s, 'staged', 'release-0001', ['/'])).ok).toBe(true);
+    expect(waits.length).toBeGreaterThan(0);
+    t.probe = async () => ({ status: 500 });
+    const bad = await pub.smoke(s, 'staged', 'release-0001', ['/']);
+    expect(bad.ok).toBe(false);
+    expect(bad.results).toEqual([{ path: '/', status: 500 }]);
   });
 });

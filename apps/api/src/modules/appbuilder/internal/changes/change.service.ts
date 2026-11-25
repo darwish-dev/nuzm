@@ -2,7 +2,8 @@ import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../../common/audit';
 import { ProblemException } from '../../../../common/errors';
 import { isUuid, newId, sha256, type Row } from '../core';
-import { GitError, GitStore, type CommitInfo } from '../git/git.store';
+import { GitError } from '../git/git.store';
+import type { CommitInfo, VersionStore } from '../versionstore';
 import {
   evaluateDependencies,
   StaticAdvisoryDb,
@@ -64,7 +65,7 @@ export class ChangeService {
     private readonly db: Db,
     private readonly audit: AuditSink,
     private readonly projects: ProjectsPort,
-    private readonly git: GitStore,
+    private readonly git: VersionStore,
     private readonly canaries: CanaryRegistry,
     private readonly advisories: AdvisoryDbPort = new StaticAdvisoryDb(),
   ) {}

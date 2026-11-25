@@ -5,9 +5,8 @@ import {
   type OnApplicationShutdown,
   Inject,
 } from '@nestjs/common';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { promises as dns } from 'node:dns';
+import { executionGateway } from '@nuzm/domain';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
@@ -74,7 +73,7 @@ import { SitePublisherDeployTarget } from './internal/deploy/site-target';
 import { EvaluationService } from './internal/eval/evaluation';
 import { ExportService } from './internal/export/export.service';
 import { AppBuilderEnabledGuard, M09StubGuard } from './internal/flag.guard';
-import { GitStore } from './internal/git/git.store';
+import { makeVersionStore, VERSION_STORE, type VersionStore } from './internal/versionstore';
 import { DEFAULT_RUNNER_CONFIG, GraphRunner } from './internal/graph/runner';
 import { SandboxJobs } from './internal/jobs';
 import { AdvisoryDbPort, StaticAdvisoryDb } from './internal/policy/dependencies';
@@ -517,9 +516,11 @@ const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
       inject: [AI_CONFIG],
     },
     {
-      provide: GitStore,
-      useFactory: () =>
-        new GitStore(process.env.APPBUILDER_GIT_ROOT ?? join(tmpdir(), 'nuzm-appbuilder-git')),
+      // CONTRACT-P3-S09-2: production uses the PostgreSQL version store (git/memory are refused at boot); development keeps the git store (APPBUILDER_VERSION_STORE, APPBUILDER_GIT_ROOT)
+      provide: VERSION_STORE,
+      useFactory: (db: Db, a: AuditSink, res: ResidencyService) =>
+        makeVersionStore({ env: process.env, db, audit: a, residency: res }),
+      inject: [DB, AuditSink, ResidencyService],
     },
     {
       provide: EgressPolicy,
@@ -568,11 +569,11 @@ const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
         db: Db,
         a: AuditSink,
         p: ProjectsPort,
-        g: GitStore,
+        g: VersionStore,
         c: CanaryRegistry,
         adv: AdvisoryDbPort,
       ) => new ChangeService(db, a, p, g, c, adv),
-      inject: [DB, AuditSink, ProjectsPort, GitStore, CanaryRegistry, AdvisoryDbPort],
+      inject: [DB, AuditSink, ProjectsPort, VERSION_STORE, CanaryRegistry, AdvisoryDbPort],
     },
     {
       provide: ChangeToolsService,
@@ -784,8 +785,24 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(AgentWorkspaceRegistry) private readonly agentWorkspaces: AgentWorkspaceRegistry,
     @Inject(GenerationService) private readonly generation: GenerationService,
     @Inject(BuilderLifecycleService) private readonly lifecycle: BuilderLifecycleService,
+    @Inject(AuditSink) private readonly audit: AuditSink,
   ) {}
   onApplicationBootstrap() {
+    // CONTRACT-P3-S02-4 §1: every host-process decision (allowed or refused, content-free) goes to the audit sink; a failure of the sink never changes the decision
+    executionGateway.setHostExecAuditor((d) => {
+      try {
+        void Promise.resolve(
+          this.audit.record({
+            action: d.allowed ? 'host_exec.process.allowed' : 'host_exec.process.refused',
+            actorType: 'system',
+            outcome: d.allowed ? 'success' : 'failure',
+            detail: { path: d.path, reasons: d.reasons, templateId: d.templateId },
+          }),
+        ).catch(() => undefined);
+      } catch {
+        /* never throws */
+      }
+    });
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
     this.registry.register(
       new WebappRunHandler(

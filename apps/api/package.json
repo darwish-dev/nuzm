@@ -23,7 +23,8 @@
     "qualify:b": "tsx src/modules/ai/internal/qualify-b-tool-calling.ts",
     "qualify:c": "tsx src/modules/ai/internal/qualify-c-code-generation.ts",
     "qualify:suite": "tsx src/modules/ai/internal/live-smoke-cli.ts",
-    "rate-card:preview": "tsx src/modules/ai/internal/rate-card-preview-cli.ts"
+    "rate-card:preview": "tsx src/modules/ai/internal/rate-card-preview-cli.ts",
+    "qualify:p3": "tsx src/modules/ai/internal/live-executor-cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.8.0",
@@ -71,7 +72,9 @@
     "@swc/core": "^1.16.22",
     "@types/pg": "^8.23.1",
     "@types/ssh2": "^1.15.6",
+    "axe-core": "4.14.0",
     "fast-check": "^4.10.2",
+    "jsdom": "27.4.0",
     "unplugin-swc": "^2.0.0"
   }
 }

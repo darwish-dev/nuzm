@@ -63,7 +63,8 @@ export async function runAgent<T>(
     { role: 'user', content: user },
   ];
   let lastErrors: string[] = [];
-  for (let attempt = 0; attempt <= 2; attempt++) {
+  const repairs = deps.cfg.repairAttempts ?? 2;
+  for (let attempt = 0; attempt <= repairs; attempt++) {
     const r = await deps.gateway.invoke({
       orgId: run.orgId,
       runId: run.id,

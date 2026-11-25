@@ -259,6 +259,9 @@ export class GatewayService {
       throw new ProblemException('ai_unavailable', 'AI is switched off by the kill switch');
     if (!Number.isInteger(call.maxTokens) || call.maxTokens < 1 || call.maxTokens > 200_000)
       throw new ProblemException('validation_failed', 'maxTokens must be 1..200000');
+    // the operator's ceiling applies before routing, the reservation and the request itself
+    const ceiling = this.cfg.maxOutputTokensCeiling;
+    if (ceiling && call.maxTokens > ceiling) call = { ...call, maxTokens: ceiling };
 
     // 0. tool requests: well-formed specs are checked BEFORE anything is reserved or sent (a malformed one is the caller's bug, not a provider error)
     if (call.tools || call.toolChoice !== undefined || call.maxToolCalls !== undefined) {

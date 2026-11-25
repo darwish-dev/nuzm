@@ -31,6 +31,10 @@ export interface AiConfig {
   breakerOpenMs: number;
   /** which allowed candidates may stand in for another (null = every allowed candidate: the original behaviour). `AI_FALLBACK_POLICY` as JSON; malformed = null. */
   fallbackPolicy: FallbackPolicy | null;
+  /** `AI_MAX_OUTPUT_TOKENS`: a ceiling on the output tokens of EVERY model call, whatever a run kind asks for (it only lowers). null = no ceiling. */
+  maxOutputTokensCeiling: number | null;
+  /** `AI_MAX_REPAIR_ATTEMPTS` (0..2, default 2): how many times an invalid answer is sent back to the model for correction. Each one is a further model request. */
+  repairAttempts: number;
   /** DEV ONLY: registers the in-memory mock model provider */
   localReference: boolean;
   /** platform secret canaries that must never reach a prompt (tests plant them; production lists real fingerprints' plaintext is NOT used) */
@@ -78,6 +82,8 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     breakerFailureThreshold: Math.max(1, Math.floor(n('AI_BREAKER_THRESHOLD', 5, 1))),
     breakerOpenMs: Math.floor(n('AI_BREAKER_OPEN_MS', 30_000, 0)),
     fallbackPolicy: parseFallbackEnv(env.AI_FALLBACK_POLICY),
+    maxOutputTokensCeiling: strictInt(env, 'AI_MAX_OUTPUT_TOKENS', null, 1, 200_000),
+    repairAttempts: strictInt(env, 'AI_MAX_REPAIR_ATTEMPTS', 2, 0, 2)!,
     localReference: env.AI_LOCAL_REFERENCE === 'true' && env.NODE_ENV !== 'production',
     canaries: (env.AI_SECRET_CANARIES ?? '')
       .split(',')
@@ -97,6 +103,22 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
             .map((x) => x.trim())
             .filter((x) => /^[a-z][a-z0-9-]{0,62}$/.test(x)),
   };
+}
+
+/** A setting that exists to LIMIT spending must never be dropped silently: unset = the default, anything else must be a whole number in range or the process stops. */
+function strictInt(
+  env: NodeJS.ProcessEnv,
+  key: string,
+  dflt: number | null,
+  min: number,
+  max: number,
+): number | null {
+  const raw = env[key];
+  if (raw === undefined || raw === '') return dflt;
+  const v = Number(raw);
+  if (!Number.isInteger(v) || v < min || v > max)
+    throw new Error(`${key} must be a whole number from ${min} to ${max}`);
+  return v;
 }
 
 export const AI_FLAG = 'ai.enabled';

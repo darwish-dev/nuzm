@@ -27,6 +27,18 @@ describe('live provider gate configuration (S-AG4)', () => {
     ).toEqual([]);
   });
 
+  it('spending limits: no output ceiling and two repairs by default; set values are read exactly', () => {
+    expect(loadAiConfig({})).toMatchObject({ maxOutputTokensCeiling: null, repairAttempts: 2 });
+    expect(
+      loadAiConfig({ AI_MAX_OUTPUT_TOKENS: '512', AI_MAX_REPAIR_ATTEMPTS: '0' }),
+    ).toMatchObject({ maxOutputTokensCeiling: 512, repairAttempts: 0 });
+  });
+  it('a malformed spending limit stops the process instead of being dropped', () => {
+    for (const v of ['abc', '0', '-1', '12.5', '200001'])
+      expect(() => loadAiConfig({ AI_MAX_OUTPUT_TOKENS: v })).toThrow(/AI_MAX_OUTPUT_TOKENS/);
+    for (const v of ['3', '-1', 'none'])
+      expect(() => loadAiConfig({ AI_MAX_REPAIR_ATTEMPTS: v })).toThrow(/AI_MAX_REPAIR_ATTEMPTS/);
+  });
   it('resilience defaults: bounded retries with backoff, a breaker that opens after 5 consecutive health failures, and no fallback restriction', () => {
     const c = loadAiConfig({});
     expect(c).toMatchObject({

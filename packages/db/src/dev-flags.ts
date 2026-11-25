@@ -4,7 +4,9 @@
  * Production defaults are untouched: flags stay OFF unless a row exists, and this refuses to run against a non-local database (CLAUDE.md §4: default
  * off until acceptance; this is a local-development convenience, never an acceptance statement). Idempotent: an existing global row is set to enabled.
  *
- * `app_builder.m09_stubs` is included because the app builder's M09-owned routes are dev stand-ins that only work behind it (and never in production).
+ * `app_builder.m09_stubs` is deliberately NOT included: it swaps the app builder's real project, run and artifact stores for in-memory stand-ins, so set
+ * globally it hid every real project from the builder (a project copied from a template was then "not found", 2026-11-26). It stays available per
+ * organization for debugging only.
  * Kill switches (`ai.killswitch`) are deliberately NOT touched.
  */
 import { randomUUID } from 'node:crypto';
@@ -13,7 +15,6 @@ import { Client } from 'pg';
 export const DEV_FEATURE_FLAGS = [
   'ai.enabled',
   'app_builder.enabled',
-  'app_builder.m09_stubs',
   'mobile_builder.enabled',
   'domains.enabled',
   'hosting.enabled',

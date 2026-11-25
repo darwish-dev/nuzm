@@ -13,6 +13,7 @@
 #   NUZM_PLATFORM_LIVE_PROVIDERS  e.g. "claude": allows REAL, BILLED model calls with the stored key. Unset (the default) = no live call is possible, whatever the
 #                                 shell environment holds. Each live call costs money; the owner's approvals (D2..D9) are not recorded by setting this.
 # Secrets: the API uses apps/api/.dev-vault of THIS checkout (sealed with its dev-seal-key). A wrong or missing key stops the start; no key is ever replaced.
+# Dedicated default ports, so it can run beside other projects: customer 3300, admin 3301, API 4300, dev identity 4310, PostgreSQL 54390.
 # Everything it creates lives in .dev-data/platform/ (gitignored). It has its OWN PostgreSQL cluster on its own port: the project's other development
 # clusters (including :54329) are never started, stopped, migrated or deleted. It never stops a process it did not start: a busy port is reported.
 # Redis is not started: no code in this repository connects to it (the outbox and operation queues are PostgreSQL tables).
@@ -25,10 +26,10 @@ HOME_DIR="$ROOT/.dev-data/platform"
 RUN="$HOME_DIR/run"; LOGS="$HOME_DIR/logs"; PGDIR="$HOME_DIR/pg"; SECRETS="$HOME_DIR/secrets"
 PGBIN="${NUZM_PGBIN:-/usr/local/opt/postgresql@16/bin}"
 PGPORT="${NUZM_PLATFORM_PGPORT:-54390}"
-WEB_PORT="${NUZM_PLATFORM_WEB_PORT:-3000}"
-ADMIN_PORT="${NUZM_PLATFORM_ADMIN_PORT:-3001}"
-API_PORT="${NUZM_PLATFORM_API_PORT:-4000}"
-IDP_PORT="${NUZM_PLATFORM_IDP_PORT:-4010}"
+WEB_PORT="${NUZM_PLATFORM_WEB_PORT:-3300}"
+ADMIN_PORT="${NUZM_PLATFORM_ADMIN_PORT:-3301}"
+API_PORT="${NUZM_PLATFORM_API_PORT:-4300}"
+IDP_PORT="${NUZM_PLATFORM_IDP_PORT:-4310}"
 DBNAME="${NUZM_PLATFORM_DB:-nuzm_local}"
 [[ "$DBNAME" =~ ^[a-z][a-z0-9_]{0,40}$ ]] || { echo "local-platform: invalid database name" >&2; exit 2; }
 WEB="http://127.0.0.1:$WEB_PORT"; ADMIN="http://127.0.0.1:$ADMIN_PORT"
@@ -255,7 +256,8 @@ case "${1:-}" in
     require_free "$IDP_PORT" "dev identity provider" NUZM_PLATFORM_IDP_PORT
     require_free "$WEB_PORT" "customer console" NUZM_PLATFORM_WEB_PORT
     require_free "$ADMIN_PORT" "admin console" NUZM_PLATFORM_ADMIN_PORT
-    [ -d node_modules ] && [ -d apps/api/node_modules ] || pnpm install --frozen-lockfile
+    # every start: a checkout that was updated since the last install may lack new workspace packages (a no-op when up to date)
+    pnpm install --frozen-lockfile --prefer-offline > "$LOGS/install.log" 2>&1 || die "dependency install failed: see $LOGS/install.log"
     start_db
     [ "$(user_count)" -gt 0 ] || seed_demo=1
     if [ "$skip_build" = 1 ]; then

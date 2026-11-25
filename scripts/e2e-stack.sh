@@ -25,7 +25,11 @@ case "${1:-status}" in
   start)
     alive && { echo "e2e-stack: already running"; cat "$ENVF"; exit 0; }
     mkdir -p "$STATE"
-    WEB="$(pick)"; ADMIN="$(pick "$WEB")"; API="$(pick "$WEB" "$ADMIN")"; IDP="$(pick "$WEB" "$ADMIN" "$API")"
+    # free ports unless E2E_{WEB,ADMIN,API,IDP}_PORT name dedicated ones (scripts/e2e-runner.mjs does); a named port that is busy is refused, never taken over
+    for p in "${E2E_WEB_PORT:-}" "${E2E_ADMIN_PORT:-}" "${E2E_API_PORT:-}" "${E2E_IDP_PORT:-}"; do
+      [ -z "$p" ] || [ -z "$(lsof -nP -iTCP:"$p" -sTCP:LISTEN -t 2>/dev/null)" ] || { echo "e2e-stack: port $p is in use; stop its owner or name another port"; exit 2; }
+    done
+    WEB="${E2E_WEB_PORT:-$(pick)}"; ADMIN="${E2E_ADMIN_PORT:-$(pick "$WEB")}"; API="${E2E_API_PORT:-$(pick "$WEB" "$ADMIN")}"; IDP="${E2E_IDP_PORT:-$(pick "$WEB" "$ADMIN" "$API")}"
     DB="nuzm_e2e_stack_$$"
     cat > "$ENVF" <<EOT
 E2E_WEB_PORT=$WEB

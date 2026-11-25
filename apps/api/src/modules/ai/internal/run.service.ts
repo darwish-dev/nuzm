@@ -720,12 +720,7 @@ export class RunService {
         await this.ops
           .succeed(orgId, operationId, worker, { state: 'succeeded' })
           .catch(() => undefined);
-      } else if (
-        ac.signal.aborted ||
-        // a handler that saw the cancel request itself (it reads the run row at its own boundaries) throws this conflict; the 100 ms poll above may not have fired yet,
-        // and a user-requested cancel must never end as `failed` because of that ordering
-        (e instanceof ProblemException && e.code === 'conflict' && e.detail === 'cancelled')
-      ) {
+      } else if (ac.signal.aborted || (await this.cancelNoticed(orgId, runId, e))) {
         await this.finish(orgId, runId, 'cancelled', { error: { code: 'cancelled_by_user' } });
         await this.ops
           .succeed(orgId, operationId, worker, { state: 'cancelled' })
@@ -775,6 +770,21 @@ export class RunService {
       clearInterval(hb);
     }
     return true;
+  }
+
+  /**
+   * A handler that saw the cancel flag itself (the poll above aborts only every 100 ms) ends with `conflict: cancelled`. That is a cancellation, not a failure, when the flag is
+   * really set on the run: any other conflict stays a failure.
+   */
+  private async cancelNoticed(orgId: string, runId: string, e: unknown): Promise<boolean> {
+    if (!(e instanceof ProblemException) || e.code !== 'conflict' || e.detail !== 'cancelled')
+      return false;
+    const r = (await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (await c.query(`SELECT cancel_requested FROM ai.runs WHERE id=$1`, [runId])).rows[0],
+    )) as Row | undefined;
+    return Boolean(r?.cancel_requested);
   }
 
   private context(

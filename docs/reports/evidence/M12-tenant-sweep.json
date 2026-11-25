@@ -1,18 +1,18 @@
 {
   "summary": {
-    "generatedAt": "2026-11-22T09:56:06.753Z",
-    "operations": 502,
+    "generatedAt": "2026-11-24T22:45:32.794Z",
+    "operations": 527,
     "byClass": {
-      "org": 294,
-      "admin": 159,
+      "org": 311,
+      "admin": 167,
       "scim": 12,
       "any-authenticated": 15,
       "service-key": 1,
       "public": 21
     },
     "unclassified": [],
-    "exercised": 675,
-    "refused": 632,
+    "exercised": 708,
+    "refused": 665,
     "explained2xx": 43,
     "classifiedNotCrossed": 0,
     "unexplained2xx": 0,
@@ -20,8 +20,8 @@
       "0": 37,
       "200": 5,
       "400": 1,
-      "401": 318,
-      "404": 314
+      "401": 334,
+      "404": 331
     },
     "note": "operates on the caller's own principal, a service credential, or is public: no tenant identifier to cross",
     "explained": {
@@ -1091,6 +1091,18 @@
       "verdict": "refused"
     },
     {
+      "op": "GET /v1/builder/policies/content-access [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/builder/policies/content-access [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
       "op": "GET /v1/builder/projects [B session, X-Nuzm-Org: A]",
       "cls": "org",
       "status": 404,
@@ -1134,6 +1146,78 @@
     },
     {
       "op": "POST /v1/builder/projects/{id}/changes [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/projects/{projectId}/change-previews [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/projects/{projectId}/version-diff [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/projects/{projectId}/rollbacks [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/projects/{projectId}/reverts [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/plan-previews [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/projects/{projectId}/review [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/projects/{projectId}/symbols [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/projects/{projectId}/import-analysis [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/projects/{projectId}/components [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/builder/projects/{projectId}/memory [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/builder/projects/{projectId}/memory [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "DELETE /v1/builder/projects/{projectId}/memory/{entryId} [B session, X-Nuzm-Org: A]",
       "cls": "org",
       "status": 404,
       "verdict": "refused"
@@ -1205,6 +1289,18 @@
       "verdict": "refused"
     },
     {
+      "op": "GET /v1/deployments/policy [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "PUT /v1/deployments/policy [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
       "op": "GET /v1/deployments/{id} [B session, X-Nuzm-Org: A]",
       "cls": "org",
       "status": 404,
@@ -1218,6 +1314,12 @@
     },
     {
       "op": "POST /v1/deployments/{id}/rollback [B session, X-Nuzm-Org: A]",
+      "cls": "org",
+      "status": 404,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/deployments/{id}/cancel [B session, X-Nuzm-Org: A]",
       "cls": "org",
       "status": 404,
       "verdict": "refused"
@@ -3083,6 +3185,66 @@
       "verdict": "refused"
     },
     {
+      "op": "GET /v1/admin/ai/model-providers/capability-registry [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/model-providers/capability-registry [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/model-providers/health [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/model-providers/health [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/model-providers/{id}/rate-card-versions [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/model-providers/{id}/rate-card-versions [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/ai/model-providers/{id}/model-discovery [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/ai/model-providers/{id}/model-discovery [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/usage [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/usage [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
       "op": "GET /v1/admin/ai/runs [B web session]",
       "cls": "admin",
       "status": 401,
@@ -3102,6 +3264,42 @@
     },
     {
       "op": "GET /v1/admin/ai/quality [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/benchmarks [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/benchmarks [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/ai/benchmarks [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "POST /v1/admin/ai/benchmarks [B api key]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/benchmarks/runs/{id} [B web session]",
+      "cls": "admin",
+      "status": 401,
+      "verdict": "refused"
+    },
+    {
+      "op": "GET /v1/admin/ai/benchmarks/runs/{id} [B api key]",
       "cls": "admin",
       "status": 401,
       "verdict": "refused"

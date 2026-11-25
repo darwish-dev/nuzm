@@ -109,7 +109,7 @@ The start log then says `LIVE model calls are ALLOWED for: claude (billed)`. Wit
 |---|---|
 | Build and live preview of Claude's changes | **BLOCKED** (D-21, HG-10-02, ADR-069): next milestone |
 | A real template adaptation by Claude | Run once on 2026-11-26: valid change set, saved after the label fix; an uninterrupted run is **NOT VERIFIED** ([report](reports/TEMPLATE-AI-VALIDATION-2026-11-26.md)) |
-| Template copy fails with "project not found" | your `nuzm_local` still has the platform-wide `app_builder.m09_stubs` flag from 2026-11-23; it must be off for your organization (report, defect D-3) |
+| Template copy failed with "project not found" | **resolved 2026-11-26**: the platform-wide `app_builder.m09_stubs` flag of 2026-11-23 was turned off in `nuzm_local` at your request (row kept as `{"enabled": false}`, audited `admin.feature_flag.set`; previous row in `.dev-data/backups/nuzm_local-flag-m09_stubs-before-20261126/`). To undo, set it back to `{"enabled": true}` |
 | Template upload form cannot mark a template first-party | backlog DL-040 (the local reviewer covers the second approval) |
 | Real hosting, domains, payments, mobile builds | SIMULATED or BLOCKED, unchanged |
 | Owner approvals D2–D9, D-21, HG-10-02, ADR-069 | not recorded |

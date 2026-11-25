@@ -115,7 +115,7 @@ Claude's answer was source-code modifications, not prose. The failure happened a
 |---|---|---|
 | D-1 | Version label sliced to 120 characters; database allows 100. Every change message of 101+ characters failed with an internal error (including every real template adaptation with a long summary) | **FIXED** `b9755b99` + regression test |
 | D-2 | Path policy accepts `.env` / dotenv files from the model | OPEN (backlog DL-042) |
-| D-3 | The development flag script switched `app_builder.m09_stubs` on platform-wide, sending real projects to in-memory stand-ins | **FIXED in code** `4b4246cb`. **Your `nuzm_local` still has that platform-wide row (set 2026-11-23)**; it was not changed because existing data was off-limits. Template copy in the customer console fails with "project not found" until it is turned off |
+| D-3 | The development flag script switched `app_builder.m09_stubs` on platform-wide, sending real projects to in-memory stand-ins | **FIXED in code** `4b4246cb`. The platform-wide row in `nuzm_local` (set 2026-11-23) was **turned off on 2026-11-26 at the owner's request**: row kept as `{"enabled": false}`, audited, previous row backed up; the platform's flag check now resolves the stand-ins off for `nuzm` and `codgoo org` |
 | D-4 | A failed copy-from-template leaves an empty project behind | OPEN (DL-043) |
 | D-5 | Plan and run responses do not return the run id; clients must poll the plan | OPEN (DL-044) |
 | D-6 | Turbo cache did not see `spec/` changes; stale residency-hook test | **FIXED** in this commit |

@@ -50,6 +50,17 @@ export function assetSize(a: Asset): { w: number; h: number } | undefined {
 }
 
 /** Neutral gradient SVG with the escaped label. No scripts, no external references, no model text outside the escaped label. */
+/** The site's favicon: the first letter of the brand name (default locale) on the primary colour. Deterministic, text only (no script, no external reference). */
+export function faviconSvg(brandName: string, primary: string, onPrimary: string): string {
+  const initial = esc([...brandName.trim()][0] ?? '•');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<rect width="64" height="64" rx="14" fill="${primary}"/>
+<text x="32" y="33" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="38" font-weight="700" fill="${onPrimary}">${initial}</text>
+</svg>
+`;
+}
+
 export function placeholderSvg(a: Asset): string {
   const { w, h } = assetSize(a) ?? PLACEHOLDER_SIZE;
   const label = a.label ? esc(a.label) : '';

@@ -3,7 +3,7 @@ import { L, defineTemplate } from './helpers';
 /** School / academy / training centre: programs, fees (SAMPLE amounts), registration FAQ and inquiry form. No accreditation or outcome claims. */
 export const education = defineTemplate({
   id: 'education',
-  version: 1,
+  version: 2,
   category: 'education',
   name: L('مدرسة أو أكاديمية', 'School or academy'),
   description: L(
@@ -217,7 +217,7 @@ export const education = defineTemplate({
         [
           'عن المؤسسة التعليمية',
           'About our institution',
-          'تعرّف على رؤيتنا ورسالتنا وقيمنا التعليمية.',
+          'تعرّف على رؤيتنا ورسالتنا وقيمنا التعليمية، وعلى الفريق الذي يقف خلف برامجنا.',
           'Learn about our vision, mission and educational values.',
         ],
         [

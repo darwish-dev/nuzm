@@ -3,7 +3,7 @@ import { L, defineTemplate } from './helpers';
 /** Restaurant / café: warm, serif, photo-led. Menu categories are described without prices. */
 export const restaurant = defineTemplate({
   id: 'restaurant',
-  version: 1,
+  version: 2,
   category: 'restaurant',
   name: L('مطعم أو مقهى', 'Restaurant or café'),
   description: L(

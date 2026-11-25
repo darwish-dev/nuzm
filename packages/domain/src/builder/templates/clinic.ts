@@ -3,7 +3,7 @@ import { L, defineTemplate } from './helpers';
 /** Clinic: calm teal palette, appointment-request form. No medical claims: service names and wording are generic. */
 export const clinic = defineTemplate({
   id: 'clinic',
-  version: 1,
+  version: 2,
   category: 'clinic',
   name: L('عيادة أو مركز طبي', 'Clinic or medical centre'),
   description: L(

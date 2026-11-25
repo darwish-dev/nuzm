@@ -1,0 +1,5 @@
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Could not open cp_settings generic class cache for settings '/work/build/android/settings.gradle' (/home/build/.gradle/caches/8.3/scripts/xyz).
+> BUG! exception in phase 'semantic analysis' in source unit '_BuildScript_' Unsupported class file major version 65

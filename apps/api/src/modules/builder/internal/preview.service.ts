@@ -210,7 +210,13 @@ export class PreviewService {
       new Date(prev.expires_at as string).getTime() <= Date.now()
     )
       return notFound;
-    let path = decodeURIComponent(rawPath.split('?')[0] ?? '').replace(/^\/+/, '');
+    // a malformed percent-escape is the caller's tampering, not a server error: the same plain 404 as every other refusal (no oracle, no 500)
+    let path: string;
+    try {
+      path = decodeURIComponent(rawPath.split('?')[0] ?? '').replace(/^\/+/, '');
+    } catch {
+      return notFound;
+    }
     if (path.includes('..') || path.includes('\\') || path.includes('\0')) return notFound;
     if (path === '' || path.endsWith('/')) path += 'index.html';
     const org = prev.org_id as string;

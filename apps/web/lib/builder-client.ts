@@ -76,14 +76,28 @@ export function useBuilderCall() {
   return { run, busy, problem, clear: () => setProblem(null) };
 }
 
-export type StreamStatus = 'idle' | 'streaming' | 'reconnecting' | 'ended';
+export type StreamStatus =
+  | 'idle'
+  | 'streaming'
+  | 'reconnecting'
+  | 'ended'
+  /** only with `{ terminalNotFound: true }`: the server answered 404 (no such run, or not one of the caller's) or 403: retrying cannot change that */
+  | 'not_found'
+  | 'forbidden';
+
+/** the stream answered with a status that is an answer, not a failure of the network */
+class StreamHttpError extends Error {
+  constructor(readonly httpStatus: number) {
+    super(`stream ${httpStatus}`);
+  }
+}
 
 /**
  * The live view of one run: the persisted events over SSE (through the same-origin proxy, `fetch` + a stream reader so the org and realm headers travel),
  * resumed after a drop with `Last-Event-ID`, plus the run row (state, usage, pending approval) re-read as events arrive. The stream ends by itself when the
  * run finishes or waits for an approval; `reconnect()` reopens it after the decision. If the stream keeps failing the loop degrades to polling the run row.
  */
-export function useRunStream(runId: string | null) {
+export function useRunStream(runId: string | null, opts: { terminalNotFound?: boolean } = {}) {
   const [run, setRun] = useState<Run | null>(null);
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [status, setStatus] = useState<StreamStatus>('idle');
@@ -134,7 +148,7 @@ export function useRunStream(runId: string | null) {
         cache: 'no-store',
         signal: ctl.signal,
       });
-      if (!res.ok || !res.body) throw new Error(`stream ${res.status}`);
+      if (!res.ok || !res.body) throw new StreamHttpError(res.status);
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       const parser = createSseParser((f) => {
@@ -167,8 +181,19 @@ export function useRunStream(runId: string | null) {
         try {
           await streamOnce();
           failures = 0;
-        } catch {
+        } catch (e) {
           if (stopped) return;
+          // an unknown run (404), or one the caller may not read (403), is an answer: say so and stop, instead of "check your network" and a retry loop
+          if (opts.terminalNotFound && e instanceof StreamHttpError) {
+            if (e.httpStatus === 404) {
+              setStatus('not_found');
+              return;
+            }
+            if (e.httpStatus === 403) {
+              setStatus('forbidden');
+              return;
+            }
+          }
           failures += 1;
           setStatus('reconnecting');
         }

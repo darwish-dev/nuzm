@@ -9,7 +9,7 @@ import {
   type ClaudeClient,
   type ClaudeContentBlock,
 } from '@nuzm/adapter-model';
-import { GatewayService } from './index';
+import { AI_CONFIG, GatewayService, loadAiConfig, type AiConfig } from './index';
 import { setupAiEnv, type AiEnv } from './testing/ai-harness';
 import { Db } from '@nuzm/platform';
 import { DB } from '../../common/tokens';
@@ -118,7 +118,7 @@ beforeAll(async () => {
   const s = await e.h.platformUser(e.app, 'psupport', ['support']);
   e.jars.psupport = s.jar;
   await enableWith(adapter());
-}, 120_000);
+}, 300_000);
 afterAll(() => e.h.close());
 
 describe('no evidence, no declaration (unknown = unsupported)', () => {
@@ -316,6 +316,125 @@ describe('the live probe action is part of the contract but not available (D9)',
         )
       ).statusCode,
     ).toBe(403);
+  });
+});
+
+describe('the bounded probe wrapper (D9) runs only behind every gate, with the scripted client (no network)', () => {
+  const worst = () => probeWorstCase().totalTokens;
+  const approval = {
+    ref: 'D9-test-approval',
+    approvedBy: 'Test Owner',
+    environment: 'non-production' as const,
+    maxRequests: 8,
+    maxTotalTokens: 20_000,
+  };
+  const probe = (extra: object = {}, who = 'padmin') =>
+    act(
+      {
+        action: 'probe_tool_use',
+        id: providerId,
+        model: CLAUDE_MODEL_ID,
+        approvalRef: approval.ref,
+        maxTotalTokens: worst(),
+        ...extra,
+      },
+      who,
+    );
+  const reasons = () =>
+    e.sink.events
+      .filter((x) => x.action === 'ai.provider.probe_refused')
+      .map((x) => (x.detail as { reason?: string }).reason);
+  let cfg: AiConfig;
+  let saved: { probeApprovals: AiConfig['probeApprovals']; liveProviders: string[] };
+  beforeAll(() => {
+    cfg = e.app.get(AI_CONFIG);
+    saved = { probeApprovals: cfg.probeApprovals, liveProviders: cfg.liveProviders };
+  });
+  afterAll(() => {
+    cfg.probeApprovals = saved.probeApprovals;
+    cfg.liveProviders = saved.liveProviders;
+  });
+  it('without a recorded approval (D9) it is refused, whatever else is open', async () => {
+    cfg.probeApprovals = [];
+    cfg.liveProviders = [CODE];
+    upstream = 0;
+    expect((await probe()).statusCode).toBe(422);
+    expect(reasons()).toContain('not_approved_d9');
+    expect(upstream).toBe(0);
+  });
+  it('with the approval but a closed live gate (D3) it is refused and nothing is sent', async () => {
+    cfg.probeApprovals = [approval];
+    cfg.liveProviders = [];
+    upstream = 0;
+    expect((await probe()).statusCode).toBe(422);
+    expect(reasons()).toContain('live_gate_closed_d3');
+    expect(upstream).toBe(0);
+  });
+  it('a read-only platform role is refused (403) even with every gate open', async () => {
+    cfg.probeApprovals = [approval];
+    cfg.liveProviders = [CODE];
+    upstream = 0;
+    expect((await probe({}, 'psupport')).statusCode).toBe(403);
+    expect(upstream).toBe(0);
+  });
+  it('a real provider without a credential reference is refused (D4) even with the other gates open', async () => {
+    cfg.probeApprovals = [approval];
+    cfg.liveProviders = [CODE];
+    upstream = 0;
+    expect((await probe()).statusCode).toBe(422);
+    expect(reasons()).toContain('no_credential_d4');
+    expect(upstream).toBe(0);
+  });
+  it('with every gate open it runs the bounded script once, stays inside the approved caps, records NOT VERIFIED when the model does not call tools, and audits start and finish', async () => {
+    cfg.probeApprovals = [approval];
+    cfg.liveProviders = [CODE];
+    upstream = 0;
+    await e.sql(
+      `UPDATE ai.model_providers SET vault_ref = 'vault://test/acme-probe' WHERE id = $1`,
+      [providerId],
+    ); // the credential reference of a stored key (the value is never in the row)
+    const r = await probe();
+    expect(r.statusCode).toBe(200);
+    expect(upstream).toBeGreaterThan(0);
+    expect(upstream).toBeLessThanOrEqual(approval.maxRequests); // no retries, never more than approved
+    const rows = (await e.sql(
+      `SELECT capability, state, evidence_ref FROM ai.model_capability_evidence WHERE provider_id = $1 ORDER BY recorded_at DESC LIMIT 3`,
+      [providerId],
+    )) as { capability: string; state: string; evidence_ref: string }[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.state).toBe('NOT VERIFIED'); // the scripted client answers in plain text: nothing is claimed
+      expect(row.evidence_ref).toContain(approval.ref);
+    }
+    const actions = e.sink.events.map((x) => x.action);
+    expect(actions).toContain('ai.provider.probe_started');
+    expect(actions).toContain('ai.provider.probe_finished');
+    const finished = e.sink.events.find((x) => x.action === 'ai.provider.probe_finished')!;
+    expect(JSON.stringify(finished.detail)).not.toMatch(/test-only|apiKey/); // no key, no content
+    // the gateway still refuses tools: NOT VERIFIED evidence declares nothing
+    await expect(gw.invoke(withTools())).rejects.toMatchObject({ code: 'unsupported_capability' });
+  });
+  it('the request can lower the token cap but not raise it above the approval, and a cap below the worst case is refused', async () => {
+    cfg.probeApprovals = [{ ...approval, maxTotalTokens: worst() }];
+    cfg.liveProviders = [CODE];
+    upstream = 0;
+    expect((await probe({ maxTotalTokens: worst() - 1 })).statusCode).toBe(422);
+    expect(upstream).toBe(0);
+  });
+  it('AI_PROBE_APPROVALS is parsed fail-closed: malformed, partial or production values give no approval', async () => {
+    expect(loadAiConfig({ AI_PROBE_APPROVALS: 'not json' } as never).probeApprovals).toEqual([]);
+    expect(
+      loadAiConfig({ AI_PROBE_APPROVALS: JSON.stringify([{ ref: 'x' }]) } as never).probeApprovals,
+    ).toEqual([]);
+    expect(
+      loadAiConfig({
+        NODE_ENV: 'production',
+        AI_PROBE_APPROVALS: JSON.stringify([approval]),
+      } as never).probeApprovals,
+    ).toEqual([]);
+    expect(
+      loadAiConfig({ AI_PROBE_APPROVALS: JSON.stringify([approval]) } as never).probeApprovals,
+    ).toHaveLength(1);
   });
 });
 

@@ -8,3 +8,5 @@ export * from './prompts';
 export * from './tools';
 export * from './agent-tools';
 export * from './agent-loop';
+export * as benchmarks from './benchmarks';
+export * as executionGateway from './execution-gateway';

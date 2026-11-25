@@ -1325,8 +1325,9 @@ describe('retention, usage reconciliation and the forms-notification port', () =
     const ours = Number(
       (
         await e.h.env.sql(
-          `SELECT count(*) n FROM email.messages WHERE provider_id = $1 AND accepted_at >= $2::date AND accepted_at < $2::date + 1`,
-          [pid, today.toISOString().slice(0, 10)],
+          `SELECT count(*) n FROM email.messages WHERE provider_id = $1 AND accepted_at >= $2::timestamptz AND accepted_at < $2::timestamptz + interval '1 day'`,
+          // the UTC day, as the service counts it (a bare date would be read in the database session's time zone and miss the last hours of the UTC day on a machine east of UTC)
+          [pid, `${today.toISOString().slice(0, 10)}T00:00:00Z`],
         )
       )[0]!.n,
     );

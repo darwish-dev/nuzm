@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 import { WEB } from './env';
 import { T, audit, loc } from './helpers';
 import { ensureOwnerOrg, orgFlag, publishTemplate, sql } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * AI Intelligence Center, slice S-K6 (SCR-K-09): the template workspace END TO END in Arabic (RTL) and English with real browsers: customer console -> API -> database.

@@ -7,6 +7,9 @@ import { Client } from 'pg';
 import { ADMIN, DB_URL as DB, STORE_DIR, WEB } from './env';
 import { SAMPLES, type Sample } from './fixtures/samples';
 import { T, audit, loc, signIn } from './helpers';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
@@ -72,7 +75,8 @@ async function fillForm(page: Page, info: TestInfo, s: Sample, name: string) {
 }
 const choose = (page: Page, info: TestInfo, filename: string, buffer: Buffer) =>
   page
-    .getByLabel(T(info, 'kn.up.file'))
+    .locator('.knu') // the upload form: the page also has a section labelled "File inventory", which a substring match on "File" would hit too
+    .getByLabel(T(info, 'kn.up.file'), { exact: true })
     .setInputFiles({ name: filename, mimeType: 'application/zip', buffer });
 /** A file selected from DISK: its name, size and modified time stay the same however often it is chosen, which is what makes "choose the same file again" resumable. */
 const chooseFile = (page: Page, info: TestInfo, path: string) =>

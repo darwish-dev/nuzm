@@ -1,0 +1,6 @@
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Gradle build daemon disappeared unexpectedly (it may have been killed or may have crashed)
+Expiring Daemon because JVM heap space is exhausted
+java.lang.OutOfMemoryError: Java heap space

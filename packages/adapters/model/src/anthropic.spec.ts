@@ -168,6 +168,108 @@ describe('Claude adapter: request and response shape (stubbed fetch, no real cal
       expect(sent).toHaveLength(1); // the gateway decides about retries, not the adapter
     },
   );
+  it("carries the provider's Retry-After hint on a 429 and a 529 (offline, stubbed): a hint, never a decision", async () => {
+    stub(
+      () =>
+        new Response(JSON.stringify({ type: 'error', error: { type: 'x', message: 'm' } }), {
+          status: 429,
+          headers: { 'content-type': 'application/json', 'retry-after': '2' },
+        }),
+    );
+    await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({
+      code: 'rate_limited',
+      retryAfterMs: 2000,
+    });
+    stub(
+      () =>
+        new Response(JSON.stringify({ type: 'error', error: { type: 'x', message: 'm' } }), {
+          status: 529,
+          headers: { 'content-type': 'application/json', 'retry-after-ms': '750' },
+        }),
+    );
+    await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({
+      code: 'unavailable',
+      retryAfterMs: 750,
+    });
+    stub(() => reply(429, { type: 'error', error: { type: 'x', message: 'm' } }));
+    const e = (await real()
+      .complete({ callId: 'c' }, req)
+      .catch((x: unknown) => x)) as ModelAdapterError;
+    expect(e.retryAfterMs).toBeUndefined();
+  });
+  it("the vendor's SPENDING limits (documented shapes, offline stubs) are rate_limited but NOT retryable, and say so; an ordinary 429/400 keeps its mapping", async () => {
+    stub(() =>
+      reply(429, {
+        type: 'error',
+        error: {
+          type: 'rate_limit_error',
+          message: 'm',
+          details: { error_code: 'enforced_spend_limit_reached' },
+        },
+      }),
+    );
+    const tier = (await real()
+      .complete({ callId: 'c' }, req)
+      .catch((x: unknown) => x)) as ModelAdapterError;
+    expect(tier).toMatchObject({ code: 'rate_limited', retryable: false });
+    expect(tier.message).toContain('spending limit');
+    expect(sent).toHaveLength(1);
+    for (const message of [
+      'You have reached your specified API usage limits. You will regain access on 2026-12-01 at 00:00 UTC.',
+      'You have reached your specified workspace API usage limits. You will regain access on 2026-12-01 at 00:00 UTC.',
+    ]) {
+      stub(() => reply(400, { type: 'error', error: { type: 'invalid_request_error', message } }));
+      const e = (await real()
+        .complete({ callId: 'c' }, req)
+        .catch((x: unknown) => x)) as ModelAdapterError;
+      expect(e).toMatchObject({ code: 'rate_limited', retryable: false });
+      expect(e.message).toContain('spending limit');
+      expect(e.message).not.toContain('regain');
+    }
+    // other shapes are not mistaken for it
+    stub(() =>
+      reply(429, {
+        type: 'error',
+        error: {
+          type: 'rate_limit_error',
+          message: 'm',
+          details: { error_code: 'ramp_limit_exceeded' },
+        },
+      }),
+    );
+    await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({
+      code: 'rate_limited',
+      retryable: true,
+    });
+    stub(() =>
+      reply(400, {
+        type: 'error',
+        error: { type: 'invalid_request_error', message: 'max_tokens too large' },
+      }),
+    );
+    await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({
+      code: 'invalid_request',
+    });
+  });
+  it("carries the provider's request id when it is well formed, and drops anything else", async () => {
+    const withId = (id: string) =>
+      new Response(
+        JSON.stringify({
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          model: CLAUDE_MODEL_ID,
+          content: [{ type: 'text', text: 'ok' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 3, output_tokens: 1 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json', 'request-id': id } },
+      );
+    stub(() => withId('req_011CabcDEF123'));
+    expect((await real().complete({ callId: 'c' }, req)).requestId).toBe('req_011CabcDEF123');
+    stub(() => withId('not a request id <script>'));
+    expect((await real().complete({ callId: 'c' }, req)).requestId).toBeUndefined();
+  });
   it('a network failure is "unavailable"; an aborted signal is "aborted" and sends nothing', async () => {
     stub(() => Promise.reject(new TypeError('fetch failed')));
     await expect(real().complete({ callId: 'c' }, req)).rejects.toMatchObject({

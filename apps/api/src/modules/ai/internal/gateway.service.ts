@@ -2,16 +2,22 @@ import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import {
   ModelAdapterError,
-  V1_1_CAPABILITIES,
+  abortableSleep,
+  applyFallbackPolicy,
   assembleStream,
   allowedToolCalls,
-  effectiveCapabilities,
+  candidateKey,
+  createResilience,
   estimateTokens,
+  resolveCapabilities,
+  retryDelayMs,
   toolSpecProblems,
   type CompleteResponse,
+  type HealthSnapshot,
   type ModelAdapter,
   type ModelCapability,
   type ModelMessage,
+  type Resilience,
   type StreamChunk,
 } from '@nuzm/adapter-model';
 import {
@@ -35,7 +41,12 @@ import type { FieldCipher } from '../../../common/field-crypto';
 import type { LedgerPostingService } from '../../billing';
 import { recipes } from '../../billing';
 import type { AiFlags } from './flags';
-import { BudgetDenied, type BudgetService, type Reservation } from './budget.service';
+import {
+  BudgetDenied,
+  withDeadlockRetry,
+  type BudgetService,
+  type Reservation,
+} from './budget.service';
 import type { GatewayCall, GatewayResult, AiConfig } from './model';
 import type { ModelProviderService, ProviderDto } from './provider.service';
 import type { ModelAdapterRegistry } from './registry';
@@ -81,6 +92,8 @@ interface Offer {
  * A fallback is only ever another ALLOWED candidate and needs its own reservation, so it can neither cross residency nor overspend.
  */
 export class GatewayService {
+  /** per-process retry policy, circuit breakers and health samples (S-AG4): in memory, so a restart starts every circuit closed and every health window empty */
+  private readonly resilience: Resilience;
   constructor(
     private readonly db: Db,
     private readonly audit: AuditSink,
@@ -92,7 +105,24 @@ export class GatewayService {
     private readonly ledger: LedgerPostingService,
     private readonly cipher: FieldCipher,
     private readonly cfg: AiConfig,
-  ) {}
+    resilience?: Resilience,
+  ) {
+    this.resilience =
+      resilience ??
+      createResilience({
+        retry: {
+          maxAttempts: cfg.attemptsPerCandidate,
+          baseDelayMs: cfg.retryBaseDelayMs,
+          maxDelayMs: Math.max(cfg.retryMaxDelayMs, cfg.retryBaseDelayMs),
+        },
+        breaker: { failureThreshold: cfg.breakerFailureThreshold, openMs: cfg.breakerOpenMs },
+      });
+  }
+
+  /** Health of every provider (key = code) and provider/model (key = code/model) this process has called (rolling window), with the provider's breaker state. Read-only; the admin API that exposes it is a contract request. */
+  providerHealth(): HealthSnapshot[] {
+    return this.resilience.health.all();
+  }
 
   private async offers(): Promise<Offer[]> {
     const out: Offer[] = [];
@@ -110,18 +140,13 @@ export class GatewayService {
             providerCode: row.code,
             modelId: m.modelId,
             region: row.region,
-            // version negotiation: the 1.1 capabilities count only from an adapter that implements contract 1.1 (a 1.0 adapter keeps exactly its 1.0 capabilities)
-            // D8: for a real provider a tool-calling capability counts only while the latest recorded evidence for this model and contract version is VERIFIED (unknown = unsupported);
-            // the dev-reference providers (mock-*, local-*) keep what their adapter declares
-            capabilities: effectiveCapabilities(
-              adapter.contractVersion,
-              m.capabilities as ModelCapability[],
-            ).filter(
-              (c) =>
-                devReference ||
-                !(V1_1_CAPABILITIES as readonly string[]).includes(c) ||
-                evidence.get(`${row.id}|${m.modelId}|${c}`) === adapter.contractVersion,
-            ) as Capability[],
+            // version negotiation + D8 evidence rule (unknown = unsupported): one pure function shared with the admin capability registry
+            capabilities: resolveCapabilities({
+              contractVersion: adapter.contractVersion,
+              declared: m.capabilities as ModelCapability[],
+              devReference,
+              verifiedContract: (c) => evidence.get(`${row.id}|${m.modelId}|${c}`),
+            }) as Capability[],
             contextTokens: m.contextTokens,
             maxOutputTokens: m.maxOutputTokens,
             latencyClass: m.latencyClass,
@@ -234,6 +259,9 @@ export class GatewayService {
       throw new ProblemException('ai_unavailable', 'AI is switched off by the kill switch');
     if (!Number.isInteger(call.maxTokens) || call.maxTokens < 1 || call.maxTokens > 200_000)
       throw new ProblemException('validation_failed', 'maxTokens must be 1..200000');
+    // the operator's ceiling applies before routing, the reservation and the request itself
+    const ceiling = this.cfg.maxOutputTokensCeiling;
+    if (ceiling && call.maxTokens > ceiling) call = { ...call, maxTokens: ceiling };
 
     // 0. tool requests: well-formed specs are checked BEFORE anything is reserved or sent (a malformed one is the caller's bug, not a provider error)
     if (call.tools || call.toolChoice !== undefined || call.maxToolCalls !== undefined) {
@@ -328,15 +356,42 @@ export class GatewayService {
       );
     }
 
-    // 3. reserve + call, with budget-aware fallback over the ALREADY-ALLOWED ranked list
+    // 3. reserve + call, with budget-aware fallback over the ALREADY-ALLOWED ranked list; the approved-fallback policy can only narrow that list (never widen it)
     let firstDenied: BudgetDenied | null = null;
     let lastError: ModelAdapterError | null = null;
-    for (const r of routed.ranked) {
+    let circuitSkipped = 0;
+    // a provider whose own SPENDING limit answered (a rate_limited error that is not retryable) refuses every model of its account: its other models are not tried
+    const spendLimited = new Set<string>();
+    const { retry, breaker, health } = this.resilience;
+    const candidates = applyFallbackPolicy(
+      routed.ranked.map((ranked) => ({
+        providerCode: ranked.candidate.providerCode,
+        modelId: ranked.candidate.modelId,
+        ranked,
+      })),
+      this.cfg.fallbackPolicy,
+    ).map((x) => x.ranked);
+    for (const r of candidates) {
       const offer = offers.find(
         (o) =>
           o.candidate.providerCode === r.candidate.providerCode &&
           o.candidate.modelId === r.candidate.modelId,
       )!;
+      const key = candidateKey(r.candidate); // provider/model: health samples
+      const pkey = r.candidate.providerCode; // provider: the circuit (an outage hits every model of a provider)
+      if (spendLimited.has(pkey)) continue;
+      // an open circuit refuses the candidate BEFORE a reservation is taken: nothing is held for a provider that is known to be failing
+      if (!breaker.acquire(pkey)) {
+        circuitSkipped++;
+        continue;
+      }
+      // acquire is paired with a success or failure per ATTEMPT (so a half-open circuit's single trial is one request), or with a release when no attempt was made
+      let released = false;
+      const releaseBreaker = () => {
+        if (released) return;
+        released = true;
+        breaker.release(pkey);
+      };
       let reservation: Reservation;
       const subCallId = `${call.callId}@${r.candidate.providerCode}/${r.candidate.modelId}`; // one reservation per candidate (a released one is never reused)
       try {
@@ -350,6 +405,7 @@ export class GatewayService {
           ...(call.runBudget ? { runBudget: call.runBudget } : {}),
         });
       } catch (e) {
+        releaseBreaker();
         if (e instanceof BudgetDenied) {
           firstDenied ??= e;
           continue; // a cheaper allowed candidate may still fit
@@ -358,13 +414,15 @@ export class GatewayService {
       }
       const started = Date.now();
       let delivered = 0; // chunks handed to the caller: a stream that fails after that point is not retried, so no delta is ever delivered twice
-      for (let attempt = 1; attempt <= this.cfg.attemptsPerCandidate; attempt++) {
+      for (let attempt = 1; attempt <= retry.maxAttempts; attempt++) {
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), this.cfg.callTimeoutMs);
         const onAbort = () => ac.abort();
         call.signal?.addEventListener('abort', onAbort);
         // a signal that was ALREADY aborted never fires its event: without this the call would go out although the caller had cancelled
         if (call.signal?.aborted) ac.abort();
+        const attemptStarted = Date.now();
+        let backoffMs: number | undefined;
         try {
           const callCtx = { callId: `${call.callId}#${attempt}`, signal: ac.signal };
           const request = {
@@ -393,6 +451,10 @@ export class GatewayService {
               },
             });
           } else resp = await offer.adapter.complete(callCtx, request);
+          // the provider answered: health and breaker learn it before the (database-bound) settlement can fail for reasons that are not the provider's
+          health.recordSuccess(key, Date.now() - attemptStarted);
+          health.recordSuccess(pkey, Date.now() - attemptStarted);
+          breaker.success(pkey);
           return await this.settle(
             call,
             offer,
@@ -405,6 +467,10 @@ export class GatewayService {
         } catch (e) {
           if (e instanceof ModelAdapterError) {
             lastError = e;
+            health.recordFailure(key, e.code, Date.now() - attemptStarted);
+            health.recordFailure(pkey, e.code, Date.now() - attemptStarted);
+            // only a failure that speaks for the provider's health counts toward the circuit; a cancel or a filtered request just frees a half-open trial slot
+            breaker.failure(pkey, e.code);
             if (e.code === 'aborted') {
               await this.budgets.release(orgId, reservation.id);
               await this.recordUsage(call, {
@@ -450,17 +516,46 @@ export class GatewayService {
                 `the model stream failed after it had started (${e.code})`,
               );
             }
-            if (e.retryable && attempt < this.cfg.attemptsPerCandidate) continue; // same reservation: a retry never costs a second hold
-            break;
+            // same reservation: a retry never costs a second hold. The wait honours the provider's Retry-After up to the policy cap; a longer hint means "fail over instead".
+            // a circuit that this very failure opened ends the retries on this candidate too (a half-open trial is ONE request)
+            const wait = breaker.state(pkey) === 'open' ? null : retryDelayMs(retry, attempt, e);
+            if (wait === null) break;
+            backoffMs = wait;
+          } else {
+            releaseBreaker();
+            await this.budgets.release(orgId, reservation.id);
+            throw e;
           }
-          await this.budgets.release(orgId, reservation.id);
-          throw e;
         } finally {
           clearTimeout(timer);
           call.signal?.removeEventListener('abort', onAbort);
         }
+        if (backoffMs !== undefined && backoffMs > 0) {
+          try {
+            await abortableSleep(backoffMs, call.signal);
+          } catch {
+            // the caller cancelled while the call was waiting to be retried: nothing was sent for this attempt
+            releaseBreaker();
+            await this.budgets.release(orgId, reservation.id);
+            await this.recordUsage(call, {
+              providerCode: offer.provider.code,
+              modelRef: `${offer.provider.code}/${r.candidate.modelId}`,
+              tokensIn: 0,
+              tokensOut: 0,
+              estimated: false,
+              credits: 0n,
+              outcome: 'error',
+              errorCode: 'aborted',
+              region: offer.provider.region,
+              costMinor: 0n,
+              costCurrency: null,
+            }).catch(() => undefined);
+            throw new ProblemException('conflict', 'the call was cancelled');
+          }
+        }
       }
       // this candidate failed: no billable result — release and fall back to the next ALLOWED candidate
+      if (lastError?.code === 'rate_limited' && !lastError.retryable) spendLimited.add(pkey);
       await this.budgets.release(orgId, reservation.id);
       await this.recordUsage(
         call,
@@ -492,7 +587,9 @@ export class GatewayService {
     }
     throw new ProblemException(
       'service_unavailable',
-      `the model providers are unavailable (${lastError?.code ?? 'unknown'}${lastError ? `: ${lastError.message}` : ''})`,
+      lastError === null && circuitSkipped > 0
+        ? 'the model providers are temporarily paused after repeated failures (circuit open): try again shortly'
+        : `the model providers are unavailable (${lastError?.code ?? 'unknown'}${lastError ? `: ${lastError.message}` : ''})`,
     );
   }
 
@@ -553,113 +650,134 @@ export class GatewayService {
           { column: 'ai.model_usage.body_enc', row: `${orgId}:${call.callId}` },
         )
       : null;
-    const dup = await this.db.withOrg(orgId, async (c) => {
-      const ins = await c.query(
-        `INSERT INTO ai.model_usage (id, org_id, run_id, project_id, call_id, provider_code, model_ref, task, run_kind, tokens_in, tokens_out, estimated, cost_minor, cost_currency, credits, outcome, latency_ms, data_region, residency_evidence, body_enc, body_expires_at, created_at)
+    // the usage transaction takes the balance lock FIRST (the same order as reserve and release: DEFECT-7) and is rerun when PostgreSQL aborts it for a deadlock: the ledger debit above
+    // is already committed (idempotent on its key), so a settle that gave up would leave a charge with no usage record. If every attempt fails the failure is audited and thrown.
+    const dup = await withDeadlockRetry(() =>
+      this.db.withOrg(orgId, async (c) => {
+        await this.budgets.lockBalanceRow(c, orgId);
+        const ins = await c.query(
+          `INSERT INTO ai.model_usage (id, org_id, run_id, project_id, call_id, provider_code, model_ref, task, run_kind, tokens_in, tokens_out, estimated, cost_minor, cost_currency, credits, outcome, latency_ms, data_region, residency_evidence, body_enc, body_expires_at, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'ok',$16,$17,$18,$19, CASE WHEN $19::text IS NULL THEN NULL ELSE now() + make_interval(days => $20) END, $21)
          ON CONFLICT (org_id, call_id) DO NOTHING RETURNING id`,
-        [
-          uuidv7(),
-          orgId,
-          call.runId ?? null,
-          call.projectId ?? null,
-          call.callId,
-          offer.provider.code,
-          modelRef,
-          call.task,
-          call.runKind ?? null,
-          tin,
-          tout,
-          estimated,
-          cost.toString(),
-          offer.adapter.pricing.currency,
-          credits.toString(),
-          latencyMs,
-          offer.provider.region,
-          evidence,
-          body,
-          budget.bodyRetentionDays ?? 1,
-          reservation.createdAt,
-        ],
-      );
-      const first = ins.rows.length === 1;
-      if (first) {
-        const at = reservation.createdAt.toISOString();
-        const base = {
-          orgId,
-          unit: 'token',
-          windowStart: at,
-          windowEnd: at,
-          occurredAt: at,
-          dataRegion: offer.provider.region,
-          source: 'ai@M09',
-          resourceId: call.callId,
-          ...(call.runId ? { tags: { run_id: call.runId } } : {}),
-        };
-        const dims = { model_id: modelRef, region: offer.provider.region };
-        if (tin > 0)
-          await emitUsage(c, {
-            ...base,
-            eventId: usageEventId({
-              orgId,
-              meterId: 'ai.tokens_input',
-              resourceId: call.callId,
-              windowStart: at,
-            }),
-            meterId: 'ai.tokens_input',
-            quantity: String(tin),
-            dimensions: { ...dims, ...(estimated ? { estimated: 'true' } : {}) },
-          });
-        if (tout > 0)
-          await emitUsage(c, {
-            ...base,
-            eventId: usageEventId({
-              orgId,
-              meterId: 'ai.tokens_output',
-              resourceId: call.callId,
-              windowStart: at,
-            }),
-            meterId: 'ai.tokens_output',
-            quantity: String(tout),
-            dimensions: { ...dims, ...(estimated ? { estimated: 'true' } : {}) },
-          });
-        if (credits > 0n)
-          await emitUsage(c, {
-            ...base,
-            unit: 'credit',
-            eventId: usageEventId({
-              orgId,
-              meterId: 'ai.credits_consumed',
-              resourceId: call.callId,
-              windowStart: at,
-            }),
-            meterId: 'ai.credits_consumed',
-            quantity: credits.toString(),
-            dimensions: { run_kind: call.runKind ?? call.task },
-            tags: { settlement: 'wallet', ...(call.runId ? { run_id: call.runId } : {}) },
-          });
-        if (call.runId)
-          await c.query(
-            `UPDATE ai.runs SET spent_credits = spent_credits + $3, tokens_in = tokens_in + $4, tokens_out = tokens_out + $5, model_ref = $6 WHERE org_id=$1 AND id=$2`,
-            [orgId, call.runId, credits.toString(), tin, tout, modelRef],
-          );
-      }
-      const rel = await c.query(
-        `UPDATE ai.reservations SET state='settled', settled_credits=$2, closed_at=now() WHERE id=$1 AND state='held' RETURNING credits, run_id`,
-        [reservation.id, credits.toString()],
-      );
-      if (rel.rows[0]) {
-        await c.query(
-          `UPDATE ai.credit_balances SET reserved_credits = greatest(0, reserved_credits - $3) WHERE org_id=$1 AND currency=$2`,
-          [orgId, this.cfg.currency, String(rel.rows[0].credits)],
+          [
+            uuidv7(),
+            orgId,
+            call.runId ?? null,
+            call.projectId ?? null,
+            call.callId,
+            offer.provider.code,
+            modelRef,
+            call.task,
+            call.runKind ?? null,
+            tin,
+            tout,
+            estimated,
+            cost.toString(),
+            offer.adapter.pricing.currency,
+            credits.toString(),
+            latencyMs,
+            offer.provider.region,
+            evidence,
+            body,
+            budget.bodyRetentionDays ?? 1,
+            reservation.createdAt,
+          ],
         );
-        if (rel.rows[0].run_id)
+        const first = ins.rows.length === 1;
+        if (first) {
+          const at = reservation.createdAt.toISOString();
+          const base = {
+            orgId,
+            unit: 'token',
+            windowStart: at,
+            windowEnd: at,
+            occurredAt: at,
+            dataRegion: offer.provider.region,
+            source: 'ai@M09',
+            resourceId: call.callId,
+            ...(call.runId ? { tags: { run_id: call.runId } } : {}),
+          };
+          const dims = { model_id: modelRef, region: offer.provider.region };
+          if (tin > 0)
+            await emitUsage(c, {
+              ...base,
+              eventId: usageEventId({
+                orgId,
+                meterId: 'ai.tokens_input',
+                resourceId: call.callId,
+                windowStart: at,
+              }),
+              meterId: 'ai.tokens_input',
+              quantity: String(tin),
+              dimensions: { ...dims, ...(estimated ? { estimated: 'true' } : {}) },
+            });
+          if (tout > 0)
+            await emitUsage(c, {
+              ...base,
+              eventId: usageEventId({
+                orgId,
+                meterId: 'ai.tokens_output',
+                resourceId: call.callId,
+                windowStart: at,
+              }),
+              meterId: 'ai.tokens_output',
+              quantity: String(tout),
+              dimensions: { ...dims, ...(estimated ? { estimated: 'true' } : {}) },
+            });
+          if (credits > 0n)
+            await emitUsage(c, {
+              ...base,
+              unit: 'credit',
+              eventId: usageEventId({
+                orgId,
+                meterId: 'ai.credits_consumed',
+                resourceId: call.callId,
+                windowStart: at,
+              }),
+              meterId: 'ai.credits_consumed',
+              quantity: credits.toString(),
+              dimensions: { run_kind: call.runKind ?? call.task },
+              tags: { settlement: 'wallet', ...(call.runId ? { run_id: call.runId } : {}) },
+            });
+          if (call.runId)
+            await c.query(
+              `UPDATE ai.runs SET spent_credits = spent_credits + $3, tokens_in = tokens_in + $4, tokens_out = tokens_out + $5, model_ref = $6 WHERE org_id=$1 AND id=$2`,
+              [orgId, call.runId, credits.toString(), tin, tout, modelRef],
+            );
+        }
+        const rel = await c.query(
+          `UPDATE ai.reservations SET state='settled', settled_credits=$2, closed_at=now() WHERE id=$1 AND state='held' RETURNING credits, run_id`,
+          [reservation.id, credits.toString()],
+        );
+        if (rel.rows[0]) {
           await c.query(
-            `UPDATE ai.runs SET reserved_credits = greatest(0, reserved_credits - $3) WHERE org_id=$1 AND id=$2`,
-            [orgId, rel.rows[0].run_id, String(rel.rows[0].credits)],
+            `UPDATE ai.credit_balances SET reserved_credits = greatest(0, reserved_credits - $3) WHERE org_id=$1 AND currency=$2`,
+            [orgId, this.cfg.currency, String(rel.rows[0].credits)],
           );
-      }
-      return !first;
+          if (rel.rows[0].run_id)
+            await c.query(
+              `UPDATE ai.runs SET reserved_credits = greatest(0, reserved_credits - $3) WHERE org_id=$1 AND id=$2`,
+              [orgId, rel.rows[0].run_id, String(rel.rows[0].credits)],
+            );
+        }
+        return !first;
+      }),
+    ).catch(async (e: unknown) => {
+      // the debit is committed but the usage record could not be written: never silent (an operator reconciles `ai:call:*` ledger entries without a usage row)
+      await Promise.resolve(
+        this.audit.record({
+          action: 'ai.settle.incomplete',
+          actorType: 'system',
+          resource: { type: 'ai_call', id: call.callId },
+          outcome: 'failure',
+          detail: {
+            orgId,
+            callId: call.callId,
+            code: (e as { code?: string } | null)?.code ?? 'error',
+          },
+        }),
+      ).catch(() => undefined);
+      throw e;
     });
     // tool calls are validated against the DECLARED tools and their schemas; nothing is run. Calls without declared tools cannot exist: they are dropped.
     const checked =

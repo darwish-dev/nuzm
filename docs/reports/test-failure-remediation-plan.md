@@ -76,7 +76,7 @@ After R1–R5: `pnpm lint && pnpm typecheck && pnpm test:unit && pnpm spec:lint 
 
 ---
 ## New findings while carrying out R3 and R5 (2026-11-22)
-**R6 — the browser E2E suite is stale for most older specs (pre-existing; NOT fixed here).** Running the whole suite for the first time on isolated ports showed:
+**R6 — the browser E2E suite is stale for most older specs. FIXED 2026-11-24: see [R6-report.md](R6-report.md) (full isolated run: `en` 44 passed / 2 skipped, `ar` 43 passed / 2 skipped / 1 failed, the failure fixed and re-run).** The original finding follows. Running the whole suite for the first time on isolated ports showed:
 - `01-customer` expects the pre-redesign home ("أنشئ أول مؤسسة لك"); sign-in now lands on `/orgs/new` ("إنشاء مؤسسة"); `03-billing` waits for "المؤسسة الحالية: …", text that the console redesign (`60f8458`) replaced by the new dashboard. Most of specs 01–13 were written against the earlier console and fail at their first assertions; several admin specs then wait out their 2-minute timeouts. `CLAUDE.md`'s "verify:full exit 0 at M02 close" predates the redesign.
 - `14-ai-knowledge` test 1 fails with a strict-mode locator clash (`getByLabel('File')` also matches the section "File inventory", added with S-K2a, `a37c2a0`, after the spec was last edited); its tests 2 and 3 assert global zero counts and so fail in the `en` project once the `ar` project's specs 15 and 16 have activated templates in the same database (run alone they were verified in `ar` and `en` by S-K1).
 - Specs 15, 16, 17 and 18 pass in `ar` and `en` with axe (22 of 26 results in the run of specs 14–18; the 4 failures are the two items above).

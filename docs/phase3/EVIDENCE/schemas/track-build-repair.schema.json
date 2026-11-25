@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/build-repair/1",
+  "title": "Phase 3 evidence details: build-repair",
+  "description": "T5: automatic build-error detection and repair (real model, real build)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "model",
+    "projectId",
+    "usage",
+    "rounds",
+    "repairLimit",
+    "errorClasses",
+    "initialBuild",
+    "finalBuild",
+    "attempts"
+  ],
+  "properties": {
+    "track": {
+      "const": "E"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "tokensIn",
+        "tokensOut"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "rounds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "repairLimit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "errorClasses": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "type-error",
+          "missing-import",
+          "failing-test",
+          "syntax-error",
+          "missing-dependency",
+          "lint-error",
+          "runtime-error"
+        ]
+      }
+    },
+    "initialBuild": {
+      "const": "FAILED"
+    },
+    "finalBuild": {
+      "const": "GREEN"
+    },
+    "attempts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "round",
+          "errorClass",
+          "errorSha256",
+          "patchSha256",
+          "result"
+        ],
+        "properties": {
+          "round": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "errorClass": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "errorSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "patchSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "result": {
+            "enum": [
+              "GREEN",
+              "STILL_FAILING"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

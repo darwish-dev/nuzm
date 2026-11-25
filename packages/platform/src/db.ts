@@ -39,6 +39,17 @@ export class Db {
 
   private async tx<T>(gucs: Record<string, string>, fn: (c: PoolClient) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
+    // While a client is checked out, pg reports a broken connection on the CLIENT ('error'), not on the pool, and an EventEmitter without a listener throws: a reset
+    // or a server-side termination at that moment ended the whole process. With a listener, only this transaction fails (the query in flight or the next one rejects)
+    // and the dead client is discarded instead of going back to the pool.
+    let broken: Error | undefined;
+    const onBroken = (e: Error) => {
+      broken = e;
+      process.stderr.write(
+        `${JSON.stringify({ level: 'warn', event: 'db_client_connection_lost', message: e.message })}\n`,
+      );
+    };
+    client.on('error', onBroken);
     try {
       await client.query('BEGIN');
       for (const [k, v] of Object.entries(gucs))
@@ -56,7 +67,9 @@ export class Db {
       await client.query('ROLLBACK').catch(() => undefined);
       throw e;
     } finally {
-      client.release();
+      // a broken client keeps its listener (a late second 'error' must still be caught) and is destroyed by `release(error)`
+      if (!broken) client.removeListener('error', onBroken);
+      client.release(broken);
     }
   }
 

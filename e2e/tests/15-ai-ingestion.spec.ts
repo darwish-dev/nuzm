@@ -14,6 +14,9 @@ import { ADMIN, DB_URL as DB, PG_PORT, E2E_DB, STORE_DIR } from './env';
 import { zip } from './fixtures/zip';
 import { SAMPLES, type Sample } from './fixtures/samples';
 import { T, audit, loc, signIn } from './helpers';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * AI Intelligence Center, slice S-K2a (SCR-K-02): secure project ingestion END TO END across processes, in Arabic (RTL) and English, with real browsers:

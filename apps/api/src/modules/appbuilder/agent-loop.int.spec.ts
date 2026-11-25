@@ -647,6 +647,36 @@ describe('cancellation, checkpoints and resume', () => {
     ).toBe('CANCELLED');
   });
 
+  it('a cancel the run engine notices in the middle of a turn (its poll fires while the turn is still running) ends with the same bookkeeping: agent_stopped, the audit code "cancelled", the plan cancelled', async () => {
+    const fx = await fixture('Loop Cancel Mid Turn');
+    const head0 = await fx.head();
+    const started = ok<{ plan: { execution: { runId: string } } }>(await start(fx), 201);
+    const runId = started.plan.execution.runId;
+    script = {
+      tools: async (_r, turn) => {
+        if (turn === 2) {
+          await e.sql(`UPDATE ai.runs SET cancel_requested = true WHERE id = $1`, [runId]);
+          // longer than the run engine's cancel poll (100 ms): its abort signal is already raised when this turn finishes, as on a slow machine
+          await new Promise((res) => setTimeout(res, 450));
+        }
+        return { calls: [{ name: 'list_files' }] };
+      },
+    };
+    const run = await driveRun(runId);
+    expect(run.state).toBe('cancelled');
+    expect(await fx.head()).toBe(head0);
+    expect((await steps(runId)).map((s) => s.node)).not.toContain('apply');
+    expect((await events(runId)).map((x) => x.type)).toContain('agent_stopped');
+    expect(
+      e.sink.events.some(
+        (x) => x.action === 'ai.agent.run_failed' && x.detail?.code === 'cancelled',
+      ),
+    ).toBe(true);
+    expect(
+      ok<Row>(await call('alice', 'GET', `/v1/builder/generation-plans/${fx.plan}`)).status,
+    ).toBe('CANCELLED');
+  });
+
   /** A hand-made run context over a real run row, so a crash and a resume can be staged exactly. */
   async function stub(runId: string, checkpoint: Record<string, unknown>) {
     const row = (

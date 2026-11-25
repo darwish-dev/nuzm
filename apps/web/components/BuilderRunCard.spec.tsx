@@ -105,4 +105,13 @@ describe('run card in the chat', () => {
     expect(screen.getAllByText(t('en', 'bld.card.done')).length).toBeGreaterThan(0);
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('100');
   });
+  it('a denied change finishes the run without applying anything and does not say the site was updated', () => {
+    stream.run = run({ state: 'succeeded', result: { applied: false, rejected: true } });
+    card();
+    expect(screen.getAllByText(t('en', 'bld.card.rejected')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(t('en', 'bld.card.done'))).toBeNull();
+    expect(screen.getByRole('progressbar').getAttribute('aria-label')).toBe(
+      t('en', 'bld.card.rejected'),
+    );
+  });
 });

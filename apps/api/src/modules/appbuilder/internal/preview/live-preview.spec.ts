@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '@nuzm/platform';
 import { LivePreviewRegistry } from '../../../builder';
 import { loadBuilderConfig } from '../../../builder';
@@ -26,7 +26,16 @@ const svc = (on = true) =>
     ...DEFAULT_LIVE_PREVIEW,
     ttlMs: 120_000,
   });
-afterAll(() => registry.stopAll());
+// R5 (P3-S02): the preview runs template code on the API host, so the host-exec guard needs the explicit local-development opt-in (like the other host-runner specs)
+const savedOptIn = process.env.NUZM_LOCAL_DEV_EXEC;
+beforeAll(() => {
+  process.env.NUZM_LOCAL_DEV_EXEC = '1';
+});
+afterAll(() => {
+  registry.stopAll();
+  if (savedOptIn === undefined) delete process.env.NUZM_LOCAL_DEV_EXEC;
+  else process.env.NUZM_LOCAL_DEV_EXEC = savedOptIn;
+});
 
 const tokenOf = (url: string) => new URL(url).hostname.split('.')[0]!;
 const sessionOf = (url: string) =>

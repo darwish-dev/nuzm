@@ -5,14 +5,26 @@
   "type": "commonjs",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
     "test": "vitest run",
     "dev": "tsc -p tsconfig.build.json && node dist/main.js",
     "test:integration": "vitest run --config vitest.integration.config.mts",
+    "sandbox:escape-suite": "tsx src/modules/appbuilder/internal/sandbox/escape-runner.cli.ts",
     "dev:stack": "tsc -p tsconfig.build.json && node dist/dev/dev-stack.js",
     "encrypt:backfill": "tsc -p tsconfig.build.json && node dist/ops/encrypt-backfill.js",
     "set-password": "tsx src/dev/set-password.ts",
-    "grant-ai-credits": "tsx src/dev/grant-ai-credits.ts"
+    "grant-ai-credits": "tsx src/dev/grant-ai-credits.ts",
+    "qualification:builder": "tsx scripts/qualification-builder.ts",
+    "track:c": "tsx scripts/track-c-model-codegen.ts",
+    "track:e": "tsx scripts/track-e-build-repair.ts",
+    "track:d": "tsx src/modules/appbuilder/internal/sandbox/run-in-runtime.cli.ts",
+    "track:fg": "tsx src/modules/deploy/internal/live-track.cli.ts",
+    "qualify:a": "tsx src/modules/ai/internal/qualify-a-connection.ts",
+    "qualify:b": "tsx src/modules/ai/internal/qualify-b-tool-calling.ts",
+    "qualify:c": "tsx src/modules/ai/internal/qualify-c-code-generation.ts",
+    "qualify:suite": "tsx src/modules/ai/internal/live-smoke-cli.ts",
+    "rate-card:preview": "tsx src/modules/ai/internal/rate-card-preview-cli.ts",
+    "qualify:p3": "tsx src/modules/ai/internal/live-executor-cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.8.0",
@@ -56,10 +68,13 @@
   "devDependencies": {
     "@nestjs/testing": "^12.5.0",
     "@nuzm/registrar-conformance": "workspace:*",
+    "@nuzm/runtime-agent": "workspace:*",
     "@swc/core": "^1.16.22",
     "@types/pg": "^8.23.1",
     "@types/ssh2": "^1.15.6",
+    "axe-core": "4.14.0",
     "fast-check": "^4.10.2",
+    "jsdom": "27.4.0",
     "unplugin-swc": "^2.0.0"
   }
 }

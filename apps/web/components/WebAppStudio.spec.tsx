@@ -342,6 +342,55 @@ describe('Code panel of the web-app studio (the website Code view over the gener
     expect(screen.getByText(t('en', 'wsp.code.firstVersion'))).toBeTruthy();
   });
 
+  it('a late answer for the head version never replaces the files of the older version that was chosen', async () => {
+    api();
+    const inner = globalThis.fetch as unknown as (u: string, i?: unknown) => Promise<Response>;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let held = false;
+    // the first list request (the head, v2) is slow: it answers after the user chose v1
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: unknown) => {
+        if (!held && url.includes('/files?versionId=v2')) {
+          held = true;
+          await gate;
+        }
+        return inner(url, init);
+      }),
+    );
+    code();
+    const select = (await screen.findByLabelText(t('en', 'wsp.code.version'))) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'v1' } });
+    await screen.findByText('old.txt');
+    release();
+    // let the late answer arrive and be processed
+    await waitFor(() => expect(held).toBe(true));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(select.value).toBe('v1');
+    expect(screen.getByText('old.txt')).toBeTruthy();
+    expect(screen.queryByText('README.md')).toBeNull(); // only in v2
+  });
+
+  it("the first-version note is in the page whenever the older version's files are (no render shows one without the other)", async () => {
+    api();
+    code();
+    const select = await screen.findByLabelText(t('en', 'wsp.code.version'));
+    const note = t('en', 'wsp.code.firstVersion');
+    const gaps: string[] = [];
+    // runs after every batch of page changes, before React's later effects: a list without its note would be seen here
+    const watch = new MutationObserver(() => {
+      if (screen.queryByText('old.txt') && !screen.queryByText(note))
+        gaps.push('files without note');
+    });
+    watch.observe(document.body, { childList: true, subtree: true, characterData: true });
+    fireEvent.change(select, { target: { value: 'v1' } });
+    await screen.findByText('old.txt');
+    await waitFor(() => expect(screen.queryByText(note)).toBeTruthy());
+    watch.disconnect();
+    expect(gaps).toEqual([]);
+  });
+
   it('searches file names and contents and opens the match at its line', async () => {
     api();
     const { container } = code();

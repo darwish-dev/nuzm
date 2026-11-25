@@ -1,7 +1,11 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { DB_URL as DB, WEB } from './env';
+import { creditAiWallet, enableMockModel, ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * Mobile builder (M10B: UI-M10-12..17 customer console), Arabic and English projects. The mobile app opens in the SAME workspace as a website
@@ -39,14 +43,16 @@ async function setFlag(key: string, on: boolean) {
   ]);
 }
 async function ownerOrg(page: Page, info: TestInfo, email: string) {
-  await signIn(page, info, email);
+  await ensureOwnerOrg(page, info, `Mobile ${loc(info)}`); // created through the screen (no spec depends on another one's data); this also signs the owner in
   const org = (
     await sql<{ id: string }>(
       `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [email],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
+  await enableMockModel();
+  await creditAiWallet(org.id, '1000000').catch(() => undefined); // already credited in this database: fine
 }
 
 test('mobile builder: flag, start, the workspace (preview, code, spec), builds, signing references, release preparation, old links (ar/en, axe, states)', async ({
@@ -62,11 +68,7 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
   await setFlag('mobile_builder.enabled', false);
   await go('/mobile/new');
   await expect(page.getByText(T(info, 'mobile.unavailable.title'))).toBeVisible();
-  await expect(
-    page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
-      .getByRole('link', { name: T(info, 'mobile.nav.mobile') }),
-  ).toHaveCount(0);
+  // (the builder category is not on the rail, so the flag-gated Mobile entry is covered by nav.spec.ts)
   await audit(page, info, 'm10b-not-enabled');
 
   // --- flag ON: the Mobile apps entry opens the builder's start screen with the Mobile tile selected
@@ -87,7 +89,7 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
   await expect(page.getByText('An app for field teams to follow their daily tasks')).toBeVisible();
   for (const k of ['preview', 'code', 'spec', 'builds', 'signing', 'releases'] as const)
     await expect(page.getByRole('button', { name: T(info, `mws.tab.${k}`) })).toBeVisible();
-  await expect(page.getByRole('button', { name: T(info, 'mws.build') })).toBeVisible();
+  await expect(page.getByRole('button', { name: T(info, 'mws.build'), exact: true })).toBeVisible();
   // the run reaches a final or waiting state on its own (design ready, or failed with a reason): never a stuck "Running"
   await expect(
     page.locator('.mws-run[data-phase="approval"], .mws-run[data-phase="failed"]'),
@@ -124,7 +126,9 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
 
   // --- UI-M10-15: signing references: no key field; a pasted key is refused in the browser and nothing is sent
   await page.getByRole('button', { name: T(info, 'mws.tab.signing') }).click();
-  await expect(page.locator('input[type=password], input[type=file], textarea')).toHaveCount(1); // only the chat composer
+  await expect(
+    page.locator('input[type=password], input[type=file], textarea:visible'),
+  ).toHaveCount(1); // only the chat composer (visible fields: a hidden tab panel may hold its own)
   await page.getByLabel(T(info, 'mobile.signing.label')).fill('Upload key');
   await page
     .getByLabel(T(info, 'mobile.signing.vaultRef'))
@@ -162,14 +166,152 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
   }
   await go(`/mobile/${project}/releases/new`);
   await expect(page).toHaveURL(new RegExp(`/builder/projects/${project}\\?tab=releases&new=1$`));
-  // and a mobile app in "Your projects" opens in the workspace too
+  // and a mobile app in the projects sidebar of the start screen opens in the workspace too (the merged console lists projects there, not in a filtered list)
   await go('/builder/projects?type=mobile');
+  await page.getByRole('button', { name: T(info, 'bld.hist.projects'), exact: true }).click();
+  await page.getByPlaceholder(T(info, 'bld.hist.search')).fill('field teams');
   await page
-    .getByRole('link', { name: new RegExp(`Field|app`, 'i') })
+    .getByRole('navigation', { name: T(info, 'bld.hist.projects') })
+    .getByRole('link', { name: new RegExp('field teams', 'i') })
     .first()
     .click();
-  await expect(page).toHaveURL(new RegExp(`/builder/projects/[0-9a-f-]{36}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/builder/projects/[0-9a-f-]{36}(\\?session=[0-9a-f-]{36})?$`),
+  );
 
-  // --- forbidden state: a viewer cannot open signing (owner/admin only)
-  await signIn(page, info, `viewer-${L}@example.test`).catch(() => undefined);
+  // (the viewer's forbidden state for signing is NOT covered here: the dev identity provider has no viewer user, and the old step signed in as one and asserted nothing)
+});
+
+/**
+ * Authorization of signing credentials (`mobile:signing`: owner and admin only), enforced twice: the screen shows the forbidden state and never calls the API, and the API
+ * itself answers 403 to the same member. Also a user with no membership in the organization gets nothing from it (tenant isolation). The members are real: a viewer
+ * membership written for the billing user, and the second platform-admin user who belongs to no organization.
+ */
+test('mobile builder: signing is owner/admin only: a viewer is refused by the screen and by the API, and another tenant sees nothing (ar/en)', async ({
+  page,
+  browser,
+}, info) => {
+  const L = loc(info);
+  const owner = `owner-${L}@example.test`;
+  await ownerOrg(page, info, owner);
+  await setFlag('ai.enabled', true);
+  await setFlag('mobile_builder.enabled', true);
+  await page.goto(`/${L}/builder/projects?type=mobile`);
+  await page
+    .getByLabel(T(info, 'bld.start.promptLabel'))
+    .fill('An app for field teams to follow their daily tasks');
+  await page.getByRole('button', { name: new RegExp(T(info, 'bld.start.go')) }).click();
+  await page.waitForURL(/\/builder\/projects\/[0-9a-f-]{36}$/);
+  const project = /projects\/([0-9a-f-]{36})/.exec(page.url())![1]!;
+  const org = (
+    await sql<{ id: string }>(
+      `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
+      [owner],
+    )
+  )[0]!;
+  const csrf = async (p: Page) =>
+    (await p.context().cookies()).find((c) => c.name === 'nuzm_csrf')?.value ?? '';
+  const asMember = async (email: string) => {
+    const ctx = await browser.newContext({
+      locale: info.project.use.locale ?? 'en-GB',
+      viewport: { width: 1280, height: 900 },
+    });
+    const p = await ctx.newPage();
+    await signIn(p, info, email);
+    await ctx.addCookies([{ name: 'nuzm_org', value: org.id, url: WEB }]);
+    return { ctx, p };
+  };
+  const signingCount = async () =>
+    Number(
+      (
+        await sql<{ n: string }>(
+          `SELECT count(*) n FROM mobile.signing_credential_refs WHERE org_id = $1`,
+          [org.id],
+        )
+      )[0]!.n,
+    );
+  const before = await signingCount();
+
+  // --- the viewer: a real membership with the viewer role
+  const viewer = await asMember(`billing-${L}@example.test`);
+  const uid = (
+    await sql<{ id: string }>(`SELECT id FROM identity.users WHERE email = $1`, [
+      `billing-${L}@example.test`,
+    ])
+  )[0]!.id;
+  await sql(`DELETE FROM tenancy.memberships WHERE org_id = $1 AND user_id = $2`, [org.id, uid]);
+  await sql(
+    `INSERT INTO tenancy.memberships (id, org_id, user_id, role) VALUES (gen_random_uuid(), $1, $2, 'viewer')`,
+    [org.id, uid],
+  );
+  try {
+    await viewer.p.goto(`/${L}/builder/projects/${project}?tab=signing`);
+    await expect(viewer.p.getByText(T(info, 'state.forbidden.title'))).toBeVisible();
+    await expect(
+      viewer.p.getByRole('button', { name: T(info, 'mobile.signing.create') }),
+    ).toHaveCount(0);
+    await audit(viewer.p, info, 'm10b-signing-forbidden');
+    // the API refuses the same member, for reading and for writing, and nothing is stored
+    const headers = {
+      'x-csrf-token': await csrf(viewer.p),
+      'x-nuzm-org': org.id,
+      'idempotency-key': `e2e-sign-${Date.now()}`,
+    };
+    const read = await viewer.p.request.get(`${WEB}/v1/mobile/signing-credentials`, { headers });
+    expect(read.status()).toBe(403);
+    const write = await viewer.p.request.post(`${WEB}/v1/mobile/signing-credentials`, {
+      headers,
+      data: { platform: 'android', label: 'Upload key', vaultRef: 'vault://e2e/upload-key' },
+    });
+    expect(write.status()).toBe(403);
+    expect(await signingCount()).toBe(before);
+  } finally {
+    await viewer.ctx.close();
+  }
+
+  // --- another tenant: a signed-in user with no membership in this organization gets nothing from it
+  const other = await asMember(`approver2-${L}@example.test`);
+  try {
+    const headers = {
+      'x-csrf-token': await csrf(other.p),
+      'x-nuzm-org': org.id,
+      'idempotency-key': `e2e-sign-other-${Date.now()}`,
+    };
+    for (const res of [
+      await other.p.request.get(`${WEB}/v1/mobile/signing-credentials`, { headers }),
+      await other.p.request.get(`${WEB}/v1/builder/projects/${project}`, { headers }),
+      await other.p.request.post(`${WEB}/v1/mobile/signing-credentials`, {
+        headers,
+        data: { platform: 'android', label: 'Upload key', vaultRef: 'vault://e2e/upload-key' },
+      }),
+    ]) {
+      expect([401, 403, 404]).toContain(res.status());
+      expect(await res.text()).not.toContain('Field');
+    }
+    await other.p.goto(`/${L}/builder/projects/${project}`);
+    await expect(other.p.getByText('An app for field teams')).toHaveCount(0);
+    expect(await signingCount()).toBe(before);
+  } finally {
+    await other.ctx.close();
+  }
+
+  // --- control: the same request from the owner is accepted, so the refusals above came from authorization and not from a malformed request
+  const ownerId = (
+    await sql<{ id: string }>(`SELECT id FROM identity.users WHERE email = $1`, [owner])
+  )[0]!.id;
+  const created = await page.request.post(`${WEB}/v1/mobile/signing-credentials`, {
+    headers: {
+      'x-csrf-token': await csrf(page),
+      'x-nuzm-org': org.id,
+      'idempotency-key': `e2e-sign-owner-${Date.now()}`,
+    },
+    data: {
+      platform: 'android',
+      label: `Control key ${Date.now().toString(36)}`, // unique: the first test of this file already registered "Upload key"
+      vaultRef: `vault://e2e/control-${Date.now().toString(36)}`,
+      authorizedBy: ownerId,
+    },
+  });
+  expect(created.status()).toBe(201);
+  expect(await signingCount()).toBe(before + 1);
 });

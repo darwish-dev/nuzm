@@ -65,9 +65,20 @@ export function BuilderTabs({
   );
 }
 
-/** The app builder is off for this organization (flag `app_builder.enabled`, default off) or the item does not exist: the API answers 404 for both. */
-export function NotEnabledState({ locale }: { locale: Locale }) {
-  return (
+/**
+ * A builder capability is off for this organization or the item does not exist (the API answers 404 for all three). `capability` names what the gate found missing:
+ * the app builder (`app_builder.enabled`, the default) or the AI capability (`ai.enabled`) the builder API also requires. No flag key or internal is shown.
+ */
+export function NotEnabledState({
+  locale,
+  capability = 'app_builder',
+}: {
+  locale: Locale;
+  capability?: 'app_builder' | 'ai';
+}) {
+  return capability === 'ai' ? (
+    <EmptyState title={t(locale, 'bt.gate.ai.title')} body={t(locale, 'bt.gate.ai.body')} />
+  ) : (
     <EmptyState title={t(locale, 'm10.notEnabled.title')} body={t(locale, 'm10.notEnabled.body')} />
   );
 }

@@ -134,11 +134,6 @@ export function WorkflowCanvas({
                   type="button"
                   disabled={disabled}
                   aria-pressed={sel}
-                  aria-label={t(locale, 'm11.wf.canvas.card', {
-                    n: i + 1,
-                    type: tDynamic(locale, `m11.wf.type.${s.type}`, s.type),
-                    name: s.name || s.id,
-                  })}
                   onClick={() => onSelect(n.id)}
                   dir={locale === 'ar' ? 'rtl' : 'ltr'}
                   style={{
@@ -158,6 +153,8 @@ export function WorkflowCanvas({
                     alignContent: 'start',
                   }}
                 >
+                  {/* the button is named by its own content (a label that differs from the visible text fails WCAG 2.5.3); the step number is part of that content */}
+                  <span className="nz-sr">{t(locale, 'm11.wf.canvas.step', { n: i + 1 })}</span>
                   <span className="nz-row" style={{ gap: 6 }}>
                     <Badge>{tDynamic(locale, `m11.wf.type.${s.type}`, s.type)}</Badge>
                     {def.start === n.id && (

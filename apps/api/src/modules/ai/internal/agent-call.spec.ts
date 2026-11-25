@@ -76,6 +76,16 @@ describe('agent call prompt', () => {
     expect((e as AgentOutputInvalid).errors.join(' ')).toContain('projectSummary');
     expect(events.filter((e) => e === 'repair')).toHaveLength(3);
   });
+  it('with repairs set to 0 the model is asked exactly once: an invalid answer fails without a second request', async () => {
+    const bad = '{"result":{"projectSummary":"x"},"toolCalls":[]}';
+    const { deps, seen } = setup([bad, bad, bad]);
+    (deps.cfg as { repairAttempts?: number }).repairAttempts = 0;
+    const e = await runAgent(deps, run, 'website', call, () => 'c', undefined).catch(
+      (x: unknown) => x,
+    );
+    expect(e).toBeInstanceOf(AgentOutputInvalid);
+    expect(seen).toHaveLength(1);
+  });
   it('feeds a caller-side check back through the repair loop, so the model fixes its own answer', async () => {
     const wrong = '{"result":{"businessName":"X","languages":["ar"]},"toolCalls":[]}';
     const right = '{"result":{"businessName":"Acme","languages":["ar"]},"toolCalls":[]}';

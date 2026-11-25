@@ -1,0 +1,6 @@
+/work/build/ios/Runner/AppDelegate.swift:12:9: error: cannot find 'FlutterPluginRegistrantt' in scope
+        FlutterPluginRegistrantt.register(with: self)
+        ^~~~~~~~~~~~~~~~~~~~~~~~
+** BUILD FAILED **
+Xcode build done.                                           41.2s
+Failed to build iOS app

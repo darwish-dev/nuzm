@@ -63,6 +63,7 @@ export function AiBudgetsForm(p: {
     setF(budgetForm(p.org, p.projects));
     setStale(false);
     setErr(null);
+    a.setNotice((n) => (n?.tone === 'error' ? null : n)); // an error (the stale-version one) belonged to the old values and must not come back after a reload; "saved" stays
   }
   const ro = !p.canWrite;
   const nameOf = (id: string) => p.projectOptions.find((o) => o.id === id)?.name;

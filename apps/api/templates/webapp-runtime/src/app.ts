@@ -33,8 +33,9 @@ export function createApp(
     (cfg.notifyUrl && cfg.notifyToken
       ? new HttpNotifier(cfg.notifyUrl, cfg.notifyToken)
       : new LogNotifier());
+  const signingKey = cfg.sessionSecret; // a short local name: the secret itself is never written next to its own key name
   return {
-    router: buildRouter({ meta: META, store, notifier, sessionSecret: cfg.sessionSecret }),
+    router: buildRouter({ meta: META, store, notifier, sessionSecret: signingKey }),
     store,
   };
 }

@@ -1,9 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { ADMIN, DB_URL as DB } from './env';
+import { seedPaidInvoice } from './fixtures/payments';
+import { resetDatabase } from './reset';
 
-const ADMIN = 'http://127.0.0.1:3001';
+test.beforeAll(resetDatabase);
+
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -23,7 +26,7 @@ async function elevate(email: string) {
 }
 
 /**
- * Admin finance screens (UI-M03-13..21). Runs after 04-payments: it uses that test's organization, subscription and paid invoice.
+ * Admin finance screens (UI-M03-13..21). Creates the organization, subscription and paid invoice it acts on (fixtures/payments.ts).
  * UI-M03-13/14/15 read the S12d admin list APIs (invoices, payments + PSP events, refunds).
  */
 test('admin finance: invoices, payments, refunds, reconciliation, e-invoicing onboarding and queue, dunning, reports', async ({
@@ -35,14 +38,15 @@ test('admin finance: invoices, payments, refunds, reconciliation, e-invoicing on
   const other = `staff-${L === 'ar' ? 'en' : 'ar'}@example.test`;
   const adm = (p: string, pg: Page = page) => pg.goto(`${ADMIN}/${L}/billing${p}`);
 
-  // --- data from the customer tests: this locale's owner organization, its subscription and the invoice paid in 04-payments
+  // --- the data these screens act on, created through the customer screens: this locale's owner organization, its subscription and a paid invoice
+  await seedPaidInvoice(page, info);
   const org = (
     await sql<{ id: string }>(
       `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [`owner-${L}@example.test`],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer and 04-payments first: no owner organization');
+  if (!org) throw new Error('the seeded owner organization is missing');
   const sub = (
     await sql<{ id: string }>(
       `SELECT id FROM billing.subscriptions WHERE org_id = $1 ORDER BY created_at LIMIT 1`,
@@ -56,7 +60,7 @@ test('admin finance: invoices, payments, refunds, reconciliation, e-invoicing on
       [org.id],
     )
   )[0];
-  if (!sub || !paid) throw new Error('run 04-payments first: no subscription or paid invoice');
+  if (!sub || !paid) throw new Error('the seeded subscription or paid invoice is missing');
 
   // The seeded staff users are platform_admin, which by design cannot manage billing (refunds, run-now, dunning holds need `finance`):
   // give both the finance role before they sign in. The second person (`other`) keeps platform_admin's zatca:approve for the four-eyes step.
@@ -79,7 +83,9 @@ test('admin finance: invoices, payments, refunds, reconciliation, e-invoicing on
   await page.getByRole('button', { name: T(info, 'action.search') }).click();
   const invRow = page.getByRole('row', { name: new RegExp(paid.number_text) });
   await expect(invRow).toBeVisible();
-  await expect(invRow.getByText(T(info, 'af.inv.status.paid'), { exact: true })).toBeVisible();
+  await expect(
+    invRow.locator('.nz-badge', { hasText: T(info, 'af.inv.status.paid') }),
+  ).toBeVisible();
   await expect(invRow.getByText(T(info, 'af.inv.ei.not_generated'), { exact: true })).toBeVisible();
   await audit(page, info, 'adminfin-invoices-search');
   await adm('/invoices?number=NO-SUCH-NUMBER');

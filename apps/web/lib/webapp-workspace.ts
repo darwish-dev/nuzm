@@ -12,6 +12,7 @@ export const APP_TABS = [
   'deployments',
   'exports',
   'versions',
+  'agent',
   'studio',
 ] as const;
 export type AppTab = (typeof APP_TABS)[number];
@@ -26,6 +27,8 @@ export const APP_TAB_PERMISSION: Record<AppTab, string> = {
   deployments: 'deploy:read',
   exports: 'builder:export',
   versions: 'builder:read',
+  /** the builder agent (PHASE-2 S05) starts runs: it needs the right to write (the panel itself says so when the organization flags are off) */
+  agent: 'builder:write',
   studio: 'builder:read',
 };
 /** `?tab=` of the workspace route; anything else opens the preview. */

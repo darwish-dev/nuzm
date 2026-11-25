@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { ADMIN, WEB, DB_URL as DB } from './env';
+import { elevate, ensureOwnerOrg, enableMockModel } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * App builder (M10A): the customer-console web-app workspace, Arabic and English projects, plus the admin oversight screens (UI-M10-18/19).
@@ -24,11 +28,11 @@ import { DB_URL as DB } from './env';
  *     build run ends `failed`: this spec then SKIPS every leg that needs a built app (spec, design, deploy) with an explicit reason, it never fakes one.
  *   - Fixtures written here: flags `ai.enabled` + `app_builder.enabled`, an enabled `mock-model` provider row, a funded wallet. Runs after 01-customer (it uses that
  *     test's owner organization).
- *   - No deployment target is seeded (a real hosting site/instance needs HG-05/HG-06): the deploy/rollback legs run only when the page offers a hosting site,
- *     otherwise they are skipped explicitly. The sandbox runtime is NEVER isolated (D-21/HG-10-02): every sandbox shown must carry the stand-in notice.
+ *   - Deployments are NOT part of this AI-build test any more: success, failure, cancellation, rollback, status sync, authorization and tenant isolation are their own
+ *     tests in `10-deploy-simulated.spec.ts` (SIMULATED local hosting target, projects created through the API, no AI build). This test only opens the deployments panel.
+ *     The sandbox runtime is NEVER isolated (D-21/HG-10-02): every sandbox shown must carry the stand-in notice.
  */
 
-const ADMIN = 'http://127.0.0.1:3001';
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -91,50 +95,36 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
 }, info) => {
   const L = loc(info);
   const owner = `owner-${L}@example.test`;
-  const base = `http://127.0.0.1:3000/${L}`;
+  const base = `${WEB}/${L}`;
+  // the owner organization is created here, through the screen (no spec depends on another one's data); this also signs the owner in
+  await ensureOwnerOrg(page, info, `Builder ${L}`);
   const org = (
-    await sql<{ id: string }>(
-      `SELECT m.org_id AS id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
+    await sql<{ id: string; user_id: string }>(
+      `SELECT m.org_id AS id, m.user_id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [owner],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
 
   // ---- fixtures
   await setFlag('ai.enabled', true);
-  await sql(
-    `INSERT INTO ai.model_providers (id, code, adapter, display_name, region, rate_card_version, rate_card, enabled, enabled_at)
-     VALUES (gen_random_uuid(), 'mock-model', 'mock', 'Mock model', 'sa-central', 'e2e-1', $1::jsonb, true, now())
-     ON CONFLICT (code) DO UPDATE SET enabled = true, enabled_at = coalesce(ai.model_providers.enabled_at, now()), rate_card = EXCLUDED.rate_card`,
-    [
-      JSON.stringify({
-        models: {
-          'mock-chat-1': { creditsPerMillionInput: '1000000', creditsPerMillionOutput: '2000000' },
-          'mock-long-1': { creditsPerMillionInput: '1000000', creditsPerMillionOutput: '2000000' },
-        },
-      }),
-    ],
-  );
+  await enableMockModel();
   await creditWallet(org.id, '1000000').catch(() => undefined); // already credited by an earlier run of this locale: fine
 
   await signIn(page, info, owner);
-  const nav = page.getByRole('navigation', { name: T(info, 'nav.primary') });
 
-  // ---- flag OFF: no nav entry; the web-app tile is "coming soon" and cannot be started
+  // ---- flag OFF (the builder category is not on the rail, so the flag-gated entries are covered by nav.spec.ts): the web-app tile is "coming soon" and cannot be started
   await setFlag('app_builder.enabled', false);
   await page.goto(`${base}/builder/projects`);
-  await expect(nav.getByRole('link', { name: T(info, 'm10.nav.builder') })).toHaveCount(0);
   await page.getByLabel(new RegExp(T(info, 'bld.start.type.webapp'))).check();
   await expect(
     page.getByRole('button', { name: new RegExp(T(info, 'bld.start.go')) }),
   ).toBeDisabled();
   await audit(page, info, 'm10a-flag-off');
 
-  // ---- flag ON: the App builder and Approvals entries appear; the app start screen preselects the web-app type
+  // ---- flag ON: the app start screen preselects the web-app type
   await setFlag('app_builder.enabled', true);
   await page.goto(`${base}/builder/apps`);
-  await expect(nav.getByRole('link', { name: T(info, 'm10.nav.builder') })).toBeVisible();
-  await expect(nav.getByRole('link', { name: T(info, 'm10.nav.approvals') })).toBeVisible();
   await expect(page.getByLabel(new RegExp(T(info, 'bld.start.type.webapp')))).toBeChecked();
   await audit(page, info, 'm10a-apps-start');
 
@@ -155,7 +145,7 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
   const agents = page.getByRole('list', { name: T(info, 'm10a.run.agents') });
   await expect(agents).toBeVisible({ timeout: 30_000 });
   await expect(agents.getByRole('listitem')).toHaveCount(7);
-  await expect(page.getByText(T(info, 'm10a.meter.tokens'))).toBeVisible();
+  await expect(page.getByText(T(info, 'm10a.meter.tokens'), { exact: true })).toBeVisible();
   await audit(page, info, 'm10a-run-progress');
 
   // the run ends, or waits for a human: the approval it waits on is decided right here in the chat (bound to the exact action, with its confirmation)
@@ -226,46 +216,31 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
 
   // ---- UI-M10-10: exports
   await page.goto(`${project}/exports`);
-  await expect(page.getByRole('heading', { name: T(info, 'm10.exp.title') })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: T(info, 'm10.exp.title'), exact: true }),
+  ).toBeVisible();
   await audit(page, info, 'm10a-exports');
 
-  // ---- UI-M10-09: deployments (web app): a target is needed; production asks for an approval
+  // ---- UI-M10-09: deployments (web app). The deploy, failure, cancel, rollback, authorization and tenant cases do NOT depend on this AI build: they are their own tests in
+  // `10-deploy-simulated.spec.ts` (SIMULATED local hosting target). Here only the panel itself is opened.
   await page.goto(`${project}/deployments`);
   await expect(page.getByRole('heading', { name: T(info, 'm10a.dep.new') })).toBeVisible();
   await audit(page, info, 'm10a-deployments');
-  const hasSite = (await page.getByLabel(T(info, 'm10a.dep.target')).locator('option').count()) > 1;
-  test.skip(
-    !built || !hasSite,
-    'no built app or no hosting site to deploy to (a real target needs HG-05/HG-06): deploy and rollback legs skipped, NOT faked',
-  );
-  await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('production');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
-  await expect(page.getByText(T(info, 'm10a.dep.approvalNeeded'))).toBeVisible({ timeout: 30_000 });
-  await audit(page, info, 'm10a-deploy-approval-needed');
-  await page.getByLabel(T(info, 'bld.dep.environment')).selectOption('staging');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.create') }).click();
-  await expect(page.getByRole('table', { name: T(info, 'bld.dep.list') })).toBeVisible({
-    timeout: 30_000,
-  });
-  const rollback = page.getByRole('button', { name: T(info, 'bld.dep.rollback') });
-  await expect(rollback.first()).toBeVisible({ timeout: 120_000 });
-  await rollback.first().click();
-  await expect(page.getByRole('dialog').getByText(T(info, 'm10a.dep.rollbackTitle'))).toBeVisible();
-  await audit(page, info, 'm10a-rollback-confirm');
-  await page.getByRole('button', { name: T(info, 'm10a.dep.rollbackConfirm') }).click();
 
   // ---- versions (read-only for web apps)
   await page.goto(`${project}/versions`);
-  await expect(page.getByRole('table', { name: T(info, 'm10a.tab.versions') })).toBeVisible();
-  await audit(page, info, 'm10a-versions');
+  if (built) {
+    await expect(page.getByRole('table', { name: T(info, 'm10a.tab.versions') })).toBeVisible();
+    await audit(page, info, 'm10a-versions');
+  }
 
-  // ---- the project list shows the type and can be filtered
+  // ---- the projects of the organization are listed in the sidebar of the start screen (the merged console no longer shows a type-filtered list to people who can start projects;
+  // the filter chips remain for read-only members, see ProjectsScreen)
   await page.goto(`${base}/builder/projects?type=webapp`);
-  await expect(page.getByText(T(info, 'm10.proj.type.webapp')).first()).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: T(info, 'm10a.proj.filter.webapp') }),
-  ).toHaveAttribute('aria-current', 'page');
-  await audit(page, info, 'm10a-projects-filtered');
+  await page.getByRole('button', { name: T(info, 'bld.hist.projects'), exact: true }).click();
+  const history = page.getByRole('navigation', { name: T(info, 'bld.hist.projects') });
+  await expect(history.locator('.bh-folder-btn').first()).toBeVisible();
+  await audit(page, info, 'm10a-projects-history');
 });
 
 test('admin: AI run oversight and sandbox fleet are read only (UI-M10-18/19)', async ({
@@ -274,6 +249,7 @@ test('admin: AI run oversight and sandbox fleet are read only (UI-M10-18/19)', a
   const L = loc(info);
   const staff = `staff-${L}@example.test`;
   await signIn(page, info, staff, ADMIN);
+  await elevate(staff);
   await page.goto(`${ADMIN}/${L}/ai/runs`);
   const forbidden = await page
     .getByText(T(info, 'state.forbidden.title'))
@@ -284,15 +260,16 @@ test('admin: AI run oversight and sandbox fleet are read only (UI-M10-18/19)', a
     'the e2e staff user lacks admin:ai:read (platform_admin, support or security role): not granted here',
   );
   await expect(
-    page.getByRole('heading', { name: T(info, 'm10.adm.runs.title'), level: 1 }),
+    page.getByRole('heading', { name: T(info, 'aia.tab.runs'), level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText(T(info, 'm10.adm.runs.metadataOnly'))).toBeVisible();
+  await expect(page.getByText(T(info, 'aia.runs.noContent'))).toBeVisible();
   await audit(page, info, 'm10-admin-runs');
 
   await page.goto(`${ADMIN}/${L}/sandboxes`);
   await expect(page.getByText(T(info, 'm10.adm.sbx.m05'))).toBeVisible();
   await expect(page.getByText(T(info, 'm10.adm.sbx.noKill'))).toBeVisible();
   // no kill / terminate control exists on this screen
-  await expect(page.locator('main').getByRole('button')).toHaveCount(0);
+  // no action button (the cards/table display toggle is a view control, not an action)
+  await expect(page.locator('main button:not([aria-pressed])')).toHaveCount(0);
   await audit(page, info, 'm10-admin-sandboxes');
 });

@@ -692,6 +692,7 @@ describe('export (AC-M10-07): standalone, secret-free, deterministic, signed', (
 describe('the unit suite of the generated CRM runs for real in the local dev runner (NOT isolated: dev evidence only)', () => {
   it('structured junit results from a real execution of the generated tests', async () => {
     process.env.SANDBOX_LOCAL_DEV = 'true';
+    process.env.NUZM_LOCAL_DEV_EXEC = '1'; // R5: host runner opt-in; the harness names a template origin
     const lb = await setupBuildEnv({ runtime: new LocalDevSandboxRuntime() });
     try {
       const project = await lb.projects.create(ORG_A, {

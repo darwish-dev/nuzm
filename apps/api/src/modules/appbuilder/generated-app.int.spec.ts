@@ -7,7 +7,13 @@ import { SAMPLE_SPEC } from './internal/fixtures/sample-spec';
 import { generateProject } from './internal/gen/project';
 import { materialize } from './internal/testing/materialize';
 
-const ADMIN = process.env.NUZM_TEST_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/postgres';
+const ADMIN =
+  process.env.NUZM_TEST_ADMIN_URL ??
+  (() => {
+    throw new Error(
+      'NUZM_TEST_ADMIN_URL is mandatory: acquire an isolated test environment first (node scripts/testenv/testenv.mjs acquire); there is no default database',
+    );
+  })();
 const TSC = join(__dirname, '../../../../../node_modules/typescript/bin/tsc');
 let dir = '';
 let cleanup = () => undefined as void;
@@ -23,7 +29,10 @@ beforeAll(async () => {
   await c.connect();
   await c.query(`CREATE DATABASE "${dbName}"`);
   await c.end();
-  dbUrl = ADMIN.replace(/\/[^/]*$/, `/${dbName}`);
+  // the generated app runs in a clean child environment: carry the lease's scram password inside the URL (it is otherwise only in PGPASSWORD)
+  const u = new URL(ADMIN.replace(/\/[^/]*$/, `/${dbName}`));
+  if (!u.password && process.env.PGPASSWORD) u.password = process.env.PGPASSWORD;
+  dbUrl = u.toString();
 }, 60_000);
 afterAll(async () => {
   cleanup();
@@ -101,7 +110,14 @@ describe('the generated web app is a real, working project (S43/S44)', () => {
         )
       ).rows.map((r) => r.table_name as string);
     await c.query(up);
-    expect(await tables()).toEqual(['app_users', 'audit_log', 'projects', 'tasks']);
+    // P3-S05: server-side logout revocation adds app_revoked_sessions to the generated initial migration
+    expect(await tables()).toEqual([
+      'app_revoked_sessions',
+      'app_users',
+      'audit_log',
+      'projects',
+      'tasks',
+    ]);
     await c.query(down);
     expect(await tables()).toEqual([]);
     await c.query(up);

@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -14,17 +15,22 @@ import { ProblemException } from '../../common/errors';
 import { Idempotent } from '../../common/idempotency';
 import { parseLimit } from '../../common/pagination';
 import { AiEnabledGuard } from '../ai';
+import { ContentRead } from '../builder';
 import { DeployService } from './internal/deploy.service';
+import { DeployPolicyService } from './internal/policy.service';
 
 /** `POST/GET /v1/deployments`, `GET …/{id}`, `GET …/{id}/logs`, `POST …/{id}/rollback` (docs/04 §2.9: the single publish endpoint for websites). Gated by the `ai.enabled` flag. */
 @UseGuards(AiEnabledGuard)
 @Controller('v1/deployments')
 export class DeploymentsController {
-  constructor(private readonly deploys: DeployService) {}
+  constructor(
+    private readonly deploys: DeployService,
+    private readonly policy: DeployPolicyService,
+  ) {}
 
   /**
    * Body {projectId, target: hostingSiteId, environment, approvalId?}. First call: 403 `approval_required` + `approvalId` and the cost disclosure; repeat with the approvalId
-   * (a NEW Idempotency-Key) to confirm as a human with a write role. 202 + deployment. 422 `unsupported_capability` when no publish path exists.
+   * (a NEW Idempotency-Key) to confirm as a signed-in person with a write role (an API key may ask for the approval but its confirmation is refused 403). 202 + deployment. 422 `unsupported_capability` when no publish path exists.
    */
   @RequirePermission('deploy:write')
   @Idempotent()
@@ -38,7 +44,30 @@ export class DeploymentsController {
   ) {
     if (!key)
       throw new ProblemException('idempotency_key_required', 'send an Idempotency-Key header');
-    return this.deploys.create(orgId, a.actor.userId, key, body ?? {});
+    return this.deploys.create(orgId, a.actor.userId, key, body ?? {}, a.actor.kind, a.role);
+  }
+  /**
+   * The organization's deployment policy switches (owner decisions O-1 and O-2). Any member with `deploy:read` may read them (the console explains a refusal with them);
+   * only an owner/admin signed in as a person may change them (`org:security`), audited as `deploy.policy.updated`. Declared before `:id`.
+   */
+  @RequirePermission('deploy:read')
+  @Get('policy')
+  getPolicy(@Org() orgId: string) {
+    return this.policy.get(orgId);
+  }
+  @RequirePermission('org:security')
+  @Idempotent()
+  @Put('policy')
+  setPolicy(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Body() body: Record<string, unknown> | undefined,
+  ) {
+    return this.policy.set(
+      orgId,
+      { userId: a.actor.userId, role: a.role, kind: a.actor.kind },
+      body ?? {},
+    );
   }
   @RequirePermission('deploy:read')
   @Get()
@@ -50,11 +79,13 @@ export class DeploymentsController {
     });
   }
   @RequirePermission('deploy:read')
+  @ContentRead('deployment', 'id')
   @Get(':id')
   get(@Org() orgId: string, @Param('id') id: string) {
     return this.deploys.get(orgId, id.toLowerCase());
   }
   @RequirePermission('deploy:read')
+  @ContentRead('deployment_logs', 'id')
   @Get(':id/logs')
   logs(@Org() orgId: string, @Param('id') id: string, @Query() q: { after?: string }) {
     return this.deploys.logs(orgId, id.toLowerCase(), Number(q.after ?? 0) || 0);
@@ -67,10 +98,23 @@ export class DeploymentsController {
     @Org() orgId: string,
     @Access() a: AccessContext,
     @Param('id') id: string,
+    @Body() body: { approvalId?: unknown } | undefined,
     @Headers('idempotency-key') key?: string,
   ) {
     if (!key)
       throw new ProblemException('idempotency_key_required', 'send an Idempotency-Key header');
-    return this.deploys.rollback(orgId, a.actor.userId, id.toLowerCase(), key);
+    return this.deploys.rollback(orgId, a.actor.userId, id.toLowerCase(), key, {
+      approvalId: body?.approvalId,
+      actorKind: a.actor.kind,
+      actorRole: a.role,
+    });
+  }
+  /** Cancel a queued or running deployment (202; a running one stops at its next checkpoint, before the switch). 409 `invalid_state` once finished. */
+  @RequirePermission('deploy:write')
+  @Idempotent()
+  @Post(':id/cancel')
+  @HttpCode(202)
+  cancel(@Org() orgId: string, @Access() a: AccessContext, @Param('id') id: string) {
+    return this.deploys.cancel(orgId, a.actor.userId, id.toLowerCase());
   }
 }

@@ -75,7 +75,8 @@ export default async function AuditLogs({
                           <p>
                             <span className="nzc-audit-area">
                               <Ltr>{area}</Ltr>
-                            </span>
+                            </span>{' '}
+                            {/* a real space: the flex gap only separates them visually, and without it the line reads, copies and searches as one word */}
                             <Ltr>{rest.join(' ').replaceAll('_', ' ') || r.action}</Ltr>
                           </p>
                           <small>

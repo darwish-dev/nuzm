@@ -31,7 +31,6 @@ export default async function EmailDomain({
         <PageTitle>{d.domain}</PageTitle>
         <EmailTabs locale={locale} current="domains" />
         <DomainPanel
-          key={`${d.etag}-${d.lastCheckedAt ?? ''}`}
           locale={locale}
           domain={d}
           canManage={s.can('email:domain:manage')}

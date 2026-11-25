@@ -3,16 +3,15 @@ import { ApiError } from '@nuzm/sdk';
 import { t, type Locale, type MessageKey } from '@nuzm/i18n';
 import { PageTitle } from '@nuzm/ui';
 import { NotEnabledState } from '../components/BuilderParts';
-import { APP_BUILDER_FLAG } from './appbuilder';
+import { missingBuilderCapability } from './appbuilder';
 import { serverCompute } from './compute-server';
 import { gate } from './gate';
 import type { Session } from './server';
-import { flagEnabled } from './services';
 import { view } from './view';
 
 /**
- * Page entry of the app-builder screens: locale + session + permission (as `gate`), and the feature flag `app_builder.enabled` (default off): while it is off
- * for the organization the page renders the "not enabled" state instead of calling the API (which would answer 404).
+ * Page entry of the app-builder screens: locale + session + permission (as `gate`), and the feature flags `app_builder.enabled` and `ai.enabled` (both default off): while one is off
+ * for the organization the page renders the "not enabled" state naming THAT capability instead of calling the API (which would answer 404 for either).
  */
 export async function bgate(
   params: Promise<{ locale: string }>,
@@ -21,13 +20,14 @@ export async function bgate(
 ): Promise<{ ok: true; locale: Locale; s: Session } | { ok: false; node: ReactNode }> {
   const g = await gate(params, permission, title);
   if (!g.ok) return g;
-  if (!flagEnabled(g.s.me.featureFlags, APP_BUILDER_FLAG))
+  const missing = missingBuilderCapability(g.s.me.featureFlags);
+  if (missing)
     return {
       ok: false,
       node: (
         <>
           <PageTitle>{t(g.locale, title)}</PageTitle>
-          <NotEnabledState locale={g.locale} />
+          <NotEnabledState locale={g.locale} capability={missing} />
         </>
       ),
     };

@@ -32,7 +32,6 @@ export default async function DatabaseSettingsPage({
         <PageTitle>{t(locale, 'm8.dbs.pageTitle', { name: db.name })}</PageTitle>
         <DatabaseTabs locale={locale} id={db.id} current="settings" />
         <DatabaseSettings
-          key={db.etag}
           locale={locale}
           db={db}
           canAdmin={s.can('data:db:admin')}

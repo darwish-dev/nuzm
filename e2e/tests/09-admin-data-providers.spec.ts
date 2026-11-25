@@ -1,7 +1,17 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { ADMIN, DB_URL as DB } from './env';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
+
+/** The row's actions are a disclosure that keeps its state across refreshes: open it only when it is closed (a second click would close it). */
+async function openActions(row: Locator, info: TestInfo) {
+  const summary = row.locator('summary', { hasText: T(info, 'm8.adm.actions') });
+  const open = await summary.locator('..').evaluate((d) => (d as HTMLDetailsElement).open);
+  if (!open) await summary.click();
+}
 
 /**
  * Admin data providers screen (UI-M08-15), Arabic and English projects.
@@ -13,7 +23,6 @@ import { DB_URL as DB } from './env';
  * "refused" message with the blockers that explain it. Nothing here touches a real provider.
  */
 
-const ADMIN = 'http://127.0.0.1:3001';
 const sql = async <T extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -53,7 +62,7 @@ test('admin: data providers: configure a dev-reference row, probe, blockers, ena
   ).toBeVisible();
   await expect(
     page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
+      .getByRole('navigation', { name: T(info, 'nc.nav.side') }) // the section navigation lists the items of the current category
       .getByRole('link', { name: T(info, 'm8.nav.admin.providers') }),
   ).toBeVisible();
   await expect(page.getByText(T(info, 'm8.adm.noSelection'))).toBeVisible();
@@ -78,14 +87,14 @@ test('admin: data providers: configure a dev-reference row, probe, blockers, ena
   // --- the row: marked as a dev reference, not verified; nothing is enabled; the blockers say why
   const row = page.getByRole('row').filter({ hasText: code });
   await expect(row).toBeVisible();
-  await expect(row.getByText(T(info, 'm8.adm.devRef'))).toBeVisible();
-  await expect(row.getByText(T(info, 'm8.adm.disabled'))).toBeVisible();
-  await expect(row.getByText(T(info, 'm8.adm.notProbed'))).toBeVisible();
+  await expect(row.getByText(T(info, 'm8.adm.devRef'), { exact: true })).toBeVisible();
+  await expect(row.getByText(T(info, 'm8.adm.disabled'), { exact: true })).toBeVisible();
+  await expect(row.getByText(T(info, 'm8.adm.notProbed'), { exact: true })).toBeVisible();
   await expect(row.getByText(T(info, 'm8.adm.blocker.not_probed'))).toBeVisible();
   await audit(page, info, 'm8-admin-providers-configured');
 
   // --- probe: the result is data, never an error; the evidence kinds are listed
-  await row.getByText(T(info, 'm8.adm.actions')).click();
+  await openActions(row, info);
   await row.getByRole('button', { name: T(info, 'm8.adm.probe'), exact: true }).click();
   const probed = page.getByText(T(info, 'm8.adm.done.probe'));
   const refused = page.getByText(T(info, 'm8.adm.refused'));
@@ -94,27 +103,27 @@ test('admin: data providers: configure a dev-reference row, probe, blockers, ena
   if (await probed.isVisible()) {
     // dev adapters are registered: the probe never carries LIVE evidence, so enabling outside local would stay blocked; a local row can be enabled
     await expect(row.getByText(T(info, 'm8.adm.evidenceKinds'))).toBeVisible();
-    await row.getByText(T(info, 'm8.adm.actions')).click();
+    await openActions(row, info);
     await row.getByLabel(T(info, 'm8.adm.evidenceRef')).fill('LOCAL-REFERENCE-NOT-VERIFIED');
     await row
       .getByLabel(T(info, 'm8.adm.verifiedAt'))
       .fill(new Date(Date.now() - 60_000).toISOString().slice(0, 16));
     await row.getByRole('button', { name: T(info, 'm8.adm.requestEnable') }).click();
     await expect(page.getByText(T(info, 'm8.adm.done.request'))).toBeVisible();
-    await row.getByText(T(info, 'm8.adm.actions')).click();
+    await openActions(row, info);
     await row.getByRole('button', { name: T(info, 'm8.adm.enable'), exact: true }).click();
     await expect(page.getByText(T(info, 'm8.adm.done.enable'))).toBeVisible();
     await expect(row.getByText(T(info, 'm8.adm.enabled'), { exact: true })).toBeVisible();
     await audit(page, info, 'm8-admin-providers-enabled');
     // disable again: the row goes back to "not enabled"
-    await row.getByText(T(info, 'm8.adm.actions')).click();
+    await openActions(row, info);
     await row.getByRole('button', { name: T(info, 'm8.adm.disable') }).click();
     await expect(page.getByText(T(info, 'm8.adm.done.disable'))).toBeVisible();
     await expect(row.getByText(T(info, 'm8.adm.disabled'))).toBeVisible();
   } else {
     // no dev adapter registered here: the refusal is explained and enabling stays blocked
     await expect(row.getByText(T(info, 'm8.adm.blocker.adapter_not_registered'))).toBeVisible();
-    await row.getByText(T(info, 'm8.adm.actions')).click();
+    await openActions(row, info);
     await expect(
       row.getByRole('button', { name: T(info, 'm8.adm.enable'), exact: true }),
     ).toBeDisabled();

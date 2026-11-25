@@ -1,0 +1,7 @@
+Running Gradle task 'assembleDebug'...
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+A problem occurred evaluating root project 'android'.
+> Minimum supported Gradle version is 8.7. Current version is 8.3. If using the gradle wrapper, try editing the distributionUrl in /work/build/android/gradle/wrapper/gradle-wrapper.properties to gradle-8.7-all.zip

@@ -262,6 +262,15 @@ export function PolicyEditor({
   const [error, setError] = useState<string | undefined>();
   const [warn, setWarn] = useState<PolicyDoc | null>(null);
   const [ack, setAck] = useState(false);
+  // a new policy version from the server (after a save) replaces the draft; the notice stays (the page no longer remounts this editor by ETag)
+  const [seenEtag, setSeenEtag] = useState(etag);
+  if (etag !== seenEtag) {
+    setSeenEtag(etag);
+    setDraft(policyToDraft(policy));
+    setError(undefined);
+    setWarn(null);
+    setAck(false);
+  }
 
   const put = (doc: PolicyDoc, confirmPublic: boolean) =>
     void call.run(

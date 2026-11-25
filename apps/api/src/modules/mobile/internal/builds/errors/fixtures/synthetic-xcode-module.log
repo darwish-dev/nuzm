@@ -1,0 +1,5 @@
+/work/build/ios/Runner/GeneratedPluginRegistrant.m:9:9: fatal error: module 'shared_preferences_foundation' not found
+/work/build/ios/Runner/AppDelegate.swift:1:8: error: No such module 'Flutter'
+import Flutter
+       ^
+** BUILD FAILED **

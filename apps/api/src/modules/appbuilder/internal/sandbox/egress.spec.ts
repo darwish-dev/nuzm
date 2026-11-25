@@ -201,3 +201,21 @@ describe('egress policy: default deny, no bypass (proxy-bypass attempts of the e
     expect(classifyIpLiteral('example.com')).toEqual({ literal: false });
   });
 });
+
+describe('DEFECT-3 (Session 07): SIIT and the discard-only prefix', () => {
+  it.each([
+    '::ffff:0:7f00:1',
+    '::ffff:0:a00:1',
+    '::ffff:0:a9fe:a9fe',
+    '100::1',
+    '100:0:0:0:ffff::1',
+  ])('%s is blocked', (h) => {
+    expect(classifyIpLiteral(h)).toMatchObject({ literal: true });
+    expect(
+      classifyIpLiteral(h).literal && (classifyIpLiteral(h) as { blocked: string | null }).blocked,
+    ).toBeTruthy();
+  });
+  it('a SIIT form of a public IPv4 stays public, like the other embedded forms', () => {
+    expect(classifyIpLiteral('::ffff:0:808:808')).toMatchObject({ literal: true, blocked: null });
+  });
+});

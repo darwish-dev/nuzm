@@ -13,6 +13,7 @@ import {
   fieldProblems,
   healthOf,
   isIsolated,
+  missingBuilderCapability,
   isLiveRun,
   maskSecrets,
   meterLevel,
@@ -301,5 +302,31 @@ describe('test results, deployments, exports', () => {
     ).toBe(false);
     expect(safeHref('javascript:alert(1)')).toBeUndefined();
     expect(safeHref('https://a.b/c')).toBe('https://a.b/c');
+  });
+});
+
+describe('DEFECT-20d: the builder gate names the capability that is missing', () => {
+  const on = (...keys: string[]) => Object.fromEntries(keys.map((k) => [k, true]));
+  it('every combination of the two flags', () => {
+    expect(missingBuilderCapability(on('app_builder.enabled', 'ai.enabled'))).toBeNull();
+    expect(missingBuilderCapability(on('app_builder.enabled'))).toBe('ai');
+    expect(missingBuilderCapability(on('ai.enabled'))).toBe('app_builder');
+    expect(missingBuilderCapability({})).toBe('app_builder');
+    expect(missingBuilderCapability(null)).toBe('app_builder');
+    expect(missingBuilderCapability(undefined)).toBe('app_builder');
+  });
+  it('accepts the stored shapes `true` and { enabled: true } only', () => {
+    expect(
+      missingBuilderCapability({
+        'app_builder.enabled': { enabled: true },
+        'ai.enabled': { enabled: true },
+      }),
+    ).toBeNull();
+    expect(missingBuilderCapability({ 'app_builder.enabled': true, 'ai.enabled': 'true' })).toBe(
+      'ai',
+    );
+    expect(
+      missingBuilderCapability({ 'app_builder.enabled': { enabled: false }, 'ai.enabled': true }),
+    ).toBe('app_builder');
   });
 });

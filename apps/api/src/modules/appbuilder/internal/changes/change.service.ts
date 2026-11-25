@@ -2,7 +2,8 @@ import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../../common/audit';
 import { ProblemException } from '../../../../common/errors';
 import { isUuid, newId, sha256, type Row } from '../core';
-import { GitError, GitStore, type CommitInfo } from '../git/git.store';
+import { GitError } from '../git/git.store';
+import type { CommitInfo, VersionStore } from '../versionstore';
 import {
   evaluateDependencies,
   StaticAdvisoryDb,
@@ -64,7 +65,7 @@ export class ChangeService {
     private readonly db: Db,
     private readonly audit: AuditSink,
     private readonly projects: ProjectsPort,
-    private readonly git: GitStore,
+    private readonly git: VersionStore,
     private readonly canaries: CanaryRegistry,
     private readonly advisories: AdvisoryDbPort = new StaticAdvisoryDb(),
   ) {}
@@ -196,7 +197,7 @@ export class ChangeService {
     if (body.baseVersion !== null && body.baseVersion !== undefined && !isUuid(body.baseVersion))
       throw new ProblemException('validation_failed', 'baseVersion must be a version id or null');
     const base = (body.baseVersion ?? null) as string | null;
-    const source = body.source === 'ai' ? 'ai' : 'user';
+    const source = body.source === 'ai' ? 'ai' : body.source === 'restore' ? 'restore' : 'user';
     // the raised limit exists only for the first change of an empty project (the template copy); on any project that already has a version the ordinary limit holds
     const { patches, problems } = this.validate(
       body.patches,

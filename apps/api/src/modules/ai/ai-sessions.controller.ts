@@ -3,13 +3,17 @@ import { Access, Org, RequirePermission, type AccessContext } from '../../common
 import { Idempotent } from '../../common/idempotency';
 import { parseLimit } from '../../common/pagination';
 import { AiEnabledGuard } from './internal/ai-enabled.guard';
+import { AiContentAccess } from './internal/ai-content-access.service';
 import { SessionService } from './internal/session.service';
 
 /** `POST/GET /v1/ai/sessions`, `GET/POST /v1/ai/sessions/{id}/messages` (docs/04 §2.9). */
 @UseGuards(AiEnabledGuard)
 @Controller('v1/ai/sessions')
 export class AiSessionsController {
-  constructor(private readonly sessions: SessionService) {}
+  constructor(
+    private readonly sessions: SessionService,
+    private readonly access: AiContentAccess,
+  ) {}
 
   @RequirePermission('ai:write')
   @Idempotent()
@@ -25,17 +29,27 @@ export class AiSessionsController {
 
   @RequirePermission('ai:read')
   @Get()
-  list(@Org() orgId: string, @Query() q: { limit?: string; cursor?: string }) {
+  async list(
+    @Org() orgId: string,
+    @Access() a: AccessContext,
+    @Query() q: { limit?: string; cursor?: string },
+  ) {
+    await this.access.assert(orgId, a.actor.userId, a.role, 'ai_sessions'); // O-9
     return this.sessions.list(orgId, { limit: parseLimit(q.limit), cursor: q.cursor });
   }
 
   @RequirePermission('ai:read')
   @Get(':id/messages')
-  messages(
+  async messages(
     @Org() orgId: string,
+    @Access() a: AccessContext,
     @Param('id') id: string,
     @Query() q: { limit?: string; cursor?: string },
   ) {
+    await this.access.assert(orgId, a.actor.userId, a.role, 'ai_messages', {
+      type: 'ai_session',
+      id: id.toLowerCase(),
+    }); // O-9
     return this.sessions.messages(orgId, id.toLowerCase(), {
       limit: parseLimit(q.limit),
       cursor: q.cursor,

@@ -1,12 +1,12 @@
+import { BuilderPolicyController } from './builder-policy.controller';
 import {
   Module,
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
   Inject,
 } from '@nestjs/common';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { promises as dns } from 'node:dns';
+import { executionGateway } from '@nuzm/domain';
 import type { Db } from '@nuzm/platform';
 import { AuditSink } from '../../common/audit';
 import { DB } from '../../common/tokens';
@@ -44,21 +44,36 @@ import { TestRunsController } from './test-runs.controller';
 import { webappExecutors } from './internal/agents/webapp-agents';
 import { ApprovalService } from './internal/approvals/approval.service';
 import { ChangeService } from './internal/changes/change.service';
+import { BuilderInsightController } from './builder-insight.controller';
+import { BuilderPlanController } from './builder-plan.controller';
+import { ChangeToolsController } from './change-tools.controller';
+import { ChangeToolsService } from './internal/changes/change-tools.service';
+import { BuilderInsightService } from './internal/changes/builder-insight.service';
+import { ContentAccessService } from '../builder';
+import {
+  ExecutionBudgetService,
+  ExecutionGate,
+  ReleaseBuildBudget,
+} from './internal/lifecycle/execution-budget.service';
+import { BuilderLifecycleService, mockBuildPortFor } from './internal/lifecycle/lifecycle.service';
+import { ProductGeneratorRegistry } from './internal/lifecycle/generator-registry';
+import { PolicyService } from '../access';
+import { QuotaService } from '../billing';
 import { WebappChangesDelegate, WebappDeployDelegateImpl } from './internal/delegates';
 import { AppDeploymentService, DEFAULT_DEPLOY_CONFIG } from './internal/deploy/deployment.service';
 import {
   DeployTargetPort,
   DevStaticTarget,
   HealthProbePort,
-  HttpHealthProbe,
   MemoryReleaseStore,
   ReleaseStorePort,
 } from './internal/deploy/ports';
+import { healthProbeFor } from './internal/deploy/health-probe-factory';
 import { SitePublisherDeployTarget } from './internal/deploy/site-target';
 import { EvaluationService } from './internal/eval/evaluation';
 import { ExportService } from './internal/export/export.service';
 import { AppBuilderEnabledGuard, M09StubGuard } from './internal/flag.guard';
-import { GitStore } from './internal/git/git.store';
+import { makeVersionStore, VERSION_STORE, type VersionStore } from './internal/versionstore';
 import { DEFAULT_RUNNER_CONFIG, GraphRunner } from './internal/graph/runner';
 import { SandboxJobs } from './internal/jobs';
 import { AdvisoryDbPort, StaticAdvisoryDb } from './internal/policy/dependencies';
@@ -264,9 +279,16 @@ class LogSecurityAlerts extends SecurityAlertPort {
  * Feature flag `app_builder.enabled` (default OFF); M09-owned routes are stand-ins behind `app_builder.m09_stubs` (dev only). No provider and no isolating runtime is chosen
  * (D-21 OPEN): production answers 404 (M09 not connected) / 503 (no sandbox capacity).
  */
+/** the sandbox that builds a release (see `ReleaseBuildBudget`) */
+const RELEASE_BUILD_SANDBOX = Symbol('RELEASE_BUILD_SANDBOX');
+
 @Module({
   imports: [IdentityModule, BuilderModule, KnowledgeModule],
   controllers: [
+    BuilderPolicyController,
+    ChangeToolsController,
+    BuilderPlanController,
+    BuilderInsightController,
     SandboxesController,
     TestRunsController,
     ExportsController,
@@ -313,6 +335,89 @@ class LogSecurityAlerts extends SecurityAlertPort {
         s: SessionService,
       ) => new GenerationService(db, a, t, p, r, s),
       inject: [DB, AuditSink, CustomerTemplateService, ProjectsPort, RunService, SessionService],
+    },
+    // ---- S-05 Phase 2: execution budget separated from inference, O-9 content access, the builder lifecycle ------------------------------
+    {
+      provide: ExecutionGate,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        res: ResidencyService,
+        ob: OrgBudgetPort,
+        q: QuotaService,
+      ) =>
+        new ExecutionGate(db, a, res, ob, q, {
+          nodeRegion: DEFAULT_SANDBOX_CONFIG.nodeRegion,
+          concurrentPerOrg: DEFAULT_SANDBOX_CONFIG.concurrentPerOrg,
+        }),
+      inject: [DB, AuditSink, ResidencyService, OrgBudgetPort, QuotaService],
+    },
+    {
+      provide: ExecutionBudgetService,
+      useFactory: (db: Db, a: AuditSink, g: ExecutionGate) =>
+        new ExecutionBudgetService(g, db, a, DEFAULT_SANDBOX_CONFIG.nodeRegion),
+      inject: [DB, AuditSink, ExecutionGate],
+    },
+    {
+      provide: ContentAccessService,
+      useFactory: (db: Db, a: AuditSink) => new ContentAccessService(db, a),
+      inject: [DB, AuditSink],
+    },
+    {
+      // the sandbox that builds a RELEASE: the same runtime and database as `SandboxService`, a budget port that asks the build allowance instead of the AI wallet (switch `builder.billing_separation`, default off = today)
+      provide: RELEASE_BUILD_SANDBOX,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        rt: SandboxRuntime,
+        res: ResidencyService,
+        g: ExecutionGate,
+        c: CanaryRegistry,
+      ) => new SandboxService(db, a, rt, res, new ReleaseBuildBudget(g), c, DEFAULT_SANDBOX_CONFIG),
+      inject: [DB, AuditSink, SandboxRuntime, ResidencyService, ExecutionGate, CanaryRegistry],
+    },
+    ProductGeneratorRegistry,
+    {
+      provide: BuilderLifecycleService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        st: PgRunStore,
+        p: ProjectsPort,
+        ch: ChangeService,
+        ap: ApprovalService,
+        b: ExecutionBudgetService,
+        gw: GatewayService,
+        cfg: AiConfig,
+        gens: ProductGeneratorRegistry,
+      ) => {
+        const policy = new PolicyService(db);
+        return new BuilderLifecycleService({
+          db,
+          audit: a,
+          store: st,
+          projects: p,
+          changes: ch,
+          approvals: ap,
+          budget: b,
+          permissions: (u, o) => policy.userPermissions(u, o),
+          buildPort: mockBuildPortFor(cfg.localReference),
+          gateway: gw,
+          generators: gens.asMap(),
+        });
+      },
+      inject: [
+        DB,
+        AuditSink,
+        PgRunStore,
+        ProjectsPort,
+        ChangeService,
+        ApprovalService,
+        ExecutionBudgetService,
+        GatewayService,
+        AI_CONFIG,
+        ProductGeneratorRegistry,
+      ],
     },
     {
       provide: AgentLoopRunner,
@@ -407,15 +512,15 @@ class LogSecurityAlerts extends SecurityAlertPort {
     },
     {
       provide: HealthProbePort,
-      useFactory: () =>
-        new HttpHealthProbe(async (h) =>
-          (await dns.lookup(h, { all: true })).map((x) => x.address),
-        ),
+      useFactory: (cfg: AiConfig) => healthProbeFor(cfg),
+      inject: [AI_CONFIG],
     },
     {
-      provide: GitStore,
-      useFactory: () =>
-        new GitStore(process.env.APPBUILDER_GIT_ROOT ?? join(tmpdir(), 'nuzm-appbuilder-git')),
+      // CONTRACT-P3-S09-2: production uses the PostgreSQL version store (git/memory are refused at boot); development keeps the git store (APPBUILDER_VERSION_STORE, APPBUILDER_GIT_ROOT)
+      provide: VERSION_STORE,
+      useFactory: (db: Db, a: AuditSink, res: ResidencyService) =>
+        makeVersionStore({ env: process.env, db, audit: a, residency: res }),
+      inject: [DB, AuditSink, ResidencyService],
     },
     {
       provide: EgressPolicy,
@@ -464,11 +569,23 @@ class LogSecurityAlerts extends SecurityAlertPort {
         db: Db,
         a: AuditSink,
         p: ProjectsPort,
-        g: GitStore,
+        g: VersionStore,
         c: CanaryRegistry,
         adv: AdvisoryDbPort,
       ) => new ChangeService(db, a, p, g, c, adv),
-      inject: [DB, AuditSink, ProjectsPort, GitStore, CanaryRegistry, AdvisoryDbPort],
+      inject: [DB, AuditSink, ProjectsPort, VERSION_STORE, CanaryRegistry, AdvisoryDbPort],
+    },
+    {
+      provide: ChangeToolsService,
+      useFactory: (p: ProjectsPort, ch: ChangeService, c: CanaryRegistry, a: AuditSink) =>
+        new ChangeToolsService(p, ch, c, a),
+      inject: [ProjectsPort, ChangeService, CanaryRegistry, AuditSink],
+    },
+    {
+      provide: BuilderInsightService,
+      useFactory: (p: ProjectsPort, ch: ChangeService, g: ModelGatewayPort, a: AuditSink) =>
+        new BuilderInsightService(p, ch, g, a),
+      inject: [ProjectsPort, ChangeService, ModelGatewayPort, AuditSink],
     },
     {
       provide: TestRunService,
@@ -534,7 +651,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
         DeployTargetPort,
         ReleaseStorePort,
         HealthProbePort,
-        SandboxService,
+        RELEASE_BUILD_SANDBOX,
         ProjectsPort,
         CanaryRegistry,
         ResidencyService,
@@ -645,6 +762,7 @@ class LogSecurityAlerts extends SecurityAlertPort {
     InstructionsService,
     GitHubService,
     STUDIO_GIT_HOST,
+    ProductGeneratorRegistry,
   ],
 })
 export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -666,11 +784,35 @@ export class AppBuilderModule implements OnApplicationBootstrap, OnApplicationSh
     @Inject(AgentLoopRunner) private readonly agentLoop: AgentLoopRunner,
     @Inject(AgentWorkspaceRegistry) private readonly agentWorkspaces: AgentWorkspaceRegistry,
     @Inject(GenerationService) private readonly generation: GenerationService,
+    @Inject(BuilderLifecycleService) private readonly lifecycle: BuilderLifecycleService,
+    @Inject(AuditSink) private readonly audit: AuditSink,
   ) {}
   onApplicationBootstrap() {
+    // CONTRACT-P3-S02-4 §1: every host-process decision (allowed or refused, content-free) goes to the audit sink; a failure of the sink never changes the decision
+    executionGateway.setHostExecAuditor((d) => {
+      try {
+        void Promise.resolve(
+          this.audit.record({
+            action: d.allowed ? 'host_exec.process.allowed' : 'host_exec.process.refused',
+            actorType: 'system',
+            outcome: d.allowed ? 'success' : 'failure',
+            detail: { path: d.path, reasons: d.reasons, templateId: d.templateId },
+          }),
+        ).catch(() => undefined);
+      } catch {
+        /* never throws */
+      }
+    });
     // the run kinds, the safe-diff changes and the deployments of web-app projects join M09's registries (M09 contract §3; the paths stay M09's)
     this.registry.register(
-      new WebappRunHandler(this.store, this.projects, this.graph, this.adapt, this.agentLoop),
+      new WebappRunHandler(
+        this.store,
+        this.projects,
+        this.graph,
+        this.adapt,
+        this.agentLoop,
+        this.lifecycle,
+      ),
     );
     // S-AG2: the read-only agent tools read a web-app project through this provider (and nothing else)
     this.agentWorkspaces.register('webapp', new AgentProjectWorkspace(this.generation));

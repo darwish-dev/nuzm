@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
 import type { Schemas } from '@nuzm/sdk';
 import { Badge, Banner, Button, Field, Input, Ltr, Select, Table } from '@nuzm/ui';
@@ -690,6 +690,18 @@ export function DatabaseSettings({
   const [enabled, setEnabled] = useState(db.backupPolicy.enabled);
   const [days, setDays] = useState(String(db.backupPolicy.retentionDays));
   const [hours, setHours] = useState(String(db.backupPolicy.intervalHours));
+  // the form follows the server's copy when it changes (another tab, an operation); the page does NOT remount the component for a new version, so the "saved" notice of
+  // the save that caused it stays on screen (it used to vanish with the remount: the person never saw the confirmation)
+  useEffect(() => {
+    setEnabled(db.backupPolicy.enabled);
+    setDays(String(db.backupPolicy.retentionDays));
+    setHours(String(db.backupPolicy.intervalHours));
+  }, [
+    db.etag,
+    db.backupPolicy.enabled,
+    db.backupPolicy.retentionDays,
+    db.backupPolicy.intervalHours,
+  ]);
   const [policyError, setPolicyError] = useState<string | undefined>();
   const [rotateOpen, setRotateOpen] = useState(false);
   const [rotateKey, setRotateKey] = useState(newKey());

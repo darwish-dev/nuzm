@@ -2,11 +2,13 @@ import { validateSiteModel, type SiteModel } from '../site-model';
 import { buildCss } from './css';
 import {
   assetPath,
+  faviconSvg,
   FORMS_BASE_RE,
   pageFile,
   placeholderSvg,
   resolveBaseUrl,
   stripSlash,
+  text,
 } from './common';
 import { SITE_JS } from './js';
 import { computePalette } from './palette';
@@ -94,6 +96,11 @@ export function renderSite(model: SiteModel, options: RenderOptions = {}): Rende
   const css = buildCss(model, palette);
   emit('assets/styles.css', MIME.css, css);
   emit('assets/site.js', MIME.js, SITE_JS);
+  emit(
+    'assets/favicon.svg',
+    MIME.svg,
+    faviconSvg(text(model.brand.name, model.defaultLocale), palette.primary, palette.onPrimary),
+  );
 
   for (const a of model.assets) {
     if (a.source === 'placeholder') emit(assetPath(a), MIME.svg, placeholderSvg(a));

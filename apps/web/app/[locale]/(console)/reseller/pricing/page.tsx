@@ -42,7 +42,6 @@ export default async function Pricing({ params }: { params: Promise<{ locale: st
             {t(locale, 'm11.pr.currentVersion')}: <Ltr>{rules.version}</Ltr>
           </p>
           <PriceRulesEditor
-            key={rules.version}
             locale={locale}
             resellerId={reseller.id}
             currency={reseller.currency}

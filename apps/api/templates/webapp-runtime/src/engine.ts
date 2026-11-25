@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import {
   hashPassword,
   MIN_PASSWORD_LENGTH,
+  readSession,
   signToken,
   verifyPassword,
-  verifyToken,
 } from './auth.ts';
+import { withTenant } from './tenant.ts';
 import { MAX_CSV_ROWS, parseCsv, toCsv } from './csv.ts';
 import { HttpError, Router } from './http.ts';
 import type { AppRequest, AppResponse } from './http.ts';
@@ -39,6 +40,17 @@ export function buildRouter(deps: EngineDeps): Router {
   const now = deps.now ?? Date.now;
   const ttl = deps.sessionTtlSeconds ?? 8 * 3600;
   const failures = new Map<string, number[]>();
+  const signups: number[] = [];
+  const multi = meta.auth?.tenancy === 'multi';
+  const signupRole = meta.auth?.signupRole ?? null;
+  if (signupRole !== null) {
+    const r = meta.roles[signupRole];
+    if (!r) throw new Error('signupRole is not a role of the application');
+    if (!multi && r.admin)
+      throw new Error('signupRole must not be an administrator role of a single-tenant app');
+  }
+  // a hash to verify against when the e-mail is unknown, so that the response time does not reveal whether an account exists
+  const dummyHash = hashPassword('not-a-real-password-' + randomUUID());
 
   const toSession = (u: UserRow): SessionUser => ({
     id: u.id,
@@ -46,16 +58,22 @@ export function buildRouter(deps: EngineDeps): Router {
     name: u.name,
     role: u.role,
     teamId: u.teamId,
+    ...(multi ? { tenantId: u.tenantId ?? null } : {}),
     locale: u.locale,
   });
   const router = new Router(async (headers) => {
     const h = headers['authorization'] ?? '';
     if (!h.startsWith('Bearer ')) return null;
-    const uid = verifyToken(deps.sessionSecret, h.slice(7), now());
-    if (!uid) return null;
-    const u = await store.getUser(uid);
-    return u && u.active ? toSession(u) : null;
+    const session = readSession(deps.sessionSecret, h.slice(7), now());
+    if (!session) return null;
+    if (session.jti !== null && (await store.isSessionRevoked(session.jti))) return null;
+    const u = await store.getUser(session.uid);
+    if (!u || !u.active) return null;
+    if (multi && !u.tenantId) return null; // a user without a tenant has no data and no access
+    return toSession(u);
   });
+  // multi-tenant: the tenant of every authenticated request comes from the verified user row, never from the request
+  if (multi) router.setContext((user, run) => withTenant(user.tenantId as string, run));
 
   const can = (u: SessionUser, entity: string, action: string): boolean =>
     (meta.roles[u.role]?.permissions[entity] ?? []).includes(action);
@@ -175,7 +193,9 @@ export function buildRouter(deps: EngineDeps): Router {
       ]);
     if (meta.roles[u.role]?.scope === 'own' && em.ownership !== 'org')
       throw new HttpError(403, 'forbidden', 'Your role may only own its own records');
-    const target = await store.getUser(requested);
+    const found = await store.getUser(requested);
+    // multi-tenant: a user of another tenant is indistinguishable from no user
+    const target = found && (!multi || found.tenantId === u.tenantId) ? found : null;
     if (!target || !target.active)
       throw new HttpError(422, 'validation_failed', 'ownerId is not a user', [
         { field: 'ownerId', message: 'is not a user' },
@@ -200,7 +220,10 @@ export function buildRouter(deps: EngineDeps): Router {
       if (recent.length >= 5)
         throw new HttpError(429, 'rate_limited', 'Too many attempts; try again in a minute');
       const u = await store.findUserByEmail(key);
-      const ok = u !== null && u.active && (await verifyPassword(b.password, u.passwordHash));
+      const ok =
+        u !== null
+          ? u.active && (await verifyPassword(b.password, u.passwordHash))
+          : (await verifyPassword(b.password, await dummyHash)) && false;
       if (!ok || !u) {
         recent.push(now());
         failures.set(key, recent);
@@ -221,7 +244,93 @@ export function buildRouter(deps: EngineDeps): Router {
       permissions: meta.roles[(req.user as SessionUser).role]?.permissions ?? {},
     },
   }));
-  router.add('POST', meta.basePath + '/auth/logout', async () => ({ status: 204 }));
+  router.add('POST', meta.basePath + '/auth/logout', async (req) => {
+    // the session id is revoked server-side: the token stops working at once, not at its expiry
+    const h = req.headers['authorization'] ?? '';
+    const session = h.startsWith('Bearer ')
+      ? readSession(deps.sessionSecret, h.slice(7), now())
+      : null;
+    if (session?.jti) await store.revokeSession(session.jti, session.exp);
+    return { status: 204 };
+  });
+  if (signupRole !== null)
+    router.add(
+      'POST',
+      meta.basePath + '/auth/signup',
+      async (req) => {
+        const b = (req.body ?? {}) as Record<string, unknown>;
+        const errors: { field: string; message: string }[] = [];
+        if (
+          typeof b['email'] !== 'string' ||
+          !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b['email']) ||
+          b['email'].length > 254
+        )
+          errors.push({ field: 'email', message: 'must be an email address' });
+        if (typeof b['name'] !== 'string' || b['name'].trim() === '' || b['name'].length > 120)
+          errors.push({ field: 'name', message: 'is required' });
+        if (typeof b['password'] !== 'string' || b['password'].length < MIN_PASSWORD_LENGTH)
+          errors.push({
+            field: 'password',
+            message: 'must be at least ' + MIN_PASSWORD_LENGTH + ' characters',
+          });
+        else if (b['password'].length > 200)
+          errors.push({ field: 'password', message: 'is too long' });
+        if (
+          multi &&
+          (typeof b['organization'] !== 'string' ||
+            b['organization'].trim() === '' ||
+            b['organization'].length > 120)
+        )
+          errors.push({ field: 'organization', message: 'is required' });
+        if (errors.length)
+          throw new HttpError(422, 'validation_failed', 'The sign-up is invalid', errors);
+        // sign-up is public: it is rate limited as a whole (script-driven account creation) and each address is checked for duplicates below
+        const recent = signups.filter((t) => now() - t < 60_000);
+        signups.length = 0;
+        signups.push(...recent);
+        if (recent.length >= 20)
+          throw new HttpError(429, 'rate_limited', 'Too many sign-ups; try again in a minute');
+        signups.push(now());
+        const email = (b['email'] as string).toLowerCase();
+        if (await store.findUserByEmail(email))
+          throw new HttpError(409, 'duplicate', 'A record with this value already exists', [
+            { field: 'email', message: 'must be unique' },
+          ]);
+        let tenantId: string | null = null;
+        if (multi) {
+          tenantId = randomUUID();
+          await store.insertTenant({
+            id: tenantId,
+            name: (b['organization'] as string).trim(),
+            createdAt: new Date(now()).toISOString(),
+          });
+        }
+        try {
+          const row = await store.insertUser({
+            id: randomUUID(),
+            email,
+            name: (b['name'] as string).trim(),
+            role: signupRole,
+            teamId: null,
+            ...(multi ? { tenantId } : {}),
+            locale: b['locale'] === 'en' ? 'en' : 'ar',
+            passwordHash: await hashPassword(b['password'] as string),
+            active: true,
+            createdAt: new Date(now()).toISOString(),
+          });
+          return {
+            status: 201,
+            body: {
+              token: signToken(deps.sessionSecret, row.id, ttl, now()),
+              user: toSession(row),
+            },
+          };
+        } catch (e) {
+          return storeError(e);
+        }
+      },
+      true,
+    );
 
   // ---- users (administrators) ----
   router.add('GET', meta.basePath + '/users', async (req) => {
@@ -269,6 +378,8 @@ export function buildRouter(deps: EngineDeps): Router {
         name: (b['name'] as string).trim(),
         role: b['role'] as string,
         teamId: (b['teamId'] as string | null | undefined) ?? null,
+        // an administrator creates users in THEIR OWN tenant only
+        ...(multi ? { tenantId: u.tenantId ?? null } : {}),
         locale: b['locale'] === 'en' ? 'en' : 'ar',
         passwordHash: await hashPassword(b['password'] as string),
         active: true,

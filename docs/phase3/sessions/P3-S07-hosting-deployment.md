@@ -1,0 +1,22 @@
+# P3-S07 — Real Hosting and Deployment Integration
+
+Branch `feature/p3-s07-hosting` · worktree `.claude/worktrees/p3-s07` · Postgres 54357 · migrations 2360–2369. Read first: `CLAUDE.md`, `docs/phase3/PHASE-3-PLAN.md`, `docs/parallel/STAGING-DEPLOYMENT-PLAN.md`, `docs/parallel/HOST-TRANSPORT-SPEC.md` and `-DECISION-MEMO.md`, `docs/parallel/RECONCILIATION-HOSTING.md`, the hosting line's reports (`docs/reports/HESTIA-S*-report.md` on `main`), ADR-060, ADR-067 (HestiaCP) and ADR-068 (hosting backups/WordPress/monitoring) as they exist on `main`.
+
+## Implementation prompt
+You own **real preview, deployment, versioning and rollback** (T6) and the hosting side of T1/T2. The hosting architecture belongs to the existing hosting line (HestiaCP, `HestiaHostingAdapter`, site-ops contract, file-manager service). **Do not duplicate it**: consume its public surface through the deployment target port built in Phase 2, and edit nothing under `apps/api/src/modules/hosting/**`. Shared hosting is acceptable for static/PHP sites on a synthetic-only staging node; it is **not** a boundary for arbitrary generated server code, which needs an isolated runtime target (S02's) — design both targets, deploy to the one each project type needs.
+Deliver: (1) **the hosting join first (Master task, you verify):** `integration/phase3` contains the hosting line after the owner-authorized join; you adapt the target port to the real `HestiaHostingAdapter` and re-derive every test that touched removed agent code; (2) **HOST-TRANSPORT:** implement per the owner's decision (memo options A–D). If the hosting line builds it, you integrate and run the shared conformance suite (T-01..T-19) against it; if the owner assigns it to you, implement it **through the hosting file-manager's public API** only (tree write, size limit, directory-rename or docroot switch — the verified/unverified matrix in the spec), conformance-tested; (3) staging deployment of a synthetic static site end to end: artifact -> upload -> health -> switch -> preview URL (provider-assigned host name first, preview domain + wildcard certificate when B-DOMAIN is decided) -> SSL verification -> release record; (4) **versioned releases and rollback**: every deploy is a release with hash; rollback to the previous release verified by content hash and HTTP check; failed deploy recovery; O-1/O-2 policy switches exercised both ways; (5) server-app deployment target: design and, when the runtime/target exists, implement deployment of a built full-stack app to an isolated runtime target with a managed PostgreSQL (B-DB) — until then it is `NOT VERIFIED` and refuses; (6) deployment logs, cancellation, health checks, tenant isolation, O-9 deployment content guard intact.
+## Scope boundaries
+In: deploy module, deploy-transport package, deploy UI, staging docs. Out: hosting module code (read only), website/app generation (S04/S05), runtime (S02).
+## Acceptance criteria
+- H1 **T6 + T1 part 2:** a synthetic website artifact from S04 is deployed to a real non-production staging node (owner-provided under HG-05/06), reachable over HTTPS, health green, content hash of served files equals the artifact hash.
+- H2 A second release is deployed; **rollback** returns the first release byte-for-byte (hash check); `rollbackOf` recorded; with `deploy.rollback_requires_own_approval` on, the rollback needs its own approval.
+- H3 A deliberately failing release (bad health) is not switched live; the previous release keeps serving; failure recorded.
+- H4 Conformance suite T-01..T-19 passes against the **real** transport; simulated-vs-real labelling is correct in API, UI and evidence.
+- H5 No credential in any file/log; panel key in the vault; tenant isolation tests pass; O-1/O-2/O-9 tests green.
+- H6 If HOST-TRANSPORT is not provided or the node is missing: the exact blocker is documented, real mode refuses (exit 3), nothing is faked.
+## Dependencies
+Needs: owner: HG-05 (node), HG-06 (panel key), HOST-TRANSPORT decision, B-DOMAIN, the hosting join; S04 for artifacts; S02 + B-DB for server apps. Provides: T6 evidence, deploy/rollback to S04/S05/S08.
+## Human gates
+Provisioning the node, panel access key, DNS/domain, any production publish (stays human and separate), purchasing anything.
+## First tasks
+Support the Master's join (review conflicts in deploy/hosting seams); adapt the port; stage the real-transport conformance run plan; staging checklist rows 1–12 as an executable script that refuses without HG refs; `REPORT-P3-S07.md`.

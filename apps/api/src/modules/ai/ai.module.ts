@@ -18,6 +18,7 @@ import { AccessModule, PolicyService } from '../access';
 import { IdentityModule } from '../identity';
 import { AdminAiProvidersController } from './admin-ai-providers.controller';
 import { AdminAiRunsController } from './admin-ai-runs.controller';
+import { AdminAiUsageController } from './admin-ai-usage.controller';
 import { AdminAiQualityController } from './admin-ai-quality.controller';
 import { EvaluationService } from './internal/evaluation.service';
 import { AiModelsController } from './ai-models.controller';
@@ -38,6 +39,9 @@ import { AgentWorkspaceRegistry, StaticAgentWorkspaceRegistry } from './internal
 import { AI_CONFIG, loadAiConfig, type AiConfig } from './internal/model';
 import { probeAnthropic } from './internal/claude-probe';
 import { ModelProviderService } from './internal/provider.service';
+import { KillSwitchDrillService } from './internal/kill-switch-drill.service';
+import { ProviderInsightsService } from './internal/provider-insights.service';
+import { AiContentAccess } from './internal/ai-content-access.service';
 import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/registry';
 
 /**
@@ -54,6 +58,7 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     AiSessionsController,
     AiRunsController,
     AdminAiRunsController,
+    AdminAiUsageController,
     AdminAiQualityController,
   ],
   providers: [
@@ -109,6 +114,12 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
       inject: [DB, AuditSink, ModelAdapterRegistry, AI_CONFIG, SecretStore],
     },
     {
+      provide: KillSwitchDrillService,
+      useFactory: (db: Db, a: AuditSink, p: ModelProviderService, g: GatewayService) =>
+        new KillSwitchDrillService(db, a, p, g),
+      inject: [DB, AuditSink, ModelProviderService, GatewayService],
+    },
+    {
       provide: BudgetService,
       useFactory: (db: Db, a: AuditSink, cfg: AiConfig) => new BudgetService(db, a, cfg),
       inject: [DB, AuditSink, AI_CONFIG],
@@ -137,6 +148,30 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
         ResidencyService,
         LedgerPostingService,
         FieldCipher,
+        AI_CONFIG,
+      ],
+    },
+    {
+      provide: AiContentAccess,
+      useFactory: (db: Db, a: AuditSink) => new AiContentAccess(db, a),
+      inject: [DB, AuditSink],
+    },
+    {
+      provide: ProviderInsightsService,
+      useFactory: (
+        db: Db,
+        a: AuditSink,
+        p: ModelProviderService,
+        r: ModelAdapterRegistry,
+        g: GatewayService,
+        cfg: AiConfig,
+      ) => new ProviderInsightsService(db, a, p, r, g, cfg),
+      inject: [
+        DB,
+        AuditSink,
+        ModelProviderService,
+        ModelAdapterRegistry,
+        GatewayService,
         AI_CONFIG,
       ],
     },
@@ -209,8 +244,11 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
     AiFlags,
     AiEnabledGuard,
     ModelProviderService,
+    KillSwitchDrillService,
     BudgetService,
     GatewayService,
+    ProviderInsightsService,
+    AiContentAccess,
     RunKindRegistry,
     RunService,
     SessionService,

@@ -10,6 +10,32 @@ const v4 = (s: string): number[] | null => {
   const p = s.split('.').map(Number);
   return p.length === 4 && p.every((n) => Number.isInteger(n) && n >= 0 && n <= 255) ? p : null;
 };
+/** Expand an IPv6 literal (already validated by `isIP`) to its 8 groups, including a trailing dotted IPv4 and a zone id; null when it cannot be read. */
+function expandV6(a: string): number[] | null {
+  let s = a.split('%')[0]!;
+  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(s);
+  if (dotted) {
+    const p = v4(dotted[1]!);
+    if (!p) return null;
+    s =
+      s.slice(0, dotted.index) +
+      ((p[0]! << 8) | p[1]!).toString(16) +
+      ':' +
+      ((p[2]! << 8) | p[3]!).toString(16);
+  }
+  const halves = s.split('::');
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(':') : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const fill = 8 - head.length - tail.length;
+  if ((halves.length === 1 && fill !== 0) || fill < 0) return null;
+  const groups = [...head, ...Array(halves.length === 2 ? fill : 0).fill('0'), ...tail].map((x) =>
+    parseInt(x, 16),
+  );
+  return groups.length === 8 && groups.every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffff)
+    ? groups
+    : null;
+}
 export function isBlockedAddress(addr: string): boolean {
   const a = addr
     .trim()
@@ -38,19 +64,25 @@ export function isBlockedAddress(addr: string): boolean {
   }
   // IPv6
   if (a === '::' || a === '::1') return true;
-  const mapped =
-    /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(a) ?? /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(a);
-  if (mapped) {
-    if (mapped[2] === undefined) return isBlockedAddress(mapped[1]!);
-    const hi = parseInt(mapped[1]!, 16);
-    const lo = parseInt(mapped[2], 16);
-    return isBlockedAddress(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
-  }
-  const first = parseInt(a.split(':')[0] || '0', 16);
+  const g = expandV6(a);
+  if (!g) return true; // a literal we cannot read is refused
+  // every IPv6 spelling that EMBEDS an IPv4 address is judged by the embedded address (DEFECT-2): IPv4-compatible ::/96, IPv4-mapped ::ffff:0:0/96, SIIT ::ffff:0:0:0/96, 6to4 2002::/16
+  const emb = (hi: number, lo: number) =>
+    isBlockedAddress(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
+  if (g.slice(0, 5).every((x) => x === 0) && (g[5] === 0xffff || g[5] === 0))
+    return emb(g[6]!, g[7]!);
+  if (g.slice(0, 4).every((x) => x === 0) && g[4] === 0xffff && g[5] === 0)
+    return emb(g[6]!, g[7]!);
+  if (g[0] === 0x2002) return emb(g[1]!, g[2]!);
+  if (g[0] === 0x2001 && g[1] === 0) return true; // Teredo tunnelling
+  if (g[0] === 0x100 && g[1] === 0 && g[2] === 0 && g[3] === 0) return true; // 100::/64 discard-only
+  const first = g[0]!;
   if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
   if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link local
+  if ((first & 0xffc0) === 0xfec0) return true; // fec0::/10 site local
   if ((first & 0xff00) === 0xff00) return true; // multicast
-  if (a.startsWith('64:ff9b:') || a.startsWith('2001:db8:') || a.startsWith('fec0:')) return true;
+  if (first === 0x64 && g[1] === 0xff9b) return true; // NAT64 64:ff9b::/32 (stricter than /96)
+  if (first === 0x2001 && g[1] === 0xdb8) return true; // documentation
   return false;
 }
 

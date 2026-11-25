@@ -17,9 +17,17 @@ const PATTERNS: { kind: string; re: RegExp }[] = [
   { kind: 'github_token', re: /\bgh[pousr]_[A-Za-z0-9]{30,}\b/g },
   { kind: 'slack_token', re: /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/g },
   {
+    // DEFECT-9: the key NAME may be prefixed (`STRIPE_SECRET_KEY`, `client_secret`, `JWT_SECRET`), carry a `_`/`-` suffix (`SECRET_KEY`, `token_id`) and be quoted
+    // (`"apiKey": "..."`); `\s*` also spans a newline (YAML value on the next line). A value that is clearly a reference to configuration, not a literal
+    // (`process.env.X`, `${X}`, `os.environ`) or a call (`_password = TextEditingController()`: the value is followed by `(`, matched atomically through the lookahead capture) is not a finding.
     kind: 'api_key_assignment',
-    re: /\b(?:api[_-]?key|secret|password|passwd|token)\s*[:=]\s*["']?[A-Za-z0-9/+_=.-]{16,}/gi,
+    re: /(?:api[_-]?key|secret|passw(?:or)?d|token|private[_-]?key|credentials?)(?:[_-][A-Za-z0-9_-]*)?["']?\s*[:=]\s*["']?(?!process\.env|\$\{|os\.environ|env\()(?=([A-Za-z0-9/+_=.-]{16,}))\1(?!\()/gi,
   },
+  // DEFECT-9: well-known provider key shapes that appear with no assignment (a pasted key, a comment, a header value)
+  { kind: 'anthropic_api_key', re: /\bsk-ant-[A-Za-z0-9_-]{20,}/g },
+  { kind: 'openai_api_key', re: /\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{32,}/g },
+  { kind: 'google_api_key', re: /\bAIza[0-9A-Za-z_-]{35}\b/g },
+  { kind: 'stripe_live_key', re: /\b[sr]k_live_[A-Za-z0-9]{16,}\b/g },
   {
     kind: 'connection_string',
     re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s@/]+@/gi,

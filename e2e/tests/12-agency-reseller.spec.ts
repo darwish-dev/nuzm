@@ -1,7 +1,11 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
-import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { T, audit, loc, expectActiveOrg, expectOrgMenuEntry } from './helpers';
+import { WEB, DB_URL as DB } from './env';
+import { ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * Agency and reseller screens of M11 (UI-M11-10..19), customer console, Arabic and English projects.
@@ -55,16 +59,14 @@ async function ensureOrg(page: Page, info: TestInfo, email: string, type: 'agenc
   await page.getByLabel(T(info, 'field.name'), { exact: true }).fill(`M11 ${type} ${L}`);
   await page.getByLabel(T(info, 'field.type'), { exact: true }).selectOption(type);
   await page.getByRole('button', { name: T(info, 'action.create') }).click();
-  await expect(page.getByText(T(info, 'home.org', { org: `M11 ${type} ${L}` }))).toBeVisible();
+  await expectActiveOrg(page, info, `M11 ${type} ${L}`);
   id = await orgOf(email, type);
   if (!id) throw new Error(`organization of type ${type} was not created`);
   return id;
 }
 /** Switch the active organization the way the console does (the `nuzm_org` cookie). */
 async function switchOrg(page: Page, info: TestInfo, orgId: string) {
-  await page
-    .context()
-    .addCookies([{ name: 'nuzm_org', value: orgId, url: 'http://127.0.0.1:3000' }]);
+  await page.context().addCookies([{ name: 'nuzm_org', value: orgId, url: WEB }]);
   await page.goto(`/${loc(info)}`);
 }
 
@@ -74,29 +76,28 @@ test('agency: invite, client accepts, propose a grant, act as the client (UI-M11
   const L = loc(info);
   const go = (p: string) => page.goto(`/${L}${p}`);
   const email = `owner-${L}@example.test`;
-  const nav = page.getByRole('navigation', { name: T(info, 'nav.primary') });
-  await signIn(page, info, email);
+  await ensureOwnerOrg(page, info, `Client ${L}`); // created through the screen (no spec depends on another one's data); this also signs the owner in
   await elevate(email);
   const client = await orgOf(email, 'customer');
-  if (!client) throw new Error('run 01-customer first: no customer organization');
+  if (!client) throw new Error('the customer organization was not created');
   const agency = await ensureOrg(page, info, email, 'agency');
   await flag('agency.enabled', false);
   await flag('automation.enabled', true);
 
   // --- the entry is hidden and the page says why while the flag is off
   await switchOrg(page, info, agency);
-  await expect(nav.getByRole('link', { name: T(info, 'nav.agency') })).toHaveCount(0);
   await go('/agency');
   await expect(page.getByText(T(info, 'm11.state.featureOff.title'))).toBeVisible();
+  await expectOrgMenuEntry(page, info, 'nav.agency', false); // the organization's pages are listed in the account menu
   await flag('agency.enabled', true);
 
   // --- UI-M11-10: dashboard, no profile yet → create it
   await go('/agency');
-  await expect(nav.getByRole('link', { name: T(info, 'nav.agency') })).toBeVisible();
+  await expectOrgMenuEntry(page, info, 'nav.agency', true);
   const create = page.getByRole('button', { name: T(info, 'm11.ag.createProfile') });
   if (await create.isVisible()) await create.click();
   await expect(page.getByText(T(info, 'm11.ag.stat.clients'))).toBeVisible();
-  await expect(page.getByText(T(info, 'm11.ag.health.title'))).toBeVisible(); // health/usage: BLOCKED, said plainly
+  await expect(page.getByRole('heading', { name: T(info, 'm11.ag.health.title') })).toBeVisible(); // health/usage: BLOCKED, said plainly
   await audit(page, info, 'm11-agency');
 
   // --- UI-M11-11: invite the client (a bad id is refused in the browser)
@@ -108,7 +109,10 @@ test('agency: invite, client accepts, propose a grant, act as the client (UI-M11
   await page.getByRole('button', { name: T(info, 'm11.ag.inviteAction') }).click();
   await expect(page.getByText(T(info, 'm11.ag.invited'))).toBeVisible();
   await expect(
-    page.getByRole('row').filter({ hasText: client }).getByText(T(info, 'm11.link.status.pending')),
+    page
+      .getByRole('row')
+      .filter({ hasText: client })
+      .getByText(T(info, 'm11.link.status.pending'), { exact: true }),
   ).toBeVisible();
   await audit(page, info, 'm11-agency-clients');
 
@@ -122,7 +126,7 @@ test('agency: invite, client accepts, propose a grant, act as the client (UI-M11
     .getByRole('button', { name: T(info, 'm11.pt.accept') })
     .first()
     .click();
-  await expect(page.getByText(T(info, 'm11.link.status.active'))).toBeVisible();
+  await expect(page.getByText(T(info, 'm11.link.status.active'), { exact: true })).toBeVisible();
 
   // --- UI-M11-12: the agency proposes a grant: scopes picker, mandatory expiry (default 90 days)
   await switchOrg(page, info, agency);
@@ -184,10 +188,10 @@ test('reseller: link a sub-organization, price rules with margin preview and bel
   const L = loc(info);
   const go = (p: string) => page.goto(`/${L}${p}`);
   const email = `owner-${L}@example.test`;
-  await signIn(page, info, email);
+  await ensureOwnerOrg(page, info, `Sub ${L}`); // created through the screen (no spec depends on another one's data); this also signs the owner in
   await elevate(email);
   const sub = await orgOf(email, 'customer');
-  if (!sub) throw new Error('run 01-customer first: no customer organization');
+  if (!sub) throw new Error('the customer organization was not created');
   const reseller = await ensureOrg(page, info, email, 'reseller');
   await flag('reseller.enabled', true);
   await switchOrg(page, info, reseller);
@@ -222,7 +226,11 @@ test('reseller: link a sub-organization, price rules with margin preview and bel
     .getByLabel(T(info, 'm11.pr.value.percent', { currency: 'SAR' }))
     .first()
     .fill('12.5');
-  await expect(page.getByTestId('preview-0')).toContainText('112.50'); // 100.00 sample + 12.5 %
+  await expect(page.getByTestId('preview-0')).toContainText(
+    new Intl.NumberFormat(L === 'ar' ? 'ar-SA' : 'en-US', { minimumFractionDigits: 2 }).format(
+      112.5,
+    ),
+  ); // 100.00 sample + 12.5 %, in the locale's digits
   await page
     .getByLabel(T(info, 'm11.pr.value.percent', { currency: 'SAR' }))
     .first()
@@ -242,7 +250,13 @@ test('reseller: link a sub-organization, price rules with margin preview and bel
   // --- UI-M11-18: statement, CSV link, issuer-model banner shows disabled/BLOCKED and offers no control to enable it
   await go('/reseller/statements');
   await expect(page.getByText(T(info, 'm11.st.issuer.title'))).toBeVisible();
-  await expect(page.getByText('BLOCKED').first()).toBeVisible();
+  // the badge says BLOCKED when the API reports it, otherwise "disabled": the issuer model is off either way and offers no control to enable it
+  await expect(
+    page
+      .getByText('BLOCKED')
+      .or(page.getByText(T(info, 'm11.st.issuer.disabled'), { exact: true }))
+      .first(),
+  ).toBeVisible();
   await expect(page.getByRole('link', { name: T(info, 'm11.st.csv') })).toHaveAttribute(
     'href',
     /statements\/export\?period=\d{4}-\d{2}$/,

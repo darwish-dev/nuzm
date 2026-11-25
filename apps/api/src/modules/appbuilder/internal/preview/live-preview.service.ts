@@ -11,7 +11,7 @@ import {
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import type { Db } from '@nuzm/platform';
-import { isUuid } from '@nuzm/domain';
+import { executionGateway as eg, isUuid } from '@nuzm/domain';
 import type { AuditSink } from '../../../../common/audit';
 import { ProblemException } from '../../../../common/errors';
 import { newPreviewToken, type LivePreviewRegistry } from '../../../builder';
@@ -77,6 +77,9 @@ export class WebappLivePreviewService {
     if (this.registry.list().length >= this.cfg.total)
       throw new ProblemException('service_unavailable', 'previews are busy; try again shortly');
 
+    // R5: the preview runs on the API host (not isolated). What runs is the output of OUR deterministic generator (`generateProject`), so the origin is minted here, server-side; the
+    // guard still needs NODE_ENV != production and the explicit opt-in env, and is audited.
+    eg.assertHostExecAllowed('live-preview', eg.templateOrigin('webapp-preview'));
     const project = generateProject(spec.spec);
     mkdirSync(this.cfg.workRoot, { recursive: true });
     this.sweepStale();

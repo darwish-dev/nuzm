@@ -241,7 +241,8 @@ export class BuildService {
       if (lines.length < 4000) lines.push(l);
     };
     let outcome:
-      { ok: true; out: Awaited<ReturnType<BuildRunnerPort['run']>> } | { ok: false; code: string };
+      | { ok: true; out: Awaited<ReturnType<BuildRunnerPort['run']>> }
+      | { ok: false; code: string; failure?: Record<string, unknown> };
     try {
       const src = await this.projects.sourceOf(
         orgId,
@@ -294,7 +295,33 @@ export class BuildService {
     } catch (e) {
       const code = e instanceof BuildFailure ? e.code : 'build_error';
       log(`build failed: ${code}`);
-      outcome = { ok: false, code };
+      // structured, redacted build errors for the repair loop (P3-S03): class, fix kind, project-relative location; never raw paths
+      const parsed = e instanceof BuildFailure ? e.parsed : undefined;
+      const refusal = (e as { assessment?: { reasons: string[]; warnings: string[] } }).assessment;
+      outcome = {
+        ok: false,
+        code,
+        ...(parsed || refusal
+          ? {
+              failure: {
+                ...(e instanceof BuildFailure && e.stage ? { stage: e.stage } : {}),
+                ...(parsed
+                  ? {
+                      errors: parsed.errors.slice(0, 20).map((x) => ({
+                        tool: x.tool,
+                        errorClass: x.errorClass,
+                        fix: x.fix,
+                        file: x.file,
+                        line: x.line,
+                        message: x.message,
+                      })),
+                    }
+                  : {}),
+                ...(refusal ? { refusedBecause: refusal.reasons, warnings: refusal.warnings } : {}),
+              },
+            }
+          : {}),
+      };
     }
     // artifact bytes are stored BEFORE the result transaction: a storage failure becomes a failed build, never a build stuck in `building`
     const stored: {
@@ -330,6 +357,7 @@ export class BuildService {
     const done = await this.db.withOrg(orgId, async (c) => {
       let toolchain: Record<string, unknown> = {};
       let signed = false;
+      if (!outcome.ok && outcome.failure) toolchain = { failure: outcome.failure };
       if (outcome.ok) {
         toolchain = outcome.out.toolchain;
         signed = outcome.out.signed;

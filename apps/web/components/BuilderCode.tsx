@@ -234,6 +234,9 @@ function PublishOutput({ locale, projectId }: { locale: Locale; projectId: strin
   );
 }
 
+/** The answer for a version that has nothing before it. */
+const NO_CHANGES: FileChanges = { marks: {}, removed: [] };
+
 /**
  * The Code view: the generated files of a version in a file tree with search, a line-numbered and tinted viewer, and a collapsible bottom panel with the changes
  * between versions and the last publish. Read-only on purpose: a project is generated from its structure, so a hand edit of a generated file would be overwritten by
@@ -263,7 +266,10 @@ export function CodePane({
   const file = useBuilderCall();
   const vers = useBuilderCall();
   const [viewId, setViewId] = useState(versionId);
-  const [list, setList] = useState<ProjectFile[] | null>(null);
+  // the file list is kept WITH the version (and project) it was read for, so a list for another version is never shown under the selected one
+  const [loaded, setLoaded] = useState<{ key: string; items: ProjectFile[] } | null>(null);
+  const listKey = `${projectId}:${viewId}`;
+  const list = loaded !== null && loaded.key === listKey ? loaded.items : null;
   const [versions, setVersions] = useState<Version[]>([]);
   const [open, setOpen] = useState<FileContent | null>(null);
   const [side, setSide] = useState<'files' | 'search'>('files');
@@ -272,35 +278,54 @@ export function CodePane({
   const [bottom, setBottom] = useState<'status' | 'changes' | 'publish' | null>('status');
   const [jump, setJump] = useState<number | null>(null);
   const [copied, setCopied] = useState<'path' | 'content' | null>(null);
-  const [changes, setChanges] = useState<FileChanges | null>(null);
+  // the markers against the version before; read for one pair (list, previous version) and used only while that pair is the one shown
+  const [fetched, setFetched] = useState<{
+    list: ProjectFile[];
+    prev: string;
+    value: FileChanges | null;
+  } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const handled = useRef<number>(-1);
+  // the version being viewed right now: an answer that arrives after the choice changed is dropped
+  const viewRef = useRef(viewId);
+  viewRef.current = viewId;
 
   // a new head (a build finished) moves the view to it; an older version stays selectable
   useEffect(() => setViewId(versionId), [versionId]);
 
   useEffect(() => {
+    let current = true;
     setOpen(null);
     setCache({});
-    setList(null);
     void files.run(
       () =>
         bapi.get<{ items: ProjectFile[] }>(`/v1/builder/projects/${projectId}/files`, {
           query: { versionId: viewId },
         }),
-      (d) => setList(d.items),
+      (d) => {
+        if (current) setLoaded({ key: listKey, items: d.items });
+      },
     );
+    return () => {
+      current = false;
+    };
     // the callbacks of useBuilderCall are stable
   }, [projectId, viewId]);
   useEffect(() => {
+    let current = true;
     void vers.run(
       () =>
         bapi.get<Page_<Version>>(`/v1/builder/projects/${projectId}/versions`, {
           query: { limit: 50 },
         }),
-      (p) => setVersions(p.items),
+      (p) => {
+        if (current) setVersions(p.items);
+      },
     );
-    return () => clearTimeout(timer.current);
+    return () => {
+      current = false;
+      clearTimeout(timer.current);
+    };
   }, [projectId, versionId]);
 
   // the version before the shown one: its file list gives the "changed in this version" markers
@@ -310,9 +335,7 @@ export function CodePane({
     return versions.filter((v) => v.seq < cur.seq).sort((a, b) => b.seq - a.seq)[0] ?? null;
   }, [versions, viewId]);
   useEffect(() => {
-    setChanges(null);
-    if (!history || !list || versions.length === 0) return;
-    if (!previous) return setChanges({ marks: {}, removed: [] });
+    if (!history || !list || !previous) return;
     let stop = false;
     void bapi
       .get<{ items: ProjectFile[] }>(`/v1/builder/projects/${projectId}/files`, {
@@ -320,12 +343,24 @@ export function CodePane({
       })
       .then((r) => {
         if (stop) return;
-        setChanges(r.response.ok && r.data ? diffFileLists(r.data.items, list) : null);
+        setFetched({
+          list,
+          prev: previous.id,
+          value: r.response.ok && r.data ? diffFileLists(r.data.items, list) : null,
+        });
       });
     return () => {
       stop = true;
     };
-  }, [history, list, previous, versions.length, projectId]);
+  }, [history, list, previous, projectId]);
+  // null = still loading; the first version has nothing before it, so its answer is known together with the list (no later render)
+  const changes: FileChanges | null = useMemo(() => {
+    if (!history || !list || versions.length === 0) return null;
+    if (!previous) return NO_CHANGES;
+    return fetched !== null && fetched.list === list && fetched.prev === previous.id
+      ? fetched.value
+      : null;
+  }, [history, list, previous, versions.length, fetched]);
 
   const source = useMemo(
     () => (viewId === versionId ? sourceFiles(model, { projectId, versionId }) : []),
@@ -349,12 +384,14 @@ export function CodePane({
     if (own) return setOpen(own);
     const hit = cache[path];
     if (hit) return setOpen(hit);
+    const asked = viewId;
     void file.run(
       () =>
         bapi.get<FileContent>(`/v1/builder/projects/${projectId}/files/content`, {
-          query: { path, versionId: viewId },
+          query: { path, versionId: asked },
         }),
       (c) => {
+        if (viewRef.current !== asked) return;
         setCache((m) => ({ ...m, [path]: c }));
         setOpen(c);
       },
@@ -587,34 +624,41 @@ export function CodePane({
       </div>
 
       <section className="bwc-bottom" aria-label={t(locale, 'bld.cx.panel.label')}>
-        <div className="bwc-btabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={bottom === 'status'}
-            onClick={tab('status')}
+        <div className="bwc-btabs">
+          {/* only the tabs sit in the tablist (the collapse button is not a tab); `display: contents` keeps the row's layout */}
+          <div
+            role="tablist"
+            aria-label={t(locale, 'bld.cx.panel.label')}
+            style={{ display: 'contents' }}
           >
-            <Icon name="sparkle" size={15} />
-            {t(locale, 'bld.cx.panel.status')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={bottom === 'changes'}
-            onClick={tab('changes')}
-          >
-            <Icon name="refresh" size={15} />
-            {t(locale, 'bld.cx.panel.changes')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={bottom === 'publish'}
-            onClick={tab('publish')}
-          >
-            <Icon name="external" size={15} />
-            {t(locale, 'bld.cx.panel.publish')}
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={bottom === 'status'}
+              onClick={tab('status')}
+            >
+              <Icon name="sparkle" size={15} />
+              {t(locale, 'bld.cx.panel.status')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={bottom === 'changes'}
+              onClick={tab('changes')}
+            >
+              <Icon name="refresh" size={15} />
+              {t(locale, 'bld.cx.panel.changes')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={bottom === 'publish'}
+              onClick={tab('publish')}
+            >
+              <Icon name="external" size={15} />
+              {t(locale, 'bld.cx.panel.publish')}
+            </button>
+          </div>
           <span className="bws-spacer" />
           <button
             type="button"

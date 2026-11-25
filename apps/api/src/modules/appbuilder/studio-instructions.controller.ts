@@ -6,6 +6,7 @@ import { Idempotent } from '../../common/idempotency';
 import { ProjectsPort } from './internal/ports/m09';
 import { StudioProjectScoped } from './internal/studio/flag';
 import { InstructionsService } from './internal/studio/instructions.service';
+import { ContentRead } from '../builder';
 
 type Body_ = Record<string, unknown> | undefined;
 const b = (x: Body_) => x ?? {};
@@ -20,6 +21,7 @@ export class StudioInstructionsController extends StudioProjectScoped {
     super(projects);
   }
   @RequirePermission('builder:read')
+  @ContentRead('instructions')
   @Get()
   async get(@Org() orgId: string, @Param('projectId') pid: string) {
     return this.svc.get(orgId, await this.project(orgId, pid));
@@ -43,6 +45,7 @@ export class StudioInstructionsController extends StudioProjectScoped {
     );
   }
   @RequirePermission('builder:read')
+  @ContentRead('instructions')
   @Get('versions')
   async versions(@Org() orgId: string, @Param('projectId') pid: string) {
     return this.svc.versions(orgId, await this.project(orgId, pid));

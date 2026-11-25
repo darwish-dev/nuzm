@@ -3,7 +3,7 @@ import { L, defineTemplate } from './helpers';
 /** Portfolio for a creative professional or studio: work gallery, service packages (sample amounts), process FAQ. */
 export const portfolio = defineTemplate({
   id: 'portfolio',
-  version: 1,
+  version: 2,
   category: 'portfolio',
   name: L('معرض أعمال', 'Portfolio'),
   description: L(
@@ -242,7 +242,7 @@ export const portfolio = defineTemplate({
         [
           'ابدأ مشروعك',
           'Start your project',
-          'أخبرنا عن مشروعك وسنعود إليك لمناقشة التفاصيل.',
+          'أخبرنا عن مشروعك وميزانيتك والموعد المطلوب، وسنعود إليك لمناقشة التفاصيل.',
           'Tell us about your project and we will get back to you to discuss the details.',
         ],
         [

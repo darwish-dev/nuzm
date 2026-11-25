@@ -107,11 +107,19 @@ export function RunCard({
   const done = stages.filter((x) => x.state === 'done').length;
   const pct =
     run.state === 'succeeded' ? 100 : Math.round((done / Math.max(1, stages.length)) * 100);
+  // a denied change finishes the run as succeeded with `rejected: true` (nothing was applied): the card must not say the site was updated
+  const rejected =
+    run.state === 'succeeded' &&
+    typeof run.result === 'object' &&
+    run.result !== null &&
+    (run.result as { rejected?: unknown }).rejected === true;
   const title =
     run.state === 'waiting_approval'
       ? t(locale, 'bld.card.waiting')
       : run.state === 'succeeded'
-        ? t(locale, 'bld.card.done')
+        ? rejected
+          ? t(locale, 'bld.card.rejected')
+          : t(locale, 'bld.card.done')
         : run.state === 'failed'
           ? t(locale, 'bld.card.failed')
           : run.state === 'cancelled'
@@ -153,6 +161,7 @@ export function RunCard({
       <div
         className="bld-bar"
         role="progressbar"
+        aria-label={title}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}

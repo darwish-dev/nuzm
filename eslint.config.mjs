@@ -25,7 +25,26 @@ export default tseslint.config(
   prettier,
   {
     files: ['**/*.mjs'],
-    languageOptions: { globals: { process: 'readonly' } },
+    languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly' } },
+  },
+  {
+    // Design render/export scripts: Node drivers whose page.evaluate callbacks run in the browser.
+    files: ['design/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        fetch: 'readonly',
+        performance: 'readonly',
+        setTimeout: 'readonly',
+        Blob: 'readonly',
+        btoa: 'readonly',
+        Buffer: 'readonly',
+        MediaRecorder: 'readonly',
+        createImageBitmap: 'readonly',
+      },
+    },
   },
   {
     // Design render/export scripts: Node drivers whose page.evaluate callbacks run in the browser.
@@ -151,5 +170,10 @@ export default tseslint.config(
   {
     files: ['**/*.mjs', '**/*.js', 'scripts/**'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // Operator tool (P3-S08): a read-only checker that reuses the QA evidence verifier of apps/api; it is not application code and nothing imports it.
+    files: ['docs/phase3/validate/**/*.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
 );

@@ -3,7 +3,7 @@ import { L, defineTemplate } from './helpers';
 /** Non-profit / charity: mission, programs, impact gallery, volunteer form. No donation account details, no impact figures. */
 export const ngo = defineTemplate({
   id: 'ngo',
-  version: 1,
+  version: 2,
   category: 'ngo',
   name: L('جمعية أو مبادرة خيرية', 'Non-profit or charity'),
   description: L(
@@ -235,7 +235,7 @@ export const ngo = defineTemplate({
         [
           'معرض الصور',
           'Photo gallery',
-          'لقطات من أنشطتنا ومبادراتنا المجتمعية.',
+          'لقطات من أنشطتنا ومبادراتنا المجتمعية وفعالياتنا مع المتطوعين والشركاء.',
           'Snapshots of our activities and community initiatives.',
         ],
         [

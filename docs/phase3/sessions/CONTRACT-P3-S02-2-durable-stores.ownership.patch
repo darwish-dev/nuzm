@@ -1,0 +1,211 @@
+diff --git a/spec/compliance/residency-hooks.yaml b/spec/compliance/residency-hooks.yaml
+index 7115408c..0b673f3b 100644
+--- a/spec/compliance/residency-hooks.yaml
++++ b/spec/compliance/residency-hooks.yaml
+@@ -233,6 +233,34 @@ tables:
+     owner: M10
+     hook: m10-agent-runs
+     note: redacted tool-call summaries inherit the region of their run
++  execution.jobs:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "a job carries the data_region of its run; WHICH NODE REGION a real run may use is a placement decision the orchestrator must evaluate through ResidencyPolicyService before createWorkspace: NOT WIRED yet (the orchestrator and the real port are behind the flag ai.agent.exec_tools, synthetic data only, D1); nodes have no region in the registry yet"
++  execution.job_transitions:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "inherits the region of its job"
++  execution.workspaces:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "one workspace per run on one node; the node region must equal the run region once nodes carry one (see jobs)"
++  execution.approvals:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "an approval names the region of the action it is bound to"
++  execution.quota_reservations:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "inherits the region of its job"
++  execution.usage_records:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "measured use inherits the region of its run"
++  execution.runtime_nodes:
++    owner: P3-S02
++    hook: m10-sandbox-builds
++    note: "the region of a sandbox node pool; RealRuntimeService (flag residency enforcement, default off) refuses placement when it is unknown or the residency policy says no for the project's data_region"
+   ai.approval_requests:
+     owner: M10
+     hook: m10-agent-runs
+diff --git a/spec/db/ownership.yaml b/spec/db/ownership.yaml
+index cc1b8f2c..5896a0f4 100644
+--- a/spec/db/ownership.yaml
++++ b/spec/db/ownership.yaml
+@@ -114,6 +114,11 @@ schemas:
+     created_by: M08
+     extended_by: []
+     tables: [ aliases, email_domains, email_events, mailboxes, messages, sender_identities, suppressions, templates ]
++  execution:
++    owner_module: execution
++    created_by: P3-S02
++    extended_by: []
++    tables: [ approvals, attestations, job_transitions, jobs, kill_switch, quota_reservations, runtime_nodes, usage_records, workspaces ]
+   ai:
+     owner_module: ai
+     created_by: M09
+@@ -255,6 +260,8 @@ schemas:
+       - uploads
+       - usage_events
+ tenant_less:
++  - execution.runtime_nodes
++  - execution.attestations
+   - identity.users
+   - identity.credentials
+   - identity.auth_tokens
+@@ -388,7 +395,8 @@ migration_ranges:
+   AG-S04: "1940-1959"
+   AG-S05: "1960-1979"
+   S06-DEPLOY: "1980-1999"
+-  S06-DEPLOY2: "2180-2199" # Phase 2 block of session 06 (see docs/parallel/PHASE-2-PLAN.md)
++  S06-DEPLOY2: "2180-2199"
++  P3-S02: "2310-2319" # Phase 3 session 02 (real runtime): durable execution stores # Phase 2 block of session 06 (see docs/parallel/PHASE-2-PLAN.md)
+ # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
+ # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
+ # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.
+@@ -396,6 +404,7 @@ classification:
+   classes: [ public, internal, customer-content, personal, financial, credentials ]
+   # Columns whose NAME looks sensitive but whose content is not; each needs a reason (10+ characters).
+   exceptions:
++    execution.jobs.lease_token: an opaque worker lease id that proves which worker holds a running job, not an authentication token
+     data.database_instances.create_token: a deterministic idempotency token for a provider call (a hash of ids), not a credential
+     email.email_domains.ownership_token: the public DNS TXT value that proves ownership of a domain (published in DNS by design), not a secret
+     email.mailboxes.password_setup: holds only the kind of password setup and a vault REFERENCE to the reset link or one-time secret, never the secret itself
+@@ -499,6 +508,128 @@ classification:
+     builder.sandboxes.ws_ticket_hash: hash
+     # <<< M09 protection
+   columns:
++    execution.approvals:
++      id: internal
++      org_id: internal
++      job_id: internal
++      decision_digest: internal
++      requested_at: internal
++      expires_at: internal
++      decided_by: internal
++      decider_kind: internal
++      decided_at: internal
++      consumed_at: internal
++      revoked_at: internal
++      revoke_reason: internal
++      data_region: internal
++    execution.attestations:
++      id: internal
++      attestation_id: internal
++      node_id: internal
++      label: internal
++      issued_at: internal
++      expires_at: internal
++      report_sha256: internal
++      reviewer: internal
++      review_ref: internal
++      evidence_ref: internal
++      revoked_at: internal
++      revoke_reason: internal
++      recorded_at: internal
++    execution.job_transitions:
++      id: internal
++      job_id: internal
++      org_id: internal
++      from_state: internal
++      to_state: internal
++      cause: internal
++      at: internal
++      data_region: internal
++    execution.jobs:
++      id: internal
++      org_id: internal
++      run_id: internal
++      idempotency_key: internal
++      profile: internal
++      decision_digest: internal
++      state: internal
++      origin: internal
++      requires_approval: internal
++      approval_id: internal
++      node_id: internal
++      lease_token: internal
++      lease_expires_at: internal
++      attempts: internal
++      queued_at: internal
++      started_at: internal
++      ended_at: internal
++      outcome_status: internal
++      exit_code: internal
++      duration_ms: internal
++      truncated: internal
++      artifact_count: internal
++      data_region: internal
++      updated_at: internal
++    execution.kill_switch:
++      id: internal
++      scope: internal
++      org_id: internal
++      engaged: internal
++      by_user_id: internal
++      reason_code: internal
++      at: internal
++    execution.quota_reservations:
++      id: internal
++      org_id: internal
++      job_id: internal
++      currency: internal
++      reserved_minor: financial
++      concurrency_slots: internal
++      state: internal
++      at: internal
++      data_region: internal
++    execution.runtime_nodes:
++      id: internal
++      node_id: internal
++      endpoint_id: internal
++      environment: internal
++      runtime_class: internal
++      state: internal
++      quarantine_reason: internal
++      admitted_at: internal
++      updated_at: internal
++      data_region: public
++    execution.usage_records:
++      id: internal
++      org_id: internal
++      run_id: internal
++      job_id: internal
++      node_id: internal
++      runtime_class: internal
++      profile: internal
++      cpu_seconds: internal
++      wall_ms: internal
++      peak_memory_mb: internal
++      peak_pids: internal
++      disk_mb: internal
++      output_bytes: internal
++      status: internal
++      estimated_minor: financial
++      currency: internal
++      billed: internal
++      created_at: internal
++      data_region: internal
++    execution.workspaces:
++      id: internal
++      org_id: internal
++      run_id: internal
++      job_id: internal
++      node_id: internal
++      state: internal
++      created_at: internal
++      last_activity_at: internal
++      destroyed_at: internal
++      data_region: internal
+     audit.audit_checkpoints:
+       id: internal
+       org_id: internal

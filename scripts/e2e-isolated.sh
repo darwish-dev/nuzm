@@ -10,8 +10,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PGBIN="${NUZM_PGBIN:-/usr/local/opt/postgresql@16/bin}"
-PGPORT="${E2E_PG_PORT:-${NUZM_PGPORT:-54329}}"
+PGPORT="${E2E_PG_PORT:-${NUZM_PGPORT:-}}"
 cd "$ROOT"
+[ -n "$PGPORT" ] || { echo "e2e-isolated: E2E_PG_PORT (or NUZM_PGPORT) is mandatory: acquire an isolated test environment (node scripts/testenv/testenv.mjs acquire); there is no default database"; exit 2; }
+node "$ROOT/scripts/testenv/testenv.mjs" check-url "postgres://nuzm_admin@127.0.0.1:$PGPORT/postgres" || exit $?
 
 [ -x "$PGBIN/createdb" ] || { echo "e2e-isolated: no createdb in $PGBIN (set NUZM_PGBIN)"; exit 2; }
 "$PGBIN/pg_isready" -h 127.0.0.1 -p "$PGPORT" >/dev/null 2>&1 || { echo "e2e-isolated: no Postgres on 127.0.0.1:$PGPORT (pnpm services:start, or set E2E_PG_PORT)"; exit 2; }
@@ -25,6 +27,7 @@ STORE="$(node -e "console.log(require('os').tmpdir())")/nuzm-e2e-knowledge-$DB"
 
 cleanup() {
   "$PGBIN/dropdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin --if-exists --force "$DB" >/dev/null 2>&1 || true
+  "$PGBIN/dropdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin --if-exists --force "${DB}_tpl" >/dev/null 2>&1 || true
   rm -rf "$STORE"
 }
 trap cleanup EXIT
@@ -32,6 +35,7 @@ trap cleanup EXIT
 echo "e2e-isolated: web :$WEB admin :$ADMIN api :$API idp :$IDP database $DB (Postgres :$PGPORT)"
 "$PGBIN/createdb" -h 127.0.0.1 -p "$PGPORT" -U nuzm_admin "$DB"
 DATABASE_ADMIN_URL="postgres://nuzm_admin@127.0.0.1:$PGPORT/$DB" pnpm --filter @nuzm/db exec tsx src/cli.ts migrate >/dev/null
+DATABASE_ADMIN_URL="postgres://nuzm_admin@127.0.0.1:$PGPORT/$DB" pnpm --filter @nuzm/db exec tsx src/cli.ts dev-logins >/dev/null
 
 if [ "${E2E_SKIP_BUILD:-0}" != "1" ]; then
   API_ORIGIN="http://127.0.0.1:$API" pnpm --filter @nuzm/web build >/dev/null

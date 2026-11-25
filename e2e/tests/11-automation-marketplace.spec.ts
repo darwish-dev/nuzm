@@ -2,6 +2,10 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
 import { DB_URL as DB } from './env';
+import { ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * Customer screens of M11: automation (UI-M11-01..05) and marketplace (UI-M11-06..09), Arabic and English projects.
@@ -46,13 +50,14 @@ async function elevate(email: string) {
 async function owner(page: Page, info: TestInfo) {
   const L = loc(info);
   const email = `owner-${L}@example.test`;
+  await ensureOwnerOrg(page, info, `M11 ${L}`); // created through the screen (no spec depends on another one's data); this also signs the owner in
   const org = (
     await sql<{ id: string; user_id: string }>(
       `SELECT m.org_id AS id, m.user_id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id JOIN tenancy.organizations o ON o.id = m.org_id WHERE u.email = $1 AND o.type = 'customer' ORDER BY o.created_at LIMIT 1`,
       [email],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
   await signIn(page, info, email);
   await elevate(email);
   return { email, ...org };
@@ -70,18 +75,17 @@ test('automation: navigation, build a workflow, publish with errors, activate, r
 }, info) => {
   const L = loc(info);
   const go = (p: string) => page.goto(`/${L}${p}`);
-  const nav = page.getByRole('navigation', { name: T(info, 'nav.primary') });
+  const nav = page.getByRole('navigation', { name: T(info, 'nc.nav.side') }); // the section navigation lists the items of the current category
   await owner(page, info);
 
   // --- the entries are hidden while the flag is off, shown when it is on
   await flag('automation.enabled', false);
-  await go('/');
-  await expect(nav.getByRole('link', { name: T(info, 'm11.nav.workflows') })).toHaveCount(0);
   await go('/automation/workflows');
   await expect(page.getByText(T(info, 'm11.state.featureOff.title'))).toBeVisible();
+  await expect(nav.getByRole('link', { name: T(info, 'm11.nav.workflows') })).toHaveCount(0);
   await flag('automation.enabled', true);
   await flag('webhooks.enabled', true);
-  await go('/');
+  await go('/automation/workflows');
   await expect(nav.getByRole('link', { name: T(info, 'm11.nav.workflows') })).toBeVisible();
 
   // --- UI-M11-01: the list
@@ -126,14 +130,25 @@ test('automation: navigation, build a workflow, publish with errors, activate, r
   await expect(page.getByText(/cycle/).first()).toBeVisible(); // the browser's own hint
   await page.getByRole('button', { name: T(info, 'm11.wf.publish.action') }).click();
   await expect(page.getByText(T(info, 'm11.issues.title'))).toBeVisible();
-  await expect(page.getByRole('alert').getByText('cycle')).toBeVisible();
+  await expect(page.getByRole('alert').getByText('cycle', { exact: true })).toBeVisible();
   await audit(page, info, 'm11-workflow-edit-422');
 
   // --- a valid new version from the canvas: add a step, publish
   await page.goto(editUrl);
   await page.getByRole('button', { name: T(info, 'm11.wf.add.action') }).click();
+  // a step nobody leads to is refused by the service (unreachable): link the last existing step to the new one first
+  await page
+    .getByRole('button', { name: new RegExp(`^${T(info, 'm11.wf.canvas.step', { n: 2 })}`) })
+    .click();
+  const next = page.getByLabel(T(info, 'm11.wf.insp.next'));
+  const target = await next
+    .locator('option', { hasText: 'http_request_1' })
+    .first()
+    .getAttribute('value');
+  await next.selectOption(target!);
   await page.getByRole('button', { name: T(info, 'm11.wf.publish.action') }).click();
   await expect(page.getByText(T(info, 'm11.wf.publish.done', { version: 2 }))).toBeVisible();
+  await page.reload(); // a fresh read of the workflow (its ETag moved with the new version): activating with the old ETag is, correctly, refused with 412
   await page.getByRole('button', { name: T(info, 'm11.wf.status.activate') }).click();
   await expect(
     page.getByText(T(info, 'm11.wf.status.active'), { exact: true }).first(),
@@ -154,7 +169,9 @@ test('automation: navigation, build a workflow, publish with errors, activate, r
   await audit(page, info, 'm11-execution');
   // another organization's execution id is "not found"
   await go(`/automation/executions/${crypto.randomUUID()}`);
-  await expect(page.getByText(T(info, 'm11.state.notFound.title'))).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: T(info, 'm11.state.notFound.title') }),
+  ).toBeVisible();
 });
 
 test('automation: connectors authorize with a vault reference only; webhooks show the secret once (UI-M11-04..05)', async ({
@@ -186,7 +203,10 @@ test('automation: connectors authorize with a vault reference only; webhooks sho
   await page.getByLabel(T(info, 'm11.cn.vaultRef')).fill(`vault://kv/tenant-${me.id}-e2e`);
   await page.getByRole('button', { name: T(info, 'm11.cn.authorizeAction') }).click();
   await expect(
-    page.getByRole('row').filter({ hasText: cname }).getByText(T(info, 'm11.cn.auth.active')),
+    page
+      .getByRole('row')
+      .filter({ hasText: cname })
+      .getByText(T(info, 'm11.cn.auth.active'), { exact: true }),
   ).toBeVisible();
 
   // --- UI-M11-05

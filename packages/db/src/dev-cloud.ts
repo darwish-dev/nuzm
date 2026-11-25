@@ -8,6 +8,10 @@
  * DRAFT-NOT-APPROVED (HG-02-01; price policy D-23 is open). Only the simulator account can actually provision: the vendor slots have no live adapter
  * or credentials in a dev stack, so for them a quote works but creating the server fails honestly.
  *
+ * The simulator account uses the mock-compute adapter's OWN catalog ids (regions `mock-eu-1`/`mock-sa-1`, plans `mock.small|medium|large`, images
+ * `mock-ubuntu`/`mock-debian`; see DEFAULT_MOCK_REGIONS/PLANS in packages/adapters/mock-compute), because the adapter rejects anything it does not list
+ * (`region_not_listed`). The vendor slots keep invented ids on purpose: they cannot provision. A guard test (dev-cloud.spec.ts) keeps the two in step.
+ *
  * Idempotent: rows that already exist are left alone.
  */
 import { randomUUID } from 'node:crypto';
@@ -26,18 +30,39 @@ interface Line {
   key: 'mock' | 'alibaba' | 'huawei' | 'contabo';
   regions: [id: string, country: string, name: string][];
   sizes: Size[];
+  /** images with the provider's own ref; when absent the generic `IMAGES` list is used with a derived `dev-*` ref */
+  images?: [ref: string, name: string, family: string][];
 }
-const LINES: Line[] = [
+export const LINES: Line[] = [
   {
+    // the simulator's own catalog (listed regions only: `mock-us-1` is unlisted in the adapter, so it is not seeded)
     key: 'mock',
     regions: [
-      ['dev-sa-1', 'SA', 'Riyadh (sandbox)'],
-      ['dev-ae-1', 'AE', 'Dubai (sandbox)'],
+      ['mock-sa-1', 'SA', 'Riyadh (simulator)'],
+      ['mock-eu-1', 'DE', 'Frankfurt (simulator)'],
     ],
     sizes: [
-      { ref: 'spark-1', vcpu: 1, memoryMb: 1024, diskGb: 20, bandwidth: '1 TB', costMinor: 400 },
-      { ref: 'spark-2', vcpu: 2, memoryMb: 2048, diskGb: 40, bandwidth: '2 TB', costMinor: 800 },
-      { ref: 'spark-4', vcpu: 4, memoryMb: 4096, diskGb: 80, bandwidth: '4 TB', costMinor: 1600 },
+      { ref: 'mock.small', vcpu: 1, memoryMb: 2048, diskGb: 40, bandwidth: '1 TB', costMinor: 400 },
+      {
+        ref: 'mock.medium',
+        vcpu: 2,
+        memoryMb: 4096,
+        diskGb: 80,
+        bandwidth: '2 TB',
+        costMinor: 800,
+      },
+      {
+        ref: 'mock.large',
+        vcpu: 4,
+        memoryMb: 8192,
+        diskGb: 160,
+        bandwidth: '4 TB',
+        costMinor: 1600,
+      },
+    ],
+    images: [
+      ['mock-ubuntu', 'Mock Ubuntu', 'linux'],
+      ['mock-debian', 'Mock Debian', 'linux'],
     ],
   },
   {
@@ -218,24 +243,33 @@ export async function devSeedCloud(url: string, org?: string): Promise<Report> {
           );
           if (r.rowCount) out.plans.push(`${line.key}/${regionId}/${s.ref}`);
         }
-        for (const [name, family] of IMAGES) {
+        const images: [ref: string, name: string, family: string][] =
+          line.images ??
+          IMAGES.map(([name, family]): [string, string, string] => [
+            `dev-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+            name,
+            family,
+          ]);
+        for (const [imageRef, name, family] of images) {
           const r = await c.query(
             `INSERT INTO compute.images (id, account_id, provider_region_id, image_ref, name, os_family)
              SELECT $1, $2, $3, $4, $5, $6
               WHERE NOT EXISTS (SELECT 1 FROM compute.images WHERE account_id = $2 AND provider_region_id = $3 AND image_ref = $4)`,
-            [
-              randomUUID(),
-              account,
-              regionId,
-              `dev-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-              name,
-              family,
-            ],
+            [randomUUID(), account, regionId, imageRef, name, family],
           );
           if (r.rowCount) out.images.push(`${line.key}/${regionId}/${name}`);
         }
       }
     }
+
+    // O-10: databases seeded before the simulator used its own catalog still hold `dev-*` regions for the simulator account, which the adapter rejects
+    // (`region_not_listed`). Withdraw them (a state the schema allows; offers list verified regions only). Nothing is deleted.
+    await c.query(
+      `UPDATE cloud.provider_regions r SET state = 'withdrawn'
+         FROM cloud.provider_accounts a JOIN cloud.providers p ON p.id = a.provider_id
+        WHERE r.account_id = a.id AND p.key = 'mock' AND a.name = 'demo-mock (dev seed)'
+          AND r.provider_region_id LIKE 'dev-%' AND r.state <> 'withdrawn'`,
+    );
 
     // the placeholder price book has vCPU and memory prices but no disk price, so no compute plan could be priced: add a new placeholder version
     const book = (

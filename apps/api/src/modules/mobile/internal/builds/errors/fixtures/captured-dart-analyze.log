@@ -1,0 +1,10 @@
+# captured 2026-11-24 from: flutter analyze (Flutter 3.35.7) on a deliberately broken copy of the Nuzm template; paths are relative to the project
+Analyzing nuzm-capture-MRX3YY...                                
+
+   info • The imported package 'nuzm_no_such_package' isn't a dependency of the importing package • lib/broken.dart:1:8 • depend_on_referenced_packages
+  error • Target of URI doesn't exist: 'package:nuzm_no_such_package/x.dart' • lib/broken.dart:1:8 • uri_does_not_exist
+  error • Target of URI doesn't exist: '../core/modles.dart' • lib/broken.dart:2:8 • uri_does_not_exist
+  error • A value of type 'String' can't be returned from the function 'f' because it has a return type of 'int' • lib/broken.dart:3:12 • return_of_invalid_type
+  error • Undefined name 'undefinedThing' • lib/broken.dart:4:11 • undefined_identifier
+
+5 issues found. (ran in 16.9s)

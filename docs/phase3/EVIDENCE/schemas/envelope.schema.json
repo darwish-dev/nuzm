@@ -1,0 +1,454 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/1",
+  "title": "Nuzm Phase 3 evidence record (envelope)",
+  "description": "One record per real or simulated run. Lives at docs/phase3/EVIDENCE/<track>/<YYYY-MM-DD>-<id>.json. Holds ids, hashes, numbers and fixed sentences only: never a secret, a prompt, a model output, customer data. The verifier (apps/api/src/qa/evidence) also enforces rules a schema cannot: contentHash recomputation, label consistency (SIMULATED never mixes with LIVE-VERIFIED), approvals for live records, secret scan, file hashes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "track",
+    "targets",
+    "component",
+    "label",
+    "result",
+    "recordedAt",
+    "revision",
+    "components",
+    "approvals",
+    "inputs",
+    "outputs",
+    "cost",
+    "checks",
+    "blockers",
+    "details",
+    "contentHash"
+  ],
+  "properties": {
+    "schema": {
+      "const": "nuzm.p3-evidence/1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,80}$"
+    },
+    "track": {
+      "enum": [
+        "provider",
+        "tool-calling",
+        "codegen",
+        "runtime",
+        "build-repair",
+        "preview",
+        "deploy",
+        "benchmark",
+        "mobile",
+        "website",
+        "fullstack",
+        "security"
+      ]
+    },
+    "targets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5",
+          "T6"
+        ]
+      },
+      "description": "acceptance targets this record is evidence for (may be empty for cross-cutting tracks)"
+    },
+    "component": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "the product component or session entry point that produced the record"
+    },
+    "label": {
+      "enum": [
+        "SIMULATED",
+        "LIVE-VERIFIED",
+        "NOT VERIFIED"
+      ]
+    },
+    "result": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "NOT_VERIFIED"
+      ]
+    },
+    "recordedAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "startedAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "finishedAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{7,40}|native:[0-9a-f]{12})$",
+          "description": "git commit of the code that produced the record; 'native:<12 hex>' for a record derived from a session's native evidence file (the hash prefix of that file)"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "who really ran it: model, node, host or device. A LIVE-VERIFIED record needs at least one.",
+      "properties": {
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "id"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        },
+        "node": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "os"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "os": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "kernel": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        },
+        "host": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "os"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "os": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "arch": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        },
+        "device": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "os": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        }
+      }
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/approval"
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/hashed"
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/hashed"
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "unit",
+        "usedMinor",
+        "maxMinor"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "unit": {
+          "enum": [
+            "minor",
+            "micro",
+            "nano"
+          ]
+        },
+        "usedMinor": {
+          "type": "string",
+          "pattern": "^[0-9]{1,18}$"
+        },
+        "maxMinor": {
+          "type": "string",
+          "pattern": "^[0-9]{1,18}$"
+        },
+        "priceSource": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "text"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          }
+        }
+      }
+    },
+    "details": {
+      "type": "object",
+      "description": "validated against track-<track> by the verifier"
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 of the canonical JSON (sorted keys, no whitespace) of this record without contentHash"
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "origin",
+        "label"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "origin": {
+          "enum": [
+            "real",
+            "simulated",
+            "offline"
+          ]
+        },
+        "label": {
+          "enum": [
+            "SIMULATED",
+            "LIVE-VERIFIED",
+            "NOT VERIFIED",
+            "OFFLINE"
+          ]
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ref",
+        "recordedIn"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,40}$"
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{3,100}$"
+        },
+        "recordedIn": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200
+        }
+      }
+    },
+    "hashed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._/-]{1,200}$",
+          "description": "optional, relative to the record's directory; the verifier recomputes the file hash when present"
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "result"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "label": {
+          "enum": [
+            "SIMULATED",
+            "LIVE-VERIFIED",
+            "NOT VERIFIED"
+          ]
+        },
+        "result": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_VERIFIED"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 400
+        }
+      }
+    }
+  }
+}

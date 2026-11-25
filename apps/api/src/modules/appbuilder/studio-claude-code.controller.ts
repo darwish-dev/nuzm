@@ -3,6 +3,7 @@ import { Access, Org, RequirePermission, type AccessContext } from '../../common
 import { ProjectsPort } from './internal/ports/m09';
 import { ClaudeCodeService } from './internal/studio/claude-code.service';
 import { StudioProjectScoped } from './internal/studio/flag';
+import { ContentRead } from '../builder';
 
 type Body_ = Record<string, unknown> | undefined;
 const b = (x: Body_) => x ?? {};
@@ -17,6 +18,7 @@ export class StudioClaudeCodeController extends StudioProjectScoped {
     super(projects);
   }
   @RequirePermission('builder:read')
+  @ContentRead('claude_code')
   @Get()
   async status(@Org() orgId: string, @Param('projectId') pid: string) {
     return this.cc.status(orgId, await this.project(orgId, pid));

@@ -5,7 +5,7 @@
   "type": "commonjs",
   "scripts": {
     "preflight": "node preflight.mjs",
-    "e2e": "node preflight.mjs && playwright test",
+    "e2e": "node preflight.mjs && node prepare-db.mjs && playwright test",
     "browsers": "playwright install chromium"
   },
   "devDependencies": {

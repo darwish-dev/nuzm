@@ -1,0 +1,9 @@
+# CONTRACT-4 — wording of `decideAiRunApproval` after the DEFECT-6 fix (documentation-only, no schema or permission change)
+
+- **Requester:** Session 02 · **Contract:** `spec/openapi/openapi.yaml`, operation `decideAiRunApproval` (`POST /v1/ai/runs/{id}/approvals`) · **Additive:** yes for the shape; **behaviour tightened** (a security fix reported by Session 07 as DEFECT-6)
+- **Change in code:** the route keeps `x-nuzm-permission: ai:write` as its guard, but the handler now also requires a **session** actor (an API key gets 403) and the permission **`ai:approve`** (403 otherwise). Roles that hold `ai:approve` (owner, admin, developer) are unaffected; API keys that used to approve no longer can.
+- **Proposed description text:** replace "The approver is a human member with a write role (403 otherwise); there is no AI identity in this path." with "The approver is a person signed in (a session, never an API key) who holds `ai:approve` (403 otherwise); there is no AI identity in this path. The audit event names that person."
+- **Tests:** `run-approval-actor.int.spec.ts` (4), `runs.int.spec.ts` (21, unchanged and green). Session 07's `qa-run-approval.int.spec.ts` `it.fails('DEFECT-6 …')` should now pass: remove the `it.fails` wrapper and the `CONFIRMED TODAY` test there.
+- **Related, not mine:** DEFECT-4 (deploy approvals, Session 06) has the same root cause; a shared approver check would be better than two copies. DEFECT-2 (`packages/domain/src/ai/ssrf.ts`, IPv6 spellings of private IPv4 treated as public) is in a file nobody's row owns: the Master decides who fixes it; the AI module's URL fetcher only consumes it.
+
+**Master answer:** ACCEPTED (applied by S02 under Master authorization, 2026-11-24): the new description text is in `openapi.yaml` (`decideAiRunApproval`)

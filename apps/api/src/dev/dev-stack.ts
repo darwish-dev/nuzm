@@ -5,30 +5,32 @@
  * Refuses to run in production or against a non-local database.
  */
 import 'reflect-metadata';
-import { randomBytes } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Http2ServerRequest } from 'node:http2';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../app.module';
 import { rewritePreviewUrl } from '../modules/builder/isolation';
 import { configureApp } from '../app.setup';
+import { assertSealKeyOpensVault, loadOrCreateDevSealKey } from '../common/secrets';
 import { TestIdp } from '../modules/identity/testing/test-idp';
 import { startDomainsDevMocks } from './domains-dev';
 
 if (process.env.NODE_ENV === 'production') throw new Error('dev stack must not run in production');
 
-/** The dev secret store is sealed with this key, so it must survive restarts or enrolled TOTP secrets become unreadable. */
+const VAULT_DIR = join(process.cwd(), '.dev-vault');
+/** The dev secret store is sealed with this key, so it must survive restarts or enrolled TOTP secrets become unreadable. Never replaces an existing vault's key. */
 function devSealKey(): string {
-  if (process.env.SESSION_SEAL_KEY) return process.env.SESSION_SEAL_KEY;
-  const dir = join(process.cwd(), '.dev-vault');
-  const file = join(dir, 'dev-seal-key');
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  if (!existsSync(file)) writeFileSync(file, randomBytes(32).toString('base64'), { mode: 0o600 });
-  return readFileSync(file, 'utf8').trim();
+  return process.env.SESSION_SEAL_KEY || loadOrCreateDevSealKey(VAULT_DIR);
 }
+if (
+  !process.env.DATABASE_URL &&
+  (process.env.NUZM_FORBID_DEFAULT_DB === '1' || process.env.NUZM_ALLOW_OWNER_DEV_DB !== '1')
+)
+  throw new Error(
+    'DATABASE_URL is mandatory: the owner development database is a default ONLY with the owner own NUZM_ALLOW_OWNER_DEV_DB=1 opt-in (never in a session; use source scripts/session-env.sh <name>)',
+  );
 const dbUrl =
   process.env.DATABASE_URL ?? 'postgres://nuzm_app:nuzm_dev_only@127.0.0.1:54329/nuzm_dev';
 if (!/@(127\.0\.0\.1|localhost)[:/]/.test(dbUrl))
@@ -44,6 +46,9 @@ idp.pickable = process.env.DEV_IDP_USERS
     ];
 
 async function main() {
+  const sealKey = devSealKey();
+  // a wrong seal key stops the stack here, before anything is served or written
+  await assertSealKeyOpensVault(Buffer.from(sealKey, 'base64'), VAULT_DIR);
   await idp.start(Number(process.env.DEV_IDP_PORT ?? 4010));
   const web = process.env.WEB_ORIGIN ?? 'http://127.0.0.1:3000';
   const admin = process.env.ADMIN_ORIGIN ?? 'http://127.0.0.1:3001';
@@ -54,11 +59,13 @@ async function main() {
     OIDC_CLIENT_SECRET: idp.clientSecret,
     OIDC_REDIRECT_URI: `${web}/v1/auth/oidc/callback`, // proxied by the web app; shared by both consoles in dev
     RETURN_TO_ORIGINS: `${web},${admin}`,
-    SESSION_SEAL_KEY: devSealKey(),
+    SESSION_SEAL_KEY: sealKey,
     LOGIN_RATE_PER_MINUTE: '1000',
   });
   // The builder preview needs an address the browser can resolve and an edge that maps it to the preview path: `*.localhost` resolves to this machine in every
   // modern browser, and the rewrite below is the edge. (Production keeps its own domain, https and a real edge.)
+  // R5 (P3-S02): the dev stack runs the builder's git-store and live preview on this machine; the host-exec guard needs the explicit local-development opt-in (dev only: this file refuses production)
+  process.env.NUZM_LOCAL_DEV_EXEC ??= '1';
   process.env.BUILDER_PREVIEW_DOMAIN ??= 'preview.localhost';
   process.env.BUILDER_PREVIEW_SCHEME ??= 'http';
   process.env.BUILDER_PREVIEW_PORT ??= String(process.env.PORT ?? 4000);

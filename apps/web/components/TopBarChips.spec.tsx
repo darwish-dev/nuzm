@@ -39,7 +39,7 @@ describe('notifications pop-up', () => {
         labels={labels}
       />,
     );
-    const bell = screen.getByRole('button', { name: 'Notifications (1)' });
+    const bell = screen.getByRole('button', { name: 'Notifications 1' });
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(bell);
     const panel = screen.getByRole('dialog', { name: 'Notifications' });
@@ -59,7 +59,7 @@ describe('notifications pop-up', () => {
         labels={labels}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Notifications (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark read' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy());
     expect(patch).toHaveBeenCalledWith('/v1/notifications/{id}', {
@@ -73,10 +73,10 @@ describe('notifications pop-up', () => {
   it('keeps the state and says so when the update fails; an empty list says it is empty', async () => {
     patch.mockResolvedValue({ response: { ok: false } });
     render(<NotificationsMenu items={items} unreadCount={1} viewAllHref="/x" labels={labels} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Notifications (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark read' }));
     expect((await screen.findByRole('alert')).textContent).toBe('Something went wrong');
-    expect(screen.getByRole('button', { name: 'Notifications (1)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Notifications 1' })).toBeTruthy();
     cleanup();
     render(<NotificationsMenu items={[]} unreadCount={0} viewAllHref="/x" labels={labels} />);
     fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));

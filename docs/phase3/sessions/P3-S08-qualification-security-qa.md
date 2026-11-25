@@ -1,0 +1,22 @@
+# P3-S08 — Real Product Qualification, Security and QA
+
+Branch `feature/p3-s08-qualification` · worktree `.claude/worktrees/p3-s08` · Postgres 54358 · migrations 2370–2379. Read first: `CLAUDE.md`, `docs/phase3/PHASE-3-PLAN.md`, `docs/security/DEFECT-REGISTER.md`, `docs/security/PHASE2-SECURITY-QUALIFICATION.md`, `docs/security/O9-CONTENT-ACCESS-AUDIT.md`, `docs/parallel/sessions/PHASE2-03-*.md`, `docs/ai-intelligence/S-AG5-*.md`.
+
+## Implementation prompt
+You are the independent verifier and the owner of the acceptance evidence. You write no product features; you build the qualification harness, run the real qualification tracks when each real component exists, verify other sessions' evidence files, find defects, and keep the security gates honest. You never convert a simulated result into a real one, never weaken an assertion, and never hide a failure.
+Deliver: (1) **evidence schemas and a verifier**: JSON schemas for each track's evidence (provider, tool calling, codegen, runtime, build/repair, preview, deploy, benchmark, mobile), a CLI that validates files under `docs/phase3/EVIDENCE/**`, recomputes hashes, rejects any record whose labels mix SIMULATED with LIVE-VERIFIED, and builds the **acceptance matrix** (T1–T6 with status per component); (2) **qualification harness** for the five synthetic projects plus the Phase 3 targets (website, full-stack, Flutter APK, iOS build, repair, deploy/rollback) as ordered, resumable scenarios that call the other sessions' real entry points and stop at the first missing approval with the exact blocker; (3) **benchmark qualification (Track H)**: run S-AG5 Stages A..C when D2–D9, thresholds, budget, reviewers exist; keep all 83 golden tasks; reviewer workflow; thresholds recorded as accepted by the owner only; (4) **security regression and negatives** for every real component as it lands: tenant isolation, authz matrix for new routes, credential protection (live-run leak scan of logs/DB/artifacts), prompt-injection through real model outputs and project files, runtime isolation conformance (re-run the escape suite as an independent reviewer brief), SSRF/egress, audit chain and ledger/wallet reconciliation after real spend, billing separation, O-9 coverage for new content routes (the dynamic audit spec is a CI gate); (5) E2E (ar+en, axe) for every new screen and for qualification scenarios; the two Flutter local tests in a quiet window; (6) defect register continuation (DEFECT-18…), each with a proving test and owner; (7) the final Phase 3 report with separate measurements: engineering, offline, real provider, real runtime, real build environments, real deployment, security qualification, operations, production acceptance.
+## Scope boundaries
+In: e2e, qa suites, benchmarks module, security docs, evidence tooling. Out: product code of other sessions (file DEFECT notes; tiny test-only fixes aside).
+## Acceptance criteria
+- Q1 The evidence verifier exists, is part of `pnpm verify` (offline schema + fixtures) and rejects mislabelled evidence (tests prove it).
+- Q2 For each target T1–T6, `docs/phase3/EVIDENCE/**` holds `LIVE-VERIFIED` evidence that passes the verifier, or the matrix states the exact external blocker; nothing simulated appears in a real column.
+- Q3 Independent re-verification of all registered defects (17 from Phase 2 + any new) on the final Phase 3 revision, counts recorded.
+- Q4 Security negatives green for every new route/screen; live-run credential leak scan finds nothing; wallet/ledger reconcile to the cent after every real paid run.
+- Q5 Full final regression on the final revision: verify, unit, integration, isolated E2E ar+en, Flutter local tests, migrations up/down/up + RLS, SDK/spec consistency, secret scan, compliance checks — exact counts and the commit hash in the report.
+- Q6 The final report separates offline from live readiness and lists every remaining blocker as one owner checklist.
+## Dependencies
+Needs everything; starts immediately on schemas, verifier and harness. Provides: acceptance matrix and final report.
+## Human gates
+Benchmark budget/thresholds/reviewers, reviewer sign-offs (HG-10-02), provider/runtime approvals (owned by others), any live spend.
+## First tasks
+Evidence schemas + verifier + tests; harness skeleton running all scenarios SIMULATED; extend the O-9 dynamic audit and route inventory to CI gates; plan the quiet window for the Flutter tests; `REPORT-P3-S08.md`.

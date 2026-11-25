@@ -15,6 +15,9 @@ export function applyAiTestEnv() {
   process.env.AI_KICK = 'off';
   process.env.AI_SECRET_CANARIES = `${CANARY_A},${CANARY_B}`;
   process.env.AI_CREDIT_UNIT_MINOR = '1';
+  // resilience (S-AG4): the shared gateway of these suites must stay deterministic: no backoff sleep, and a breaker that no scripted failure streak can trip (resilience.int.spec.ts builds its own gateway)
+  process.env.AI_RETRY_BASE_MS = '0';
+  process.env.AI_BREAKER_THRESHOLD = '100000';
   process.env.AI_SSE_POLL_MS = '20';
   process.env.BUILDER_KICK = 'off';
   process.env.DEPLOY_KICK = 'off';
@@ -65,12 +68,16 @@ const ADMIN_ROPA_PROCESSORS = (codes: string[]) =>
     })),
   );
 
-export async function setupAiEnv(opts: { overrides?: [unknown, unknown][] } = {}): Promise<AiEnv> {
+/** `realAudit` (QA, Session 07): use the hash-chained database audit sink instead of the in-memory one; `e.sink.events` stays empty then. Default unchanged. */
+export async function setupAiEnv(
+  opts: { overrides?: [unknown, unknown][]; realAudit?: boolean } = {},
+): Promise<AiEnv> {
   applyAiTestEnv();
   const h = new Harness();
   await h.init();
   const { app, sink } = await h.buildApp({}, undefined, [], {
     ...(opts.overrides ? { overrides: opts.overrides } : {}),
+    ...(opts.realAudit ? { realAudit: true } : {}),
   });
   const jars: AiEnv['jars'] = {};
   const ids: AiEnv['ids'] = {};
@@ -121,6 +128,24 @@ export async function setupAiEnv(opts: { overrides?: [unknown, unknown][] } = {}
         'mock-model-b',
         'mock-model-c',
         'acme-llm',
+        // S-AG4 resilience and insights suites
+        'mock-res-a',
+        'mock-res-b',
+        'mock-retry',
+        'mock-fb-a',
+        'mock-fb-b',
+        'mock-health',
+        'mock-reg',
+        'mock-use-a',
+        'mock-use-b',
+        'mock-use-c',
+        'mock-disc',
+        'mock-nodisc',
+        'acme-reg',
+        // Phase 2 spending-cap suite
+        'mock-cap-ok',
+        'mock-cap-vendor',
+        'mock-conc',
       ]),
     ],
   );

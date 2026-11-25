@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
 import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { WEB, DB_URL as DB } from './env';
+import { ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
@@ -67,14 +71,16 @@ test('customer AI usage and budgets: balance, usage tables, top-up quote, budget
 }, info) => {
   const L = loc(info);
   const owner = `owner-${L}@example.test`;
-  const base = `http://127.0.0.1:3000/${L}/ai`;
+  const base = `${WEB}/${L}/ai`;
+  // the owner organization is created here, through the screen (no spec depends on another one's data); this also signs the owner in
+  await ensureOwnerOrg(page, info, `AI ${L}`);
   const org = (
     await sql<{ id: string; user_id: string }>(
       `SELECT m.org_id AS id, m.user_id FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE u.email = $1 LIMIT 1`,
       [owner],
     )
   )[0];
-  if (!org) throw new Error('run 01-customer first: no owner organization');
+  if (!org) throw new Error('the owner organization was not created');
 
   await sql(
     `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'ai.enabled', NULL, 'true') ON CONFLICT DO NOTHING`,
@@ -89,10 +95,9 @@ test('customer AI usage and budgets: balance, usage tables, top-up quote, budget
   // ---- UI-M09-10 empty state: no wallet credit and no usage → the low-credit banner and the empty tables
   await page.goto(`${base}/usage`);
   await expect(page.getByRole('heading', { name: T(info, 'aiu.title'), level: 1 })).toBeVisible();
+  // the AI credits chip in the top bar is the entry to usage and budgets (the builder category is not on the rail)
   await expect(
-    page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
-      .getByRole('link', { name: T(info, 'aiu.nav.ai'), exact: true }),
+    page.getByRole('banner').getByRole('link', { name: T(info, 'nc.aiCredits') }),
   ).toBeVisible();
   await expect(page.getByText(T(info, 'aiu.low', { credits: '0' }))).toBeVisible();
   await expect(page.getByText(T(info, 'aiu.empty.title'))).toHaveCount(2); // by model and by project
@@ -269,10 +274,9 @@ test('customer AI usage and budgets: balance, usage tables, top-up quote, budget
   );
   await page.goto(`${base}/usage`);
   await expect(page.getByRole('heading', { name: T(info, 'state.error.title') })).toBeVisible();
+  // the AI credits chip in the top bar is the entry to usage and budgets (the builder category is not on the rail)
   await expect(
-    page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
-      .getByRole('link', { name: T(info, 'aiu.nav.ai'), exact: true }),
+    page.getByRole('banner').getByRole('link', { name: T(info, 'nc.aiCredits') }),
   ).toHaveCount(0);
   await page.goto(`${base}/budgets`);
   await expect(page.getByRole('heading', { name: T(info, 'state.error.title') })).toBeVisible();

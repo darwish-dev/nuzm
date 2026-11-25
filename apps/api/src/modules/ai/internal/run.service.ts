@@ -165,6 +165,9 @@ export class RunService {
     const id = uuidv7();
     try {
       await this.db.withOrg(orgId, async (c) => {
+        // DEFECT-15: the ceiling check and the insert must not interleave with another create of the same organization (a burst would overshoot `maxConcurrentRuns`). A transaction-scoped
+        // advisory lock on the organization serializes them; it is released at commit. This transaction takes no other lock before it, so it cannot take part in a lock cycle (DEFECT-7).
+        await c.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`ai.runs.create:${orgId}`]);
         const active = Number(
           (await c.query(`SELECT count(*) n FROM ai.runs WHERE state = ANY($1)`, [ACTIVE])).rows[0]!
             .n,
@@ -467,7 +470,7 @@ export class RunService {
         await c.query(`UPDATE ai.approvals SET state='expired' WHERE id=$1`, [a.id]);
         return { expired: true as const, a };
       }
-      // the stored action hash must still match the stored summary payload (defence against a tampered row)
+      // the database trigger `ai.approval_guard` freezes kind, action_hash and run_id of the row; the run must still be waiting for this decision
       const state = (await c.query(`SELECT state FROM ai.runs WHERE id=$1`, [runId])).rows[0]!
         .state as string;
       if (state !== 'waiting_approval')
@@ -717,10 +720,7 @@ export class RunService {
         await this.ops
           .succeed(orgId, operationId, worker, { state: 'succeeded' })
           .catch(() => undefined);
-      } else if (
-        ac.signal.aborted ||
-        (e instanceof ProblemException && e.code === 'conflict' && ac.signal.aborted)
-      ) {
+      } else if (ac.signal.aborted || (await this.cancelNoticed(orgId, runId, e))) {
         await this.finish(orgId, runId, 'cancelled', { error: { code: 'cancelled_by_user' } });
         await this.ops
           .succeed(orgId, operationId, worker, { state: 'cancelled' })
@@ -770,6 +770,21 @@ export class RunService {
       clearInterval(hb);
     }
     return true;
+  }
+
+  /**
+   * A handler that saw the cancel flag itself (the poll above aborts only every 100 ms) ends with `conflict: cancelled`. That is a cancellation, not a failure, when the flag is
+   * really set on the run: any other conflict stays a failure.
+   */
+  private async cancelNoticed(orgId: string, runId: string, e: unknown): Promise<boolean> {
+    if (!(e instanceof ProblemException) || e.code !== 'conflict' || e.detail !== 'cancelled')
+      return false;
+    const r = (await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (await c.query(`SELECT cancel_requested FROM ai.runs WHERE id=$1`, [runId])).rows[0],
+    )) as Row | undefined;
+    return Boolean(r?.cancel_requested);
   }
 
   private context(

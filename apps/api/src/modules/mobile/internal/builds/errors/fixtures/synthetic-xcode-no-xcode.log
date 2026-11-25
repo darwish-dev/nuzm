@@ -1,0 +1,3 @@
+Warning: CocoaPods not installed. Skipping pod install.
+xcrun: error: unable to find utility "xcodebuild", not a developer tool or in PATH
+Error: Xcode installation is incomplete; a full installation is necessary for iOS development.

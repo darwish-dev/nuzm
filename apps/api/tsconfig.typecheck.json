@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*.ts", "templates/webapp-runtime/**/*.ts"],
+  "exclude": [
+    "templates/webapp-runtime/public/**",
+    "templates/webapp-runtime/probe/run.ts",
+    "templates/webapp-runtime/src/app.ts",
+    "templates/webapp-runtime/src/seed.ts",
+    "templates/webapp-runtime/src/server.ts"
+  ]
+}

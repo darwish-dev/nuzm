@@ -4,6 +4,8 @@ import { isLocale, t } from '@nuzm/i18n';
 import { ForbiddenState, PageTitle } from '@nuzm/ui';
 import { AiAdminTabs } from '../../../../../components/AiAdminTabs';
 import { AiProvidersPanel } from '../../../../../components/AiProvidersPanel';
+import { AiProviderInsightsPanel } from '../../../../../components/AiProviderInsightsPanel';
+import { toResult, type HealthItem, type RegistryItem } from '../../../../../lib/ai-insights';
 import { requireStaff } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
 
@@ -25,18 +27,38 @@ export default async function ModelProviders({ params }: { params: Promise<{ loc
         />
       </>
     );
+  // the insight sections are fetched apart from the provider list: each one fails on its own and shows its own state
+  const [healthRes, registryRes] = await Promise.all([
+    s.api.GET('/v1/admin/ai/model-providers/health', {}),
+    s.api.GET('/v1/admin/ai/model-providers/capability-registry', {}),
+  ]);
   const body = await view(
     locale,
     () => unwrap(s.api.GET('/v1/admin/ai/model-providers', {})),
     (data) => (
-      <AiProvidersPanel
-        locale={locale}
-        items={data.items}
-        meId={s.me.id}
-        canManage={s.can('admin:ai:manage')}
-        canApprove={s.can('admin:ai:approve')}
-        mfaFactorId={s.me.mfaFactorId ?? null}
-      />
+      <>
+        <AiProvidersPanel
+          locale={locale}
+          items={data.items}
+          meId={s.me.id}
+          canManage={s.can('admin:ai:manage')}
+          canApprove={s.can('admin:ai:approve')}
+          mfaFactorId={s.me.mfaFactorId ?? null}
+        />
+        <AiProviderInsightsPanel
+          locale={locale}
+          health={toResult<{ items: HealthItem[] }>(healthRes as never)}
+          registry={toResult<{ items: RegistryItem[] }>(registryRes as never)}
+          providers={data.items.map((p) => ({
+            id: p.id,
+            code: p.code,
+            displayName: p.displayName,
+          }))}
+          canManage={s.can('admin:ai:manage')}
+          canApprove={s.can('admin:ai:approve')}
+          mfaFactorId={s.me.mfaFactorId ?? null}
+        />
+      </>
     ),
   );
   return (

@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { Client } from 'pg';
-import { T, audit, loc, signIn } from './helpers';
-import { DB_URL as DB } from './env';
+import { T, audit, expectOrgMenuEntry, loc, signIn } from './helpers';
+import { ADMIN, WEB, DB_URL as DB } from './env';
+import { ensureOwnerOrg } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * M12 console screens in the Arabic (RTL) and English projects: customer SSO (UI-M12-01) and the admin operations and governance screens
@@ -16,8 +20,6 @@ import { DB_URL as DB } from './env';
  * launch board stays read-only (SCR-M12-03); this spec asserts exactly that.
  */
 
-const ADMIN = 'http://127.0.0.1:3001';
-const WEB = 'http://127.0.0.1:3000';
 const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
   const c = new Client({ connectionString: DB });
   await c.connect();
@@ -54,16 +56,12 @@ test('customer SSO: flag off, then connection, DNS proof, disabled test login, e
   const owner = `owner-${L}@example.test`;
   const domain = `sso-${L}-${Date.now()}.example.test`;
   await setSsoFlag(false);
-  await signIn(page, info, owner, WEB);
+  await ensureOwnerOrg(page, info, `SSO ${L}`); // created through the screen (no spec depends on another one's data); this also signs the owner in
   await elevate(owner);
 
   // --- flag off: no navigation entry, and the page says the capability is not enabled (the API answers 404)
-  await expect(
-    page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
-      .getByRole('link', { name: T(info, 'm12.nav.sso') }),
-  ).toHaveCount(0);
   await page.goto(`${WEB}/${L}/settings/security/sso`);
+  await expectOrgMenuEntry(page, info, 'm12.nav.sso', false); // the organization's pages are listed in the account menu
   await expect(
     page.getByRole('heading', { name: T(info, 'm12.sso.title'), level: 1 }),
   ).toBeVisible();
@@ -73,11 +71,7 @@ test('customer SSO: flag off, then connection, DNS proof, disabled test login, e
   // --- flag on: the entry appears, the screen says the test login is not available
   await setSsoFlag(true);
   await page.goto(`${WEB}/${L}/settings/security/sso`);
-  await expect(
-    page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
-      .getByRole('link', { name: T(info, 'm12.nav.sso') }),
-  ).toBeVisible();
+  await expectOrgMenuEntry(page, info, 'm12.nav.sso', true);
   await expect(page.getByText(T(info, 'm12.sso.testBanner'))).toBeVisible();
   await expect(page.getByText(T(info, 'm12.sso.none'))).toBeVisible();
   await audit(page, info, 'm12-sso-empty');
@@ -100,9 +94,16 @@ test('customer SSO: flag off, then connection, DNS proof, disabled test login, e
     page.locator('section.nz-card', { hasText: 'Corporate OIDC' }).first(),
   ).toBeVisible();
   await expect(page.getByText(T(info, 'm12.sso.status.pending_domain_proof'))).toBeVisible();
-  await expect(page.getByLabel(T(info, 'm12.sso.txtName'))).toHaveValue(`_nuzm-sso.${domain}`);
-  await expect(page.getByLabel(T(info, 'm12.sso.txtValue'))).toHaveValue(/^nuzm-sso-verification=/);
-  await expect(page.getByLabel(T(info, 'm12.sso.txtName'))).toHaveAttribute('dir', 'ltr');
+  await expect(page.getByLabel(T(info, 'm12.sso.txtName'), { exact: true })).toHaveValue(
+    `_nuzm-sso.${domain}`,
+  );
+  await expect(page.getByLabel(T(info, 'm12.sso.txtValue'), { exact: true })).toHaveValue(
+    /^nuzm-sso-verification=/,
+  );
+  await expect(page.getByLabel(T(info, 'm12.sso.txtName'), { exact: true })).toHaveAttribute(
+    'dir',
+    'ltr',
+  );
 
   // --- test login disabled with its reason; enforcement unavailable until a test login has succeeded
   await expect(page.getByRole('button', { name: T(info, 'm12.sso.test.button') })).toBeDisabled();
@@ -113,7 +114,9 @@ test('customer SSO: flag off, then connection, DNS proof, disabled test login, e
   await expect(page.getByText(T(info, 'm12.sso.enforce.unavailable'))).toBeVisible();
   // no certificate or secret anywhere on the page
   await expect(page.locator('body')).not.toContainText(/BEGIN CERTIFICATE|not-a-vault-reference/);
-  await audit(page, info, 'm12-sso-connection', [page.getByLabel(T(info, 'm12.sso.txtValue'))]);
+  await audit(page, info, 'm12-sso-connection', [
+    page.getByLabel(T(info, 'm12.sso.txtValue'), { exact: true }),
+  ]);
 
   // --- just-in-time provisioning: only non-administrative roles
   const roles = await page
@@ -137,7 +140,7 @@ test('admin operations: health, incidents (open, timeline, update, draft), alert
   const L = loc(info);
   const staff = `staff-${L}@example.test`;
   const adm = (p: string) => `${ADMIN}/${L}${p}`;
-  const tag = `e2e-${L}-${Date.now()}`;
+  const tag = `e2e-${L}-${Date.now().toString(36)}`; // no long digit run: incident text refuses what looks like personal data
   await signIn(page, info, staff, ADMIN);
   await elevate(staff);
 
@@ -148,7 +151,7 @@ test('admin operations: health, incidents (open, timeline, update, draft), alert
   ).toBeVisible();
   await expect(
     page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
+      .getByRole('navigation', { name: T(info, 'nc.nav.rail') })
       .getByRole('link', { name: T(info, 'm12.nav.admin.ops') }),
   ).toBeVisible();
   await expect(page.getByText(T(info, 'm12.health.help'))).toBeVisible();
@@ -181,7 +184,11 @@ test('admin operations: health, incidents (open, timeline, update, draft), alert
     .fill('Draft: we are investigating a delay.');
   await upd.getByRole('button', { name: T(info, 'm12.inc.update.submit') }).click();
   await expect(page.getByText(T(info, 'm12.inc.updated'))).toBeVisible();
-  await expect(page.getByText('Draft: we are investigating a delay.')).toBeVisible();
+  await expect(
+    page
+      .getByRole('region', { name: T(info, 'm12.inc.comms.title') })
+      .getByText('Draft: we are investigating a delay.'),
+  ).toBeVisible(); // the communications drafts (the same text also appears in the timeline)
   await expect(page.getByRole('table', { name: T(info, 'm12.inc.timeline') })).toContainText(
     T(info, 'm12.inc.status.investigating'),
   );
@@ -196,7 +203,7 @@ test('admin operations: health, incidents (open, timeline, update, draft), alert
   await audit(page, info, 'm12-admin-incidents');
 
   // --- alerts: define a rule (runbook required), silence it with an expiry, remove the silence
-  const key = `e2e.${L}.${Date.now()}`;
+  const key = `e2e.${L}.${Date.now().toString(36)}`; // no long digit run: the rule fields refuse what looks like personal data
   await page.goto(adm('/alerts'));
   await expect(
     page.getByRole('heading', { name: T(info, 'm12.al.title'), level: 1 }),
@@ -216,7 +223,10 @@ test('admin operations: health, incidents (open, timeline, update, draft), alert
   await row.getByLabel(T(info, 'm12.al.until')).fill(localIn(3));
   await row.getByRole('button', { name: T(info, 'm12.al.silenceSubmit') }).click();
   await expect(
-    page.getByRole('row').filter({ hasText: key }).getByText(T(info, 'm12.al.state.silenced')),
+    page
+      .getByRole('row')
+      .filter({ hasText: key })
+      .getByText(T(info, 'm12.al.state.silenced'), { exact: true }),
   ).toBeVisible();
   await audit(page, info, 'm12-admin-alerts');
   await page
@@ -268,10 +278,15 @@ test('admin operations: health, incidents (open, timeline, update, draft), alert
 
 test('admin governance: access review, policy versions, audit retention (UI-M12-10..12, -14)', async ({
   page,
+  browser,
 }, info) => {
   const L = loc(info);
   const staff = `staff-${L}@example.test`;
   const adm = (p: string) => `${ADMIN}/${L}${p}`;
+  // a customer organization for the review campaign, created through the screen (no spec depends on another one's data)
+  const customer = await browser.newContext({ locale: L === 'ar' ? 'ar-SA' : 'en-GB' });
+  await ensureOwnerOrg(await customer.newPage(), info, `Governance ${L}`);
+  await customer.close();
   await signIn(page, info, staff, ADMIN);
   await elevate(staff);
   const org = (
@@ -283,9 +298,13 @@ test('admin governance: access review, policy versions, audit retention (UI-M12-
   const me = (
     await sql<{ id: string }>(`SELECT id FROM identity.users WHERE email = $1`, [staff])
   )[0];
-  if (!org || !me)
-    throw new Error('run 01-customer and 02-admin first: no owner organization or staff user');
+  if (!org || !me) throw new Error('the owner organization or the staff user was not created');
 
+  // access reviews need admin:security:manage, which the security role holds: this staff member gets that role for this test (the e2e staff user is a platform admin only)
+  await sql(
+    `INSERT INTO tenancy.platform_roles (user_id, role) SELECT $1, 'security' WHERE NOT EXISTS (SELECT 1 FROM tenancy.platform_roles WHERE user_id = $1 AND role = 'security')`,
+    [me.id],
+  );
   // --- access reviews: create a campaign for the organization with this staff member as the reviewer, then keep one member with a reason
   await page.goto(adm('/access-reviews'));
   await expect(
@@ -293,8 +312,8 @@ test('admin governance: access review, policy versions, audit retention (UI-M12-
   ).toBeVisible();
   await expect(
     page
-      .getByRole('navigation', { name: T(info, 'nav.primary') })
-      .getByRole('link', { name: T(info, 'm12.nav.admin.gov') }),
+      .getByRole('navigation', { name: T(info, 'nc.nav.side') })
+      .getByRole('link', { name: T(info, 'm12.tab.reviews') }),
   ).toBeVisible();
   const create = page.getByRole('form', { name: T(info, 'm12.ar.create.title') });
   await create.getByLabel(T(info, 'm12.ar.create.org')).fill(org.id);
@@ -366,7 +385,8 @@ test('admin static pages: launch readiness is read-only (SCR-M12-03); the suppor
   ).toBeVisible();
   await expect(page.getByText(T(info, 'm12.launch.notApproved'))).toBeVisible();
   await expect(page.getByText('docs/reports/ga-readiness-checklist.md')).toBeVisible();
-  await expect(page.getByRole('main').getByRole('button')).toHaveCount(0); // nothing to click: no decision can be recorded here
+  // nothing to click: no decision can be recorded here (the cards/table display toggle is a view control, not an action)
+  await expect(page.locator('main button:not([aria-pressed])')).toHaveCount(0);
   await audit(page, info, 'm12-admin-launch');
 
   await page.goto(`${ADMIN}/${L}/support/handbook`);

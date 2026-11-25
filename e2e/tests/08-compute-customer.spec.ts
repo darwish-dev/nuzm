@@ -9,16 +9,20 @@
  *  1. flag OFF: no Compute navigation entry; offers/instances answer with the "not available" state (never a crash).
  *  2. flag ON, no catalog needed: offers filter form, the AC-M05-03 empty state (country=SA with no verified Saudi region),
  *     empty instance list, wizard with no offers, unknown instance ids, spend approvals screen, forbidden view.
- *  3. flag ON + mock catalog (M05_E2E_MOCK_CATALOG=1, i.e. the stack was started with the S17 mock-compute catalog seeded with at
- *     least one verified in-Kingdom offer and a SAR price book): offer -> quote -> create -> instance -> stop -> delete, the
- *     provisioning spend approval, quote-expired and residency-denied states. Skipped otherwise.
+ *  3. flag ON + synthetic mock catalog (seeded BY THE TEST: fixtures/qa-compute-catalog.ts, Session 07; formerly skipped unless
+ *     M05_E2E_MOCK_CATALOG was set): offer -> quote -> create -> instance -> stop -> delete. The provisioning spend approval,
+ *     quote-expired and residency-denied states are covered by the S17 integration tests (compute-flow.int.spec.ts), not here.
  * The flag is switched through `platform.feature_flags` (global row, org_id NULL), as the S17 integration tests do; if the API
  * caches flags, allow its TTL to pass (the helper retries navigation).
  */
 import { expect, test, type Page } from '@playwright/test';
 import { Client } from 'pg';
-import { T, audit, loc, signIn } from './helpers';
+import { T, audit, loc, signIn, expectActiveOrg } from './helpers';
 import { DB_URL as DB } from './env';
+import { resetDatabase } from './reset';
+import { seedMockComputeCatalog } from './fixtures/qa-compute-catalog';
+
+test.beforeAll(resetDatabase);
 
 const FLAG = 'cloud.provisioning';
 const sql = async <R extends Record<string, unknown>>(q: string, args: unknown[] = []) => {
@@ -56,20 +60,17 @@ async function ownerOrg(page: Page, info: Parameters<typeof T>[0]) {
     await page.goto(`/${L}/orgs/new`);
     await page.getByLabel(T(info, 'field.name')).fill(`Compute ${L}`);
     await page.getByRole('button', { name: T(info, 'action.create') }).click();
-    await expect(page.getByText(T(info, 'home.org', { org: `Compute ${L}` }))).toBeVisible();
+    await expectActiveOrg(page, info, `Compute ${L}`);
     org = (await find())!;
   }
   return org.id;
 }
 
-const navLink = (
-  page: Page,
-  info: Parameters<typeof T>[0],
-  key: 'm05.web.nav.offers' | 'm05.web.nav.instances',
-) =>
+/** The console's navigation rail: the Cloud servers category (its one page is the instances list) appears only for a member with the permissions while the flag is on. */
+const cloudNav = (page: Page, info: Parameters<typeof T>[0]) =>
   page
-    .getByRole('navigation', { name: T(info, 'nav.primary') })
-    .getByRole('link', { name: T(info, key) });
+    .getByRole('navigation', { name: T(info, 'nc.nav.rail') })
+    .getByRole('link', { name: T(info, 'nc.cat.cloud') });
 
 test.describe.configure({ mode: 'serial' });
 
@@ -78,8 +79,7 @@ test('compute: flag off hides the navigation and shows "not available"', async (
   await setFlag(false);
   await ownerOrg(page, info);
   await page.goto(`/${L}`);
-  await expect(navLink(page, info, 'm05.web.nav.offers')).toHaveCount(0);
-  await expect(navLink(page, info, 'm05.web.nav.instances')).toHaveCount(0);
+  await expect(cloudNav(page, info)).toHaveCount(0);
   for (const path of ['/compute/offers', '/compute/instances', '/compute/instances/new']) {
     await page.goto(`/${L}${path}`);
     await expect(
@@ -106,9 +106,10 @@ test('compute: offers, empty states, wizard guard, approvals and forbidden views
   // navigation entries appear for a member with the permissions
   await expect(async () => {
     await go('');
-    await expect(navLink(page, info, 'm05.web.nav.offers')).toBeVisible({ timeout: 2_000 });
+    await expect(cloudNav(page, info)).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
-  await expect(navLink(page, info, 'm05.web.nav.instances')).toBeVisible();
+  await cloudNav(page, info).click();
+  await expect(page).toHaveURL(/\/compute\/instances/);
 
   // --- UI-M05-01: filters; AC-M05-03: country=SA with no verified Saudi region shows the empty state, never a stale offer
   await go('/compute/offers');
@@ -117,7 +118,9 @@ test('compute: offers, empty states, wizard guard, approvals and forbidden views
   await page.getByLabel(T(info, 'field.country')).fill('SA');
   await page.getByRole('button', { name: T(info, 'action.search') }).click();
   await expect(page).toHaveURL(/country=SA/);
-  await expect(page.getByText(T(info, 'm05.web.offers.empty.title'))).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: T(info, 'm05.web.offers.empty.title') }),
+  ).toBeVisible();
   await expect(page.getByRole('table')).toHaveCount(0);
   await audit(page, info, 'compute-offers-empty-sa');
   await go('/compute/offers?country=SAU&minVcpu=0'); // invalid filters: reported next to the fields, nothing sent to the API
@@ -184,14 +187,15 @@ test('compute: offers, empty states, wizard guard, approvals and forbidden views
 test('compute: offer -> quote -> create -> instance actions -> delete on the mock catalog', async ({
   page,
 }, info) => {
-  test.skip(
-    !process.env.M05_E2E_MOCK_CATALOG,
-    'needs the S17 mock-compute catalog (a verified in-Kingdom offer, SAR prices, an allowed processor); see the header comment',
-  );
+  // Session 07: no longer skipped behind M05_E2E_MOCK_CATALOG. The test seeds the approved synthetic catalog itself (fixtures/qa-compute-catalog.ts: the simulator account, a
+  // verified in-Kingdom region with `mock` evidence, a SAR price book, the allowed processor, an allowance and a residency policy for THIS organization; the vendor slots
+  // that have no adapter in a dev stack are withdrawn so the first offer is the simulator's). A failed seed FAILS the test; it is never a silent skip.
   const L = loc(info);
   const go = (p: string) => page.goto(`/${L}${p}`);
   await setFlag(true);
-  await ownerOrg(page, info);
+  const orgId = await ownerOrg(page, info);
+  const catalog = await seedMockComputeCatalog(orgId);
+  expect(catalog.simulatorRegions).toBeGreaterThan(0);
 
   // UI-M05-01: a verified offer with a price in SAR
   await go('/compute/offers?geoGroup=in_kingdom');
@@ -209,10 +213,27 @@ test('compute: offer -> quote -> create -> instance actions -> delete on the moc
   ).toBeVisible();
   const name = `e2e-${L}-${Date.now() % 100000}`;
   await page.getByLabel(T(info, 'field.name')).fill(name);
-  await page.getByRole('radio', { name: /Ubuntu 22\.04/ }).check(); // the mock catalog publishes its images by name
+  await page.getByRole('radio', { name: /Mock Ubuntu/ }).check(); // the simulator publishes its images by name (mock-compute: `Mock Ubuntu`, `Mock Debian`)
   await page.getByRole('button', { name: T(info, 'action.next') }).click();
+  const quoteAnswer = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && /\/v1\/quotes$/.test(new URL(r.url()).pathname),
+  );
   await page.getByRole('button', { name: T(info, 'm05.web.wiz.getQuote') }).click();
-  await expect(page.getByText(T(info, 'm05.web.quote.provisional'))).toBeVisible();
+  // the review shows the quote exactly as the API answered it. The "Provisional estimate" badge belongs to a PROVISIONAL tax estimate only: since the invoicing tax engine
+  // answers `computed` for an organization without a tax profile, the badge is rightly absent, so the expectation follows the API's own status instead of assuming one.
+  const quote = (await (await quoteAnswer).json()) as {
+    taxEstimate: { status: string; reviewRequired: boolean };
+    totalMinor: string;
+  };
+  await expect(page.getByRole('table', { name: T(info, 'm05.web.quote.cost') })).toBeVisible();
+  await expect(page.getByText(T(info, 'bill.f.tax'))).toBeVisible();
+  await expect(page.getByText(T(info, 'bill.f.total'), { exact: true })).toBeVisible();
+  const badge = page.getByText(T(info, 'm05.web.quote.provisional'));
+  if (quote.taxEstimate.status === 'provisional') await expect(badge).toBeVisible();
+  else await expect(badge).toHaveCount(0);
+  const taxReview = page.getByText(T(info, 'm05.web.quote.taxReview'));
+  if (quote.taxEstimate.reviewRequired) await expect(taxReview).toBeVisible();
+  else await expect(taxReview).toHaveCount(0);
   await expect(
     page.getByRole('heading', { name: T(info, 'm05.web.quote.residency') }),
   ).toBeVisible();
@@ -241,10 +262,13 @@ test('compute: offer -> quote -> create -> instance actions -> delete on the moc
   ).toBeVisible();
   await audit(page, info, 'compute-instance-metrics');
   await page.goto(`${base}/snapshots`);
+  // the page title AND, because the simulator account's capabilities (dev seed: provision, inspect, delete, metrics) do not include snapshots, the unsupported empty state:
+  // both are on the page, so they are asserted separately (an `or()` of the two matched two elements and failed strict mode)
   await expect(
-    page
-      .getByText(T(info, 'm05.web.snap.unsupported.title'))
-      .or(page.getByRole('heading', { name: T(info, 'm05.web.snap.title') })),
+    page.getByRole('heading', { level: 1, name: T(info, 'm05.web.snap.title') }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: T(info, 'm05.web.snap.unsupported.title') }),
   ).toBeVisible();
   await audit(page, info, 'compute-instance-snapshots');
 

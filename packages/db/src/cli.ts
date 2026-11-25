@@ -17,7 +17,24 @@ const root = join(__dirname, '..', '..', '..');
 const manifest = loadManifest(join(root, 'spec/db/ownership.yaml'));
 const migrationsDir = join(__dirname, '..', 'migrations');
 const controlsPath = join(root, 'spec/compliance/controls.yaml');
+// Session safety (scripts/testenv, DEFECT-19): the owner's development database (:54329) is a default ONLY when the OWNER opts in (NUZM_ALLOW_OWNER_DEV_DB=1 in their own
+// shell profile). A session never does: it must pass an explicit DATABASE_ADMIN_URL, which a leased environment pins to its own cluster (NUZM_LEASE_PORT).
+if (
+  !process.env.DATABASE_ADMIN_URL &&
+  (process.env.NUZM_FORBID_DEFAULT_DB === '1' || process.env.NUZM_ALLOW_OWNER_DEV_DB !== '1')
+) {
+  console.error(
+    'db cli: DATABASE_ADMIN_URL is mandatory: the owner development database is a default ONLY with the owner own NUZM_ALLOW_OWNER_DEV_DB=1 opt-in (never in a session; use source scripts/session-env.sh <name>)',
+  );
+  process.exit(2);
+}
 const url = process.env.DATABASE_ADMIN_URL ?? 'postgres://nuzm_admin@127.0.0.1:54329/nuzm_dev';
+if (process.env.NUZM_LEASE_PORT && new URL(url).port !== process.env.NUZM_LEASE_PORT) {
+  console.error(
+    `db cli: ${new URL(url).port} is not this session's leased database port (${process.env.NUZM_LEASE_PORT}): refused`,
+  );
+  process.exit(2);
+}
 
 async function ensureDatabase(target: string) {
   const u = new URL(target);

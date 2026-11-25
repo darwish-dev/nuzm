@@ -1,0 +1,4 @@
+# captured 2026-11-24 from: flutter pub get (Flutter 3.35.7) on a deliberately broken copy of the Nuzm template; paths are relative to the project
+Resolving dependencies...
+Because field_tasks depends on nuzm_no_such_package_xyz any which doesn't exist (could not find package nuzm_no_such_package_xyz at https://pub.dev), version solving failed.
+Failed to update packages.

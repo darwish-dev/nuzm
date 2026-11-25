@@ -17,6 +17,14 @@ describe('page guide: the agent is told the exact components, taken from the mod
     expect(DESIGN_RULES).toContain('6 to 8 sections');
     expect(DESIGN_RULES).toContain('Never invent');
   });
+  it('states the QA gates up front: accessibility, SEO lengths, Arabic-first, five pages, placeholder-only images (P3-S04)', () => {
+    expect(DESIGN_RULES).toContain('WCAG 2.1 AA');
+    expect(DESIGN_RULES).toContain('25 to 60 characters');
+    expect(DESIGN_RULES).toContain('70 to 160 characters');
+    expect(DESIGN_RULES).toContain('natural Arabic');
+    expect(DESIGN_RULES).toContain('at least five pages');
+    expect(DESIGN_RULES).toContain('never reference an external image URL');
+  });
 });
 
 describe('page check: a page is validated like the finished site, before the run goes on', () => {

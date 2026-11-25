@@ -10,7 +10,6 @@ export const UI = {
   navLabel: P('التنقل الرئيسي', 'Main navigation'),
   footerNav: P('روابط التذييل', 'Footer links'),
   switchTo: { ar: 'العربية', en: 'English' } as Pair,
-  switchLabel: P('تغيير اللغة', 'Change language'),
   ctaDefault: P('اعرف المزيد', 'Learn more'),
   required: P('مطلوب', 'required'),
   mapOpen: P('افتح الموقع في خرائط OpenStreetMap', 'Open the location in OpenStreetMap'),

@@ -1,0 +1,7 @@
+Running pod install...
+[!] CocoaPods could not find compatible versions for pod "flutter_secure_storage":
+  In Podfile:
+    flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
+
+Specs satisfying the `flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)` dependency were found, but they required a higher minimum deployment target.
+Error: CocoaPods's specs repository is too out-of-date to satisfy dependencies.

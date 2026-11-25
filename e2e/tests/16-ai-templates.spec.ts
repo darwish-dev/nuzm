@@ -3,6 +3,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { WEB } from './env';
 import { T, audit, loc, signIn } from './helpers';
 import { orgFlag, ownerOrg, publishTemplate, sql } from './fixtures/templates';
+import { resetDatabase } from './reset';
+
+test.beforeAll(resetDatabase);
 
 /**
  * AI Intelligence Center, slice S-K7 (SCR-K-08): the customer experience, END TO END in Arabic (RTL) and English with real browsers:

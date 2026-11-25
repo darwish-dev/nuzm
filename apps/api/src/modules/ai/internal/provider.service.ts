@@ -1,5 +1,15 @@
+import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
-import { contractAtLeast, probeWorstCase } from '@nuzm/adapter-model';
+import {
+  ProbeRefused,
+  validateEvidence,
+  type QualificationEvidence,
+  diffRateCards,
+  type RateCardChange,
+  contractAtLeast,
+  probeWorstCase,
+  runCapabilityProbe,
+} from '@nuzm/adapter-model';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
 import type { SecretStore } from '../../../common/secrets';
@@ -7,6 +17,7 @@ import { ProblemException } from '../../../common/errors';
 import { AI_KILLSWITCH, isUuid, type AiConfig, type Row } from './model';
 import type { ModelAdapterRegistry } from './registry';
 import type { ConnectionProbe, ProbeResult } from './claude-probe';
+import { recordSha256, scanForLeaks } from './live-executor';
 
 const SLUG = /^[a-z][a-z0-9-]{1,40}$/;
 const INT = /^\d{1,15}$/;
@@ -29,6 +40,31 @@ export interface EvidenceDto {
   recordedBy: string;
   recordedAt: string;
 }
+
+export interface RateCardVersionDto {
+  id: string;
+  version: string;
+  recordedBy: string;
+  recordedAt: string;
+  models: RateCardModels['models'];
+  /** what this version changed against the one before it (everything is `added` for the first) */
+  changes: RateCardChange[];
+}
+/** A stable digest of a rate card's CONTENT: key order and the version label do not matter. */
+export const rateCardSha = (card: RateCardModels): string =>
+  createHash('sha256')
+    .update(
+      JSON.stringify(
+        Object.keys(card.models)
+          .sort()
+          .map((k) => [
+            k,
+            card.models[k]!.creditsPerMillionInput,
+            card.models[k]!.creditsPerMillionOutput,
+          ]),
+      ),
+    )
+    .digest('hex');
 
 export interface RateCardModels {
   models: Record<string, { creditsPerMillionInput: string; creditsPerMillionOutput: string }>;
@@ -70,6 +106,9 @@ export interface ProviderDto {
 /** An API key as providers issue them: printable ASCII, no spaces, a sensible length. The value is never echoed in an error. */
 const CLAUDE_CODE = 'claude';
 const API_KEY = /^[\x21-\x7E]{20,400}$/;
+/** A field NAME that suggests a credential value: a value sent under such a name is refused (never stored, never echoed); only a `vaultRef` carries a credential reference. */
+const CREDENTIAL_FIELD =
+  /(secret|passw|passphrase|api[_-]?key|access[_-]?key|private|token|credential|bearer|authorization)|^(key|keys|auth)$/i;
 
 export class ModelProviderService {
   constructor(
@@ -204,6 +243,62 @@ export class ModelProviderService {
     return rows.map((r) => ({ row: this.dto(r) })).filter((x) => x.row.adapterRegistered);
   }
 
+  /**
+   * Append the rate card to its history when its CONTENT changed (S-AG4, migration 1900). Same content under a new label, or a re-save, appends nothing; an empty card is recorded only
+   * when it replaces a non-empty one (a removal of prices is part of the history). Runs inside the `configure` transaction, so the history and the provider row cannot disagree.
+   */
+  private async recordRateCardVersion(
+    c: { query: (sql: string, params?: unknown[]) => Promise<{ rows: Row[] }> },
+    providerId: string,
+    version: string,
+    card: RateCardModels,
+    actor: string,
+  ): Promise<void> {
+    const sha = rateCardSha(card);
+    const last = (
+      await c.query(
+        `SELECT content_sha256 FROM ai.model_rate_card_versions WHERE provider_id=$1 ORDER BY recorded_at DESC, id DESC LIMIT 1`,
+        [providerId],
+      )
+    ).rows[0];
+    if (last ? last.content_sha256 === sha : Object.keys(card.models).length === 0) return;
+    await c.query(
+      `INSERT INTO ai.model_rate_card_versions (id, provider_id, version, models, content_sha256, recorded_by) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [uuidv7(), providerId, version, JSON.stringify(card.models), sha, actor],
+    );
+  }
+
+  /** The rate card history of a provider, newest first, each entry with what it changed against the entry before it. Read-only. */
+  async rateCardHistory(id: string): Promise<{ items: RateCardVersionDto[] }> {
+    if (!isUuid(id)) throw new ProblemException('validation_failed', 'id must be a uuid');
+    const rows = await this.db.withPlatformScope(async (c) => {
+      const p = (await c.query(`SELECT 1 FROM ai.model_providers WHERE id=$1`, [id])).rows[0];
+      if (!p) return null;
+      return (
+        await c.query(
+          `SELECT id, version, models, basis, recorded_by, recorded_at FROM ai.model_rate_card_versions WHERE provider_id=$1 ORDER BY recorded_at DESC, id DESC LIMIT 200`,
+          [id],
+        )
+      ).rows as Row[];
+    });
+    if (rows === null) throw new ProblemException('not_found');
+    const asCard = (r: Row) => ({
+      version: r.version as string,
+      effectiveFrom: new Date(r.recorded_at as string | Date).toISOString(),
+      models: r.models as RateCardModels['models'],
+    });
+    return {
+      items: rows.map((r, i) => ({
+        id: r.id as string,
+        version: r.version as string,
+        recordedBy: r.recorded_by as string,
+        recordedAt: new Date(r.recorded_at as string | Date).toISOString(),
+        models: r.models as RateCardModels['models'],
+        changes: diffRateCards(rows[i + 1] ? asCard(rows[i + 1]!) : null, asCard(r)),
+      })),
+    };
+  }
+
   static parseRateCard(v: unknown): RateCardModels {
     if (typeof v !== 'object' || v === null || Array.isArray(v))
       throw new ProblemException(
@@ -271,7 +366,7 @@ export class ModelProviderService {
         'vaultRef must be a vault:// reference (credential values are never accepted)',
       );
     for (const k of Object.keys(b))
-      if (/(secret|password|api_?key|token|private)/i.test(k))
+      if (CREDENTIAL_FIELD.test(k))
         throw new ProblemException(
           'credential_value_rejected',
           `${k}: send a vault reference as vaultRef`,
@@ -290,13 +385,36 @@ export class ModelProviderService {
       const cur = (
         await c.query(`SELECT * FROM ai.model_providers WHERE code=$1 FOR UPDATE`, [code])
       ).rows[0] as Row | undefined;
-      if (!cur) {
+      const saved = await (async (): Promise<Row> => {
+        if (!cur) {
+          return (
+            await c.query(
+              `INSERT INTO ai.model_providers (id, code, adapter, display_name, region, vault_ref, egress_allow, rate_card_version, rate_card, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+              [
+                uuidv7(),
+                code,
+                adapter,
+                displayName,
+                region,
+                vaultRef,
+                JSON.stringify(egress),
+                rateCardVersion,
+                JSON.stringify(rateCard),
+                actor,
+              ],
+            )
+          ).rows[0] as Row;
+        }
+        const regionChanged = cur.region !== region;
         return (
           await c.query(
-            `INSERT INTO ai.model_providers (id, code, adapter, display_name, region, vault_ref, egress_allow, rate_card_version, rate_card, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+            `UPDATE ai.model_providers SET adapter=$2, display_name=$3, region=$4, vault_ref=COALESCE($5, vault_ref), egress_allow=$6, rate_card_version=$7, rate_card=$8,
+                  enabled=false, enabled_by=NULL, enabled_at=NULL, enable_requested_by=NULL,
+                  data_terms = CASE WHEN $9 THEN '{"attested":false,"retainsPrompts":"unknown","trainsOnData":"unknown"}'::jsonb ELSE data_terms END,
+                  attestation_ref = CASE WHEN $9 THEN NULL ELSE attestation_ref END, attested_by = CASE WHEN $9 THEN NULL ELSE attested_by END, attested_at = CASE WHEN $9 THEN NULL ELSE attested_at END,
+                  updated_at=now(), version=version+1 WHERE code=$1 RETURNING *`,
             [
-              uuidv7(),
               code,
               adapter,
               displayName,
@@ -305,32 +423,13 @@ export class ModelProviderService {
               JSON.stringify(egress),
               rateCardVersion,
               JSON.stringify(rateCard),
-              actor,
+              regionChanged,
             ],
           )
         ).rows[0] as Row;
-      }
-      const regionChanged = cur.region !== region;
-      return (
-        await c.query(
-          `UPDATE ai.model_providers SET adapter=$2, display_name=$3, region=$4, vault_ref=COALESCE($5, vault_ref), egress_allow=$6, rate_card_version=$7, rate_card=$8,
-                  enabled=false, enabled_by=NULL, enabled_at=NULL, enable_requested_by=NULL,
-                  data_terms = CASE WHEN $9 THEN '{"attested":false,"retainsPrompts":"unknown","trainsOnData":"unknown"}'::jsonb ELSE data_terms END,
-                  attestation_ref = CASE WHEN $9 THEN NULL ELSE attestation_ref END, attested_by = CASE WHEN $9 THEN NULL ELSE attested_by END, attested_at = CASE WHEN $9 THEN NULL ELSE attested_at END,
-                  updated_at=now(), version=version+1 WHERE code=$1 RETURNING *`,
-          [
-            code,
-            adapter,
-            displayName,
-            region,
-            vaultRef,
-            JSON.stringify(egress),
-            rateCardVersion,
-            JSON.stringify(rateCard),
-            regionChanged,
-          ],
-        )
-      ).rows[0] as Row;
+      })();
+      await this.recordRateCardVersion(c, saved.id as string, rateCardVersion, rateCard, actor);
+      return saved;
     });
     await this.audit.record({
       action: 'ai.provider.configured',
@@ -638,10 +737,96 @@ export class ModelProviderService {
   }
 
   /**
+   * EVIDENCE INGESTION (P3-S01, D8). Turns the envelope written by the live executor (`qualify:p3`, run by an operator outside the application) into capability evidence rows, and
+   * ONLY from a genuine LIVE-VERIFIED tool-calling record: the envelope must be a live run (never a mock twin), of THIS provider and the adapter's model and contract version, within its
+   * hard cap, free of anything key-shaped, with a track-B record whose own validation passes, whose verdict is LIVE-VERIFIED and whose stored digest matches. `tool-use` is recorded
+   * VERIFIED; the streamed and parallel capabilities are VERIFIED only when that record's fixed sentence says so, else recorded NOT VERIFIED. Anything else is refused and nothing is
+   * written. It adds integrity checks, not authentication: the caller needs `admin:ai:approve`, who could record the same rows by hand.
+   */
+  async ingestExecutorEvidence(actor: string, id: string, envelope: unknown): Promise<ProviderDto> {
+    const r = await this.load(id);
+    const adapter = this.registry.get(r.code as string);
+    if (!adapter)
+      throw new ProblemException(
+        'unsupported_capability',
+        'no adapter is registered for this provider',
+      );
+    const refuse = (m: string): never => {
+      throw new ProblemException('validation_failed', `the evidence envelope was refused: ${m}`);
+    };
+    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope))
+      return refuse('it is not an object');
+    const e = envelope as Record<string, unknown>;
+    if (JSON.stringify(envelope).length > 2_000_000) refuse('it is too large');
+    if (scanForLeaks(JSON.stringify(envelope)).length > 0)
+      refuse('it contains something key-shaped');
+    if (e.schema !== 'nuzm.p3-provider-evidence' || e.schemaVersion !== 1) refuse('unknown schema');
+    if (typeof e.id !== 'string' || !isUuid(e.id)) refuse('it has no valid id');
+    if (e.mode !== 'live') refuse('only a LIVE run counts: a mock twin run is never evidence');
+    if (e.provider !== r.code || e.contractVersion !== adapter.contractVersion)
+      refuse('it is not for this provider and the registered adapter contract');
+    const model = typeof e.model === 'string' ? e.model : '';
+    if (!adapter.models().some((m) => m.modelId === model))
+      refuse("the model is not one of the adapter's models");
+    if ((e.cap as { overran?: unknown } | undefined)?.overran !== false)
+      refuse('the run overran its hard cap');
+    const rec = (Array.isArray(e.records) ? (e.records as QualificationEvidence[]) : []).find(
+      (x) => x?.track === 'B',
+    );
+    if (!rec) return refuse('it has no tool-calling (track B) record');
+    if (rec.mode !== 'live' || rec.verdict !== 'LIVE-VERIFIED')
+      refuse('the tool-calling record is not LIVE-VERIFIED');
+    if (
+      rec.provider !== r.code ||
+      rec.model !== model ||
+      rec.contractVersion !== adapter.contractVersion
+    )
+      refuse('the tool-calling record is for another provider, model or contract');
+    if (validateEvidence(rec).length > 0)
+      refuse('the tool-calling record is not a valid evidence record');
+    const entry = (
+      Array.isArray(e.tracks)
+        ? (e.tracks as { track?: unknown; status?: unknown; recordSha256?: unknown }[])
+        : []
+    ).find((t) => t?.track === 'B');
+    if (entry?.status !== 'ran' || entry.recordSha256 !== recordSha256(rec))
+      refuse('the stored digest of the tool-calling record does not match');
+    const detail = rec.checks.find((c) => c.id === 'tool_calling')?.detail ?? '';
+    const streamed = /(^|[; (])streamed calls verified/.test(detail);
+    const parallel = /(^|[; (])parallel calls verified/.test(detail);
+    const evidenceRef = `p3-envelope:${e.id}`;
+    const model1 = model;
+    const rows: [EvidenceCapability, 'VERIFIED' | 'NOT VERIFIED'][] = [
+      ['tool-use', 'VERIFIED'],
+      ['streaming-tool-calls', streamed ? 'VERIFIED' : 'NOT VERIFIED'],
+      ['parallel-tool-calls', parallel ? 'VERIFIED' : 'NOT VERIFIED'],
+    ];
+    let out = await this.view(r);
+    for (const [capability, state] of rows) {
+      // a capability the adapter does not declare for the model cannot be verified: skip it instead of failing the whole ingest
+      if (
+        state === 'VERIFIED' &&
+        !adapter
+          .models()
+          .find((m) => m.modelId === model1)
+          ?.capabilities.includes(capability)
+      )
+        continue;
+      out = await this.recordCapabilityEvidence(actor, id, {
+        model: model1,
+        capability,
+        state,
+        evidenceRef,
+      });
+    }
+    return out;
+  }
+
+  /**
    * The live capability probe (S-AG4, SCR-K-11 item 4). The action is part of the contract but is NOT available yet: running it is a live provider call that needs the owner's
    * approval of the probe (D9), the agreement (D2), a credential (D4) and the live gate (D3). The request is validated and the refusal is audited; nothing is sent anywhere.
    */
-  async probeToolUse(actor: string, id: string, b: Record<string, unknown>): Promise<never> {
+  async probeToolUse(actor: string, id: string, b: Record<string, unknown>): Promise<ProviderDto> {
     const r = await this.load(id);
     const worst = probeWorstCase();
     if (typeof b.approvalRef !== 'string' || b.approvalRef.length < 3 || b.approvalRef.length > 200)
@@ -654,18 +839,106 @@ export class ModelProviderService {
         'validation_failed',
         `maxTotalTokens must be an integer of at least the worst case (${worst.totalTokens})`,
       );
+    const refuse = async (reason: string, message: string): Promise<never> => {
+      await this.audit.record({
+        action: 'ai.provider.probe_refused',
+        actorUserId: actor,
+        actorType: 'user',
+        resource: { type: 'model_provider', id },
+        outcome: 'failure',
+        detail: { code: r.code, reason },
+      });
+      throw new ProblemException('unsupported_capability', `${message}; nothing was sent`);
+    };
+    // gate 1 (D9): the owner's recorded approval of THIS probe, by reference; the request can lower the token cap, never raise it
+    const approval = this.cfg.probeApprovals?.find((x) => x.ref === b.approvalRef);
+    if (!approval)
+      return refuse(
+        'not_approved_d9',
+        'the live probe is not available: no recorded approval (D9) matches this reference',
+      );
+    // gate 2 (D3): the live gate of this provider (a dev-reference mock-*/local-* adapter makes no live request, so it needs none)
+    const devReference = /^(mock|local)-/.test(r.code as string);
+    if (!devReference && !(this.cfg.liveProviders ?? []).includes(r.code as string))
+      return refuse(
+        'live_gate_closed_d3',
+        'the live probe is not available: the live gate for this provider is closed (D3)',
+      );
+    // gate 3 (D2/D4): the agreement is attested and a credential exists (a real provider only)
+    if (!devReference) {
+      const terms = r.data_terms as { attested?: boolean };
+      if (terms.attested !== true || !r.attestation_ref)
+        return refuse(
+          'not_attested_d2',
+          'the live probe is not available: the data terms are not attested (D2)',
+        );
+      if (!r.vault_ref)
+        return refuse('no_credential_d4', 'the live probe is not available: no credential (D4)');
+    }
+    const adapter = this.registry.get(r.code as string);
+    if (!adapter)
+      return refuse(
+        'adapter_not_registered',
+        'the live probe is not available: no adapter is registered for this provider',
+      );
+    const model = typeof b.model === 'string' ? b.model : '';
+    const cap = Math.min(b.maxTotalTokens as number, approval.maxTotalTokens);
     await this.audit.record({
-      action: 'ai.provider.probe_refused',
+      action: 'ai.provider.probe_started',
       actorUserId: actor,
       actorType: 'user',
       resource: { type: 'model_provider', id },
-      outcome: 'failure',
-      detail: { code: r.code, reason: 'not_available_until_d9' },
+      outcome: 'success',
+      detail: {
+        code: r.code,
+        model,
+        approvalRef: approval.ref,
+        maxRequests: approval.maxRequests,
+        maxTotalTokens: cap,
+      },
     });
-    throw new ProblemException(
-      'unsupported_capability',
-      'the live probe is not available yet: it needs the approval of the probe (D9), the agreement (D2), a credential (D4) and the live gate (D3); nothing was sent',
-    );
+    let report;
+    try {
+      report = await runCapabilityProbe(adapter, model, {
+        ref: approval.ref,
+        approvedBy: approval.approvedBy,
+        environment: 'non-production',
+        maxRequests: approval.maxRequests,
+        maxTotalTokens: cap,
+      });
+    } catch (e) {
+      if (e instanceof ProbeRefused)
+        throw new ProblemException('validation_failed', e.message.slice(0, 200));
+      throw e;
+    }
+    // the report is the evidence: one row per capability (VERIFIED only when the whole rule held; anything else is recorded as NOT VERIFIED), in dependency order
+    for (const capability of ['tool-use', 'parallel-tool-calls', 'streaming-tool-calls'] as const) {
+      const declared = adapter.models().find((m) => m.modelId === model)?.capabilities;
+      if (!declared?.includes(capability)) continue;
+      await this.recordCapabilityEvidence(actor, id, {
+        model,
+        capability,
+        state: report.capabilities[capability],
+        evidenceRef: `probe:${approval.ref}:${report.startedAt}`.slice(0, 200),
+      });
+    }
+    await this.audit.record({
+      action: 'ai.provider.probe_finished',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: report.stoppedEarly ? 'failure' : 'success',
+      detail: {
+        code: r.code,
+        model,
+        approvalRef: approval.ref,
+        requests: report.requests,
+        totalTokens: report.totalTokens,
+        stoppedEarly: report.stoppedEarly ?? null,
+        capabilities: report.capabilities,
+      },
+    });
+    return this.view(await this.load(id));
   }
 
   /**
@@ -713,6 +986,145 @@ export class ModelProviderService {
       detail: { code: r.code, outcome: res.outcome, httpStatus: res.httpStatus ?? null },
     });
     return { ...res, checkedAt: new Date().toISOString(), live: true };
+  }
+
+  /**
+   * KEY ROTATION (P3-S01). The new key is typed into the admin console like the first one (write-only, never echoed). It is sealed under a STAGING name first and tested with the
+   * provider (a read-only model listing: nothing billed, behind the same live gate as any call); only when the provider accepts it does it replace the current key. A key that is
+   * refused leaves the current key untouched and the staging copy deleted. The provider stays enabled (it never runs without a working key), the audit event carries only the vault
+   * REFERENCE and the outcome, never a key. Dev profile only until the production vault is decided (D-12). Rotating does not revoke the OLD key at the vendor: that is a human step
+   * in the vendor console, which this platform cannot and does not perform (the result says so).
+   */
+  async rotateCredential(
+    actor: string,
+    id: string,
+    apiKey: unknown,
+  ): Promise<{ provider: ProviderDto; rotatedAt: string; vendorSteps: string[] }> {
+    if (!this.secrets || !this.probe || process.env.NODE_ENV === 'production')
+      throw new ProblemException(
+        'unsupported_capability',
+        'rotating a key here is not available in this profile: the production vault is not decided yet (D-12)',
+      );
+    const key = typeof apiKey === 'string' ? apiKey.trim() : '';
+    if (!API_KEY.test(key))
+      throw new ProblemException(
+        'validation_failed',
+        'the key must be 20 to 400 printable characters with no spaces',
+      );
+    const r = await this.load(id);
+    if (r.adapter !== 'anthropic')
+      throw new ProblemException('unsupported_capability', 'key rotation exists for Claude only');
+    const current = (r.vault_ref as string | null) ?? null;
+    if (!current || !/^vault:\/\/(dev|mem)\/ai-/.test(current))
+      throw new ProblemException(
+        'validation_failed',
+        'there is no key to rotate: save the first key instead',
+      );
+    // the new key is tested with a LIVE request: it needs the owner's approval for live calls to this provider, like any call
+    if (!this.cfg.liveProviders?.includes(r.code as string))
+      throw new ProblemException(
+        'unsupported_capability',
+        'live calls to this provider are not approved in this environment: a new key cannot be tested, so it is not swapped in',
+      );
+    const code = r.code as string;
+    const staging = await this.secrets.put(`ai-${code}-next`, key);
+    const res = await this.probe(key).catch(() => ({ outcome: 'error' }) as ProbeResult);
+    if (res.outcome !== 'ok') {
+      await this.secrets.delete(staging).catch(() => undefined);
+      await this.audit.record({
+        action: 'ai.provider.credential_rotation_failed',
+        actorUserId: actor,
+        actorType: 'user',
+        resource: { type: 'model_provider', id },
+        outcome: 'failure',
+        detail: {
+          code,
+          outcome: res.outcome,
+          httpStatus: res.httpStatus ?? null,
+          vaultRef: current,
+        },
+      });
+      throw new ProblemException(
+        'validation_failed',
+        `the provider did not accept the new key (${res.outcome}): the current key is unchanged`,
+      );
+    }
+    const ref = await this.secrets.put(`ai-${code}`, key); // same name: the reference stays the same
+    await this.secrets.delete(staging).catch(() => undefined);
+    const row = await this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `UPDATE ai.model_providers SET vault_ref=$2, updated_at=now(), version=version+1 WHERE id=$1 RETURNING *`,
+            [id, ref],
+          )
+        ).rows[0] as Row,
+    );
+    const rotatedAt = new Date().toISOString();
+    await this.audit.record({
+      action: 'ai.provider.credential_rotated',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: 'success',
+      detail: { code, vaultRef: ref, tested: true, modelCount: res.modelCount ?? null, rotatedAt },
+    });
+    return {
+      provider: await this.view(row),
+      rotatedAt,
+      vendorSteps: [
+        'Revoke the OLD key in the vendor console (a human step: this platform cannot do it).',
+        'Record the rotation date with the key owner (D4).',
+      ],
+    };
+  }
+
+  /**
+   * KEY REVOCATION (P3-S01): the emergency and the scheduled path. Removes the stored key and the reference and disables the provider (as `clearCredential`), records WHY, and for a
+   * suspected compromise also engages the GLOBAL kill switch first, so no call can use the key while it is being replaced. The vendor-side revocation is a human step this platform
+   * cannot perform: the result lists what remains.
+   */
+  async revokeCredential(
+    actor: string,
+    id: string,
+    b: Record<string, unknown>,
+  ): Promise<{ provider: ProviderDto; killSwitch: boolean; vendorSteps: string[] }> {
+    const reason = b.reason;
+    if (
+      reason !== 'compromised' &&
+      reason !== 'scheduled' &&
+      reason !== 'offboarding' &&
+      reason !== 'other'
+    )
+      throw new ProblemException(
+        'validation_failed',
+        'reason must be compromised, scheduled, offboarding or other',
+      );
+    const engage =
+      typeof b.engageKillSwitch === 'boolean' ? b.engageKillSwitch : reason === 'compromised';
+    const r = await this.load(id);
+    if (engage) await this.setKillSwitch(actor, true);
+    const provider = await this.clearCredential(actor, id);
+    await this.audit.record({
+      action: 'ai.provider.credential_revoked',
+      actorUserId: actor,
+      actorType: 'user',
+      resource: { type: 'model_provider', id },
+      outcome: 'success',
+      detail: { code: r.code, reason, killSwitchEngaged: engage, hadCredential: !!r.vault_ref },
+    });
+    return {
+      provider,
+      killSwitch: engage,
+      vendorSteps: [
+        'Revoke the key in the vendor console NOW (a human step: this platform cannot do it).',
+        ...(engage
+          ? [
+              'Lift the kill switch only after a replacement key is saved, tested and the incident is closed.',
+            ]
+          : []),
+      ],
+    };
   }
 
   /** Removes the stored key and the reference; the provider is disabled (it cannot run without a credential). */

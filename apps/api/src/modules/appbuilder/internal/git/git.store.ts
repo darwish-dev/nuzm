@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { executionGateway as eg } from '@nuzm/domain';
 import { checkPath } from '../sandbox/paths';
 
 /**
@@ -46,6 +47,13 @@ function run(
   extraEnv: Record<string, string> = {},
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
+    // R5 (Master decision): git runs as a host process; it needs NODE_ENV != production and the explicit opt-in. No origin rule: only git PLUMBING runs, never project code.
+    try {
+      eg.assertHostProcessAllowed('git-store');
+    } catch (e) {
+      reject(e);
+      return;
+    }
     const home = process.env.TMPDIR ?? tmpdir();
     const child = spawn(
       'git',
@@ -107,6 +115,8 @@ export class GitStore {
     mkdirSync(root, { recursive: true });
   }
   static temp(): { store: GitStore; cleanup: () => void } {
+    // test helper: the template/unit suites that use a throw-away store carry the explicit host-process opt-in with them
+    process.env.NUZM_LOCAL_DEV_EXEC ??= '1';
     const root = mkdtempSync(join(tmpdir(), 'nuzm-git-'));
     return {
       store: new GitStore(root),

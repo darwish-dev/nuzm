@@ -1,5 +1,6 @@
 import { createEnv, ORG_A, ORG_B, SEED_USER, type TestEnv } from '@nuzm/platform/testing';
 import { ChangeService } from '../changes/change.service';
+import { executionGateway as eg } from '@nuzm/domain';
 import { GitStore } from '../git/git.store';
 import {
   MemoryArtifactStore,
@@ -79,7 +80,8 @@ export async function setupBuildEnv(o: { runtime?: SandboxRuntime } = {}): Promi
     ALLOW,
     orgBudget,
     canaries,
-    DEFAULT_SANDBOX_CONFIG,
+    // template tests that use the host runner must name their origin explicitly (R5); real runtimes ignore it
+    { ...DEFAULT_SANDBOX_CONFIG, hostOrigin: eg.templateOrigin('build-harness-template') },
     () => clock.now,
   );
   const changes = new ChangeService(env.app, sink, projects, git.store, canaries);

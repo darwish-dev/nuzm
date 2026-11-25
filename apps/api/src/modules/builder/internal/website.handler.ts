@@ -15,7 +15,9 @@ import { ProblemException } from '../../../common/errors';
 import type { RunContext, RunKindHandler } from '../../ai';
 import { assembleGenerated, type PageResult } from './assemble';
 import { DESIGN_RULES, checkPageResult, sectionGuide } from './page-guide';
+import type { VersionArtifactService } from './artifact.service';
 import type { ProjectService } from './project.service';
+import { repairFindings } from './qa/runner';
 
 const INSTR_ARCH = WEBSITE_ARCHITECTURE;
 const INSTR_PAGE = websitePage(sectionGuide(), DESIGN_RULES);
@@ -25,7 +27,10 @@ export class WebsiteRunHandler implements RunKindHandler {
   readonly kind = 'website';
   readonly toolKind = 'website' as const;
   readonly requiresProject = true;
-  constructor(private readonly projects: ProjectService) {}
+  constructor(
+    private readonly projects: ProjectService,
+    private readonly artifacts?: VersionArtifactService,
+  ) {}
   validateInput(input: Record<string, unknown>): void {
     if (
       input.requirementsArtifactId !== undefined &&
@@ -188,12 +193,32 @@ export class WebsiteRunHandler implements RunKindHandler {
       userId: ctx.userId,
     });
     await ctx.emit('version_created', { versionId: v.versionId, seq: v.seq, buildMs: v.buildMs });
+    // Quality gates over the files that were just stored (P3-S04). Reporting only: the version already exists and the run's outcome does not depend on it, so the offline
+    // pipeline behaves as before; the repair loop (P3-S03) and the publish step read the same report through `VersionArtifactService.qa`. axe needs a DOM and several
+    // seconds, so it runs in the QA CLI/CI, not inside a run.
+    let qa: Record<string, unknown> | undefined;
+    if (this.artifacts) {
+      try {
+        const r = await this.artifacts.qa(ctx.orgId, projectId, v.versionId, { axe: 'off' });
+        qa = {
+          passed: r.report.passed,
+          errors: r.report.counts.errors,
+          warnings: r.report.counts.warnings,
+          artifactHash: r.report.rootHash,
+          failing: repairFindings(r.report, 10).map((f) => f.code),
+        };
+        await ctx.emit('qa_report', qa);
+      } catch {
+        await ctx.emit('qa_unavailable', { versionId: v.versionId });
+      }
+    }
     return ctx.succeed({
       projectId,
       versionId: v.versionId,
       seq: v.seq,
       siteModelArtifactId: siteArtifact,
       pages: arch.siteMap.length,
+      ...(qa ? { qa } : {}),
     });
   }
 }

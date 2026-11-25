@@ -1,0 +1,4 @@
+Resolving dependencies...
+The current Dart SDK version is 3.9.2.
+
+Because app depends on awesome_pkg >=4.0.0 which requires SDK version >=3.10.0 <4.0.0, version solving failed.

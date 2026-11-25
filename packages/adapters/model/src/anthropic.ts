@@ -9,6 +9,7 @@ import {
   type CompleteResponse,
   type ContentBlock,
   type DataTerms,
+  type DiscoveredModel,
   type ModelAdapter,
   type ModelInfo,
   type ModelMessage,
@@ -18,6 +19,7 @@ import {
   type Usage,
 } from './types';
 import { allowedToolCalls, assertToolCalls, assertToolRequest } from './tools';
+import { parseRetryAfterMs } from './resilience';
 
 /**
  * Claude (Anthropic Messages API) behind the `ModelAdapter` contract (docs/09 §7), written from the provider's official documentation (docs/adapters/anthropic.md)
@@ -82,6 +84,8 @@ export interface ClaudeContentBlock {
   input?: unknown;
 }
 export interface ClaudeMessage {
+  /** the SDK exposes the response's `request-id` header here */
+  _request_id?: string | null;
   content: ClaudeContentBlock[];
   stop_reason: string | null;
   usage: {
@@ -98,7 +102,17 @@ export interface ClaudeStreamEvent {
   content_block?: { type?: string; id?: string; name?: string };
   delta?: { type?: string; text?: string; partial_json?: string };
 }
+export interface ClaudeModelListing {
+  data: { id: string; display_name?: string | null; created_at?: string | null }[];
+}
 export interface ClaudeClient {
+  /** optional: only model discovery uses it */
+  models?: {
+    list(
+      params?: Record<string, unknown>,
+      opts?: { signal?: AbortSignal },
+    ): Promise<ClaudeModelListing>;
+  };
   messages: {
     create(
       params: Record<string, unknown>,
@@ -134,6 +148,8 @@ const WIRE_TOOL_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const ERR = {
   timeout: 'the model did not answer in time',
   rate_limited: 'the model provider is limiting requests',
+  spend_limit:
+    'the model provider spending limit is reached (raise it in the vendor console, or wait for the next billing month)',
   unavailable: 'the model provider is unavailable',
   content_filtered: 'the model provider declined the request',
   invalid_request: 'the model provider rejected the request',
@@ -166,6 +182,35 @@ export class AnthropicModelAdapter implements ModelAdapter {
 
   models(): ModelInfo[] {
     return modelsFor(this.v11);
+  }
+
+  /**
+   * Model discovery (`GET /v1/models`, read-only, no prompt, nothing billed). Behind the same live gate and key rules as a call: closed gate = nothing leaves the process.
+   * One bounded page (100); ids are sanitised, display names clipped. NOT live-verified: the shape is the SDK's, exercised only against a stub.
+   */
+  async discoverModels(ctx: CallContext): Promise<DiscoveredModel[]> {
+    if (ctx.signal?.aborted) throw new ModelAdapterError('aborted', ERR.aborted);
+    this.assertLive();
+    const client = await this.client();
+    if (!client.models)
+      throw new ModelAdapterError('unavailable', 'model listing is not available', false);
+    try {
+      const page = await client.models.list({ limit: 100 }, { signal: ctx.signal });
+      const out: DiscoveredModel[] = [];
+      for (const m of page.data.slice(0, 100)) {
+        if (typeof m.id !== 'string' || !/^[A-Za-z0-9._:-]{1,128}$/.test(m.id)) continue;
+        out.push({
+          modelId: m.id,
+          ...(typeof m.display_name === 'string'
+            ? { displayName: m.display_name.slice(0, 120) }
+            : {}),
+          ...(typeof m.created_at === 'string' ? { createdAt: m.created_at.slice(0, 40) } : {}),
+        });
+      }
+      return out;
+    } catch (e) {
+      throw this.mapError(e, ctx.signal);
+    }
   }
 
   tokenCount(_model: string, messages: ModelMessage[]): number {
@@ -232,7 +277,12 @@ export class AnthropicModelAdapter implements ModelAdapter {
       }
       const final = await s.finalMessage();
       const r = this.response(req.model, final, req);
-      yield { done: true, finishReason: r.finishReason, usage: r.usage };
+      yield {
+        done: true,
+        finishReason: r.finishReason,
+        usage: r.usage,
+        ...(r.requestId ? { requestId: r.requestId } : {}),
+      };
     } catch (e) {
       throw this.mapError(e, ctx.signal);
     } finally {
@@ -424,6 +474,16 @@ export class AnthropicModelAdapter implements ModelAdapter {
   }
 
   private response(model: string, msg: ClaudeMessage, req?: CompleteRequest): CompleteResponse {
+    const r = this.responseCore(model, msg, req);
+    // only a well-formed vendor request id is passed on (it ends up in evidence files): anything else is dropped
+    const rid =
+      typeof msg._request_id === 'string' && /^req_[A-Za-z0-9_-]{4,100}$/.test(msg._request_id)
+        ? msg._request_id
+        : null;
+    return rid ? { ...r, requestId: rid } : r;
+  }
+
+  private responseCore(model: string, msg: ClaudeMessage, req?: CompleteRequest): CompleteResponse {
     const text = msg.content
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')
@@ -485,8 +545,15 @@ export class AnthropicModelAdapter implements ModelAdapter {
       return new ModelAdapterError('aborted', ERR.aborted);
     if (e instanceof Anthropic.APIConnectionTimeoutError)
       return new ModelAdapterError('timeout', ERR.timeout);
+    // the vendor's SPENDING limit is not a rate limit: it lifts only at the next billing month or when the owner raises it, so retrying (or falling back and coming back) is pointless
+    if (isSpendLimitError(e)) return new ModelAdapterError('rate_limited', ERR.spend_limit, false);
     if (e instanceof Anthropic.RateLimitError)
-      return new ModelAdapterError('rate_limited', ERR.rate_limited);
+      return new ModelAdapterError(
+        'rate_limited',
+        ERR.rate_limited,
+        true,
+        parseRetryAfterMs((e as { headers?: unknown }).headers),
+      );
     if (e instanceof Anthropic.APIConnectionError)
       return new ModelAdapterError('unavailable', 'could not reach the model provider (network)');
     if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError)
@@ -500,6 +567,8 @@ export class AnthropicModelAdapter implements ModelAdapter {
         return new ModelAdapterError(
           'unavailable',
           `the model provider answered with an error (HTTP ${e.status})`,
+          true,
+          parseRetryAfterMs((e as { headers?: unknown }).headers),
         ); // includes 529 overloaded
       return new ModelAdapterError(
         'invalid_request',
@@ -512,4 +581,23 @@ export class AnthropicModelAdapter implements ModelAdapter {
       `unexpected error in the model adapter (${e instanceof Error ? e.name : 'unknown'})`,
     );
   }
+}
+
+/**
+ * The vendor documents two ways a spend limit shows up (read 2026-11-24, platform.claude.com/docs/en/api/rate-limits and manage-claude/workspaces): the tier cap answers HTTP 429
+ * `rate_limit_error` with `details.error_code = "enforced_spend_limit_reached"` and no retry-after; an owner-set organization or workspace limit answers HTTP 400
+ * `invalid_request_error` whose message starts "You have reached your specified". Only those documented shapes are recognised; anything else keeps its ordinary mapping.
+ */
+export function isSpendLimitError(e: unknown): boolean {
+  const x = e as { status?: unknown; error?: unknown };
+  const body = (x?.error ?? {}) as {
+    error?: { message?: unknown; details?: { error_code?: unknown } };
+  };
+  if (x?.status === 429) return body.error?.details?.error_code === 'enforced_spend_limit_reached';
+  if (x?.status === 400)
+    return (
+      typeof body.error?.message === 'string' &&
+      /^You have reached your specified (workspace )?API usage limits/.test(body.error.message)
+    );
+  return false;
 }

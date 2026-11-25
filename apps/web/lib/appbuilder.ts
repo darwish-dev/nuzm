@@ -4,6 +4,26 @@ import type { Schemas } from '@nuzm/sdk';
 import { problemOf, type ProblemInfo, type Tone } from './data';
 
 export const APP_BUILDER_FLAG = 'app_builder.enabled';
+/** the AI capability the builder API is gated on (`AiEnabledGuard` answers 404 for every builder route while it is off) */
+export const AI_FLAG = 'ai.enabled';
+
+const flagOn = (flags: unknown, key: string): boolean => {
+  const v = (flags as Record<string, unknown> | null | undefined)?.[key];
+  return (
+    v === true ||
+    (typeof v === 'object' && v !== null && (v as { enabled?: unknown }).enabled === true)
+  );
+};
+
+/**
+ * Which capability an organization lacks for the builder screens, in the order a person would fix it: the app builder itself, then the AI capability the builder API also requires
+ * (DEFECT-20d: the gate used to look only at the first and let the API's 404 say "app builder not enabled" for the second). `null`: both are on.
+ */
+export function missingBuilderCapability(flags: unknown): 'app_builder' | 'ai' | null {
+  if (!flagOn(flags, APP_BUILDER_FLAG)) return 'app_builder';
+  if (!flagOn(flags, AI_FLAG)) return 'ai';
+  return null;
+}
 
 /** Ceilings of a run (M10 §9, PROPOSED limits): shown as limits, enforced by the API before every model call. */
 export const CEILINGS = {

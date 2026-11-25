@@ -1,0 +1,4 @@
+xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+		{ platform:iOS Simulator, name:iPhone 15 }
+	Available destinations for the "Runner" scheme:
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device }

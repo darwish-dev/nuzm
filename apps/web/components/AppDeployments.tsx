@@ -41,6 +41,8 @@ export interface AppDeployment {
   migrations?: { version: number; destructive: boolean }[];
   rollbackOf?: string | null;
   previousDeploymentId?: string | null;
+  /** present when the API says the publish path is the local stand-in */
+  simulated?: boolean;
   createdAt: string;
   finishedAt?: string | null;
   durationMs?: number | null;
@@ -58,6 +60,20 @@ interface Needs {
 }
 
 const OTHER = '__other';
+
+/**
+ * A deployment made through the local in-memory stand-in is SIMULATED: nothing reached a real hosting node (HG-05/HG-06). The stand-in's URLs end in `.invalid` (the
+ * reserved, never-resolvable TLD), which is what this reads; an API `simulated` flag wins when present. A real, live-verified publisher answers `simulated: false`.
+ */
+export function isSimulatedDeployment(d: { url?: string | null; simulated?: boolean }): boolean {
+  if (typeof d.simulated === 'boolean') return d.simulated;
+  if (!d.url) return false;
+  try {
+    return new URL(d.url).hostname.toLowerCase().endsWith('.invalid');
+  } catch {
+    return false;
+  }
+}
 
 /** The refusal of a deploy/rollback call as a plain sentence in the page language (by error code, never the service's own text). */
 function Err({ locale, status, code }: { locale: Locale; status: number; code?: string }) {
@@ -115,6 +131,11 @@ function Detail({
         <Badge>{tDynamic(locale, `bld.dep.env.${d.environment}`, d.environment)}</Badge>
         {d.rollbackOf && <Badge tone="warn">{t(locale, 'bld.dep.isRollback')}</Badge>}
       </p>
+      {isSimulatedDeployment(d) && (
+        <Banner tone="warn">
+          <strong>{t(locale, 'dep.simulated.title')}</strong> {t(locale, 'dep.simulated.body')}
+        </Banner>
+      )}
       {d.state === 'failed' && (
         <Banner tone="danger">{t(locale, 'bld.dep.failed', { code: failure || '—' })}</Banner>
       )}
@@ -259,6 +280,17 @@ export function AppDeployments({
     setItems((l) =>
       l.some((x) => x.id === d.id) ? l.map((x) => (x.id === d.id ? d : x)) : [d, ...l],
     );
+  /** A release that finished may have superseded an earlier one (or been rolled back): read the list again so no row shows a stale "live". */
+  const refreshList = () =>
+    void bapi
+      .get<{ items: AppDeployment[] }>('/v1/deployments', { query: { projectId, limit: 20 } })
+      .then((r) => {
+        if (r.response.ok && r.data) setItems(r.data.items);
+      });
+  const changed = (d: AppDeployment) => {
+    upsert(d);
+    if (!isAppDeployActive(d.state)) refreshList();
+  };
   const siteName = (id?: string) => sites.find((s) => s.id === id)?.name;
 
   async function call(action: 'deploy' | 'rollback', rollbackId?: string) {
@@ -288,6 +320,13 @@ export function AppDeployments({
       setNeeds(null);
       upsert(r.data);
       setSelected(r.data.id);
+      if (action === 'rollback') {
+        // the rolled-back deployment changed state too: read the list again so no row shows a stale "live"
+        const l = await bapi.get<{ items: AppDeployment[] }>('/v1/deployments', {
+          query: { projectId, limit: 20 },
+        });
+        if (l.response.ok && l.data) setItems(l.data.items);
+      }
       return;
     }
     const p = problemOf(r);
@@ -496,7 +535,7 @@ export function AppDeployments({
           ]}
         />
       )}
-      {sel && <Detail key={sel.id} locale={locale} d={sel} onChanged={upsert} />}
+      {sel && <Detail key={sel.id} locale={locale} d={sel} onChanged={changed} />}
 
       <ConfirmDialog
         open={confirmRb !== null}

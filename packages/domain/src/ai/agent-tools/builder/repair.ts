@@ -27,10 +27,32 @@ export interface RepairInput {
   diagnostics: readonly Diagnostic[];
   /** what the previous proposal was refused for, when it was */
   rejected: readonly PreviewError[];
+  /** earlier repair rounds of this run (what was tried and what it did), so a strategy does not repeat itself (P3-S03) */
+  history?: readonly RepairAttempt[];
+}
+/** one earlier repair round as a strategy sees it: fixed vocabulary, never log or file text */
+export interface RepairAttempt {
+  round: number;
+  classes: readonly string[];
+  strategy: string;
+  note: string;
+  /** what the rebuild showed: `resolved` (the classes are gone), `partial`, `unchanged`, `worse`, or `pending` (not rebuilt yet) */
+  outcome: 'resolved' | 'partial' | 'unchanged' | 'worse' | 'pending';
 }
 export interface RepairProposal {
   ops: FileOp[];
   note?: string;
+  /** how the proposal was made, for the repair metrics (P3-S03); absent for the legacy strategies */
+  meta?: {
+    strategy: string;
+    classes: readonly string[];
+    /** the classes this proposal actually addresses (a deterministic fixer addresses its own class only); defaults to `classes` */
+    targeted?: readonly string[];
+    /** model turns used (0 = deterministic) */
+    asks: number;
+    /** guard violations that refused earlier proposals of this round */
+    refused: readonly string[];
+  };
 }
 export interface RepairStrategy {
   propose(input: RepairInput): Promise<RepairProposal | null>;

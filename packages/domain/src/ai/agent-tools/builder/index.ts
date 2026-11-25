@@ -11,3 +11,4 @@ export * from './components';
 export * from './sha256';
 export * from './execution-build-port';
 export * as lifecycle from './lifecycle';
+export * from './autorepair';

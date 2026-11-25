@@ -137,6 +137,10 @@ export class MemoryEnv implements LifecycleEnv {
   approvalStatus: 'pending' | 'approved' | 'rejected' | 'expired' = 'pending';
   approvalsRequested: Record<string, unknown>[] = [];
   usage: Usage = {};
+  repairReport?: LifecycleEnv['repairReport'];
+  takeRepairTokens?: LifecycleEnv['takeRepairTokens'];
+  generators?: LifecycleEnv['generators'];
+  stepEstimates?: LifecycleEnv['stepEstimates'];
   async head() {
     return { versionId: this.versionId, files: new Map(this.files) };
   }

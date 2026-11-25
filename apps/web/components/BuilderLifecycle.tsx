@@ -65,7 +65,26 @@ export interface LifecycleStepView {
   summary: string | null;
   code: string | null;
 }
+/** one automatic repair round, as the `lifecycle_repair` events describe it (class names and counts only: never log or file text) */
+export interface RepairRoundView {
+  round: number;
+  classes: string[];
+  strategy: 'deterministic' | 'model' | 'legacy' | 'none';
+  outcome: 'pending' | 'resolved' | 'partial' | 'unchanged' | 'worse' | 'gave_up';
+  asks: number;
+  tokens: number;
+  refused: number;
+}
+export interface EvidenceView {
+  claim: 'SIMULATED' | 'MIXED' | 'REAL_COMPONENTS';
+  models: string[];
+  tokens: { in: number; out: number };
+  credits: string;
+  reconciled: boolean;
+}
 export interface LifecycleView {
+  repairs: RepairRoundView[];
+  evidence: EvidenceView | null;
   status: RunStatus;
   percent: number;
   done: number;
@@ -100,6 +119,8 @@ export function viewFromEvents(
     ]),
   );
   const v: LifecycleView = {
+    repairs: [],
+    evidence: null,
     status: 'running',
     percent: 0,
     done: 0,
@@ -166,6 +187,49 @@ export function viewFromEvents(
       }
       progress(d.progress);
       if (d.decision === 'approved') s.status = 'succeeded';
+    } else if (e.type === 'lifecycle_repair' && num(d.round) > 0) {
+      const round = num(d.round);
+      let r = v.repairs.find((x) => x.round === round);
+      if (!r) {
+        r = {
+          round,
+          classes: [],
+          strategy: 'none',
+          outcome: 'pending',
+          asks: 0,
+          tokens: 0,
+          refused: 0,
+        };
+        v.repairs.push(r);
+      }
+      if (Array.isArray(d.classes))
+        r.classes = d.classes.filter((c): c is string => typeof c === 'string').slice(0, 12);
+      if (typeof d.strategy === 'string')
+        r.strategy = d.strategy.startsWith('deterministic')
+          ? 'deterministic'
+          : d.strategy === 'model' || d.strategy === 'legacy'
+            ? d.strategy
+            : 'none';
+      if (
+        typeof d.outcome === 'string' &&
+        ['pending', 'resolved', 'partial', 'unchanged', 'worse', 'gave_up'].includes(d.outcome)
+      )
+        r.outcome = d.outcome as RepairRoundView['outcome'];
+      if (d.asks !== undefined) r.asks = num(d.asks);
+      if (d.tokens !== undefined) r.tokens = num(d.tokens);
+      if (Array.isArray(d.refused)) r.refused = d.refused.length;
+    } else if (e.type === 'lifecycle_evidence') {
+      const claim = d.claim === 'MIXED' || d.claim === 'REAL_COMPONENTS' ? d.claim : 'SIMULATED';
+      const tk = (d.tokens ?? {}) as { in?: unknown; out?: unknown };
+      v.evidence = {
+        claim,
+        models: Array.isArray(d.models)
+          ? d.models.filter((m): m is string => typeof m === 'string').slice(0, 5)
+          : [],
+        tokens: { in: num(tk.in), out: num(tk.out) },
+        credits: typeof d.credits === 'string' ? d.credits : '0',
+        reconciled: d.reconciled === true,
+      };
     } else if (e.type === 'lifecycle_finished') {
       const st = d.status;
       if (st === 'succeeded' || st === 'failed' || st === 'cancelled' || st === 'waiting_approval')
@@ -201,6 +265,11 @@ export function failureKey(code: string | null): string {
     'repair_exhausted',
     'no_progress',
     'strategy_gave_up',
+    'real_path_approval_missing',
+    'model_generation_off',
+    'model_unavailable',
+    'real_runtime_unavailable',
+    'real_runtime_simulated',
     'build_unavailable',
     'build_refused',
     'build_timeout',
@@ -437,6 +506,54 @@ export function LifecyclePanel({
           </li>
         ))}
       </ol>
+
+      <h3 className="nz-h3">{t(locale, 'bt.lc.repair.title')}</h3>
+      {view.repairs.length === 0 ? (
+        <p className="nz-muted">{t(locale, 'bt.lc.repair.none')}</p>
+      ) : (
+        <ol className="nz-list">
+          {view.repairs.map((r) => (
+            <li key={r.round} data-outcome={r.outcome}>
+              <strong>{t(locale, 'bt.lc.repair.round', { n: r.round })}</strong> ·{' '}
+              {r.classes.map((c) => dyn(locale, `bt.lc.class.${c}`)).join('، ')} ·{' '}
+              {dyn(locale, `bt.lc.repair.strategy.${r.strategy}`)} ·{' '}
+              <Badge
+                {...(r.outcome === 'resolved'
+                  ? { tone: 'success' as const }
+                  : r.outcome === 'gave_up' || r.outcome === 'worse'
+                    ? { tone: 'danger' as const }
+                    : {})}
+              >
+                {dyn(locale, `bt.lc.repair.out.${r.outcome}`)}
+              </Badge>
+              {r.refused > 0 && <> · {t(locale, 'bt.lc.repair.refused', { n: r.refused })}</>}
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {view.evidence && (
+        <div className="nz-card">
+          <h3 className="nz-h3">{t(locale, 'bt.lc.evidence.title')}</h3>
+          <Banner tone="warn">{dyn(locale, `bt.lc.evidence.${view.evidence.claim}`)}</Banner>
+          <p>
+            {t(locale, 'bt.lc.evidence.models')}:{' '}
+            {view.evidence.models.length === 0 ? (
+              t(locale, 'bt.lc.evidence.models.none')
+            ) : (
+              <Ltr>{view.evidence.models.join(', ')}</Ltr>
+            )}
+          </p>
+          <p className="nz-muted" role="status">
+            {t(
+              locale,
+              view.evidence.reconciled
+                ? 'bt.lc.evidence.reconciled'
+                : 'bt.lc.evidence.unreconciled',
+            )}
+          </p>
+        </div>
+      )}
 
       {view.status === 'failed' || view.failureCode
         ? view.status === 'failed' && (

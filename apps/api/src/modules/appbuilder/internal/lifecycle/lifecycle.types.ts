@@ -50,6 +50,10 @@ export interface LifecycleArtifacts {
   repairRef?: string;
   repairNote?: string;
   repairedVersions?: string[];
+  /** what each repair round did and achieved, per error class (P3-S03); bounded */
+  repairRecords?: builderTools.RepairRoundRecord[];
+  /** every build/test execution of the run (profile, status, duration, origin), bounded */
+  builds?: builderTools.lifecycle.BuildLogEntry[];
   rejected?: { at: string; code: string; message: string }[];
   preview?: { files: number; bytes: number; entry: string | null; previewUrl: null };
   deployment?: builderTools.lifecycle.DeploymentPlan;
@@ -136,6 +140,21 @@ export interface LifecycleEnv {
   deployApprovalStatus(id: string): Promise<'pending' | 'approved' | 'rejected' | 'expired'>;
   /** tokens and credits the model steps used since the last call (read-and-reset) */
   takeUsage(): Usage;
+  /** tokens the repair strategy's model turns used since the last call (read-and-reset); absent = unknown (0) */
+  takeRepairTokens?(): number;
+  /** what the repair strategy did in its last call (also when it gave up), for the round's record; absent for the legacy strategies */
+  repairReport?(): {
+    strategy: string;
+    classes: readonly string[];
+    asks: number;
+    refused: readonly string[];
+  } | null;
+  /** generators of product types supplied by other tracks (website, full-stack, mobile); the default `generator` serves every other type */
+  generators?: ReadonlyMap<string, FileGenerator>;
+  /** per-step overrides of the tokens a model step reserves before it calls anything (the repair engine may use several turns) */
+  stepEstimates?: Partial<Record<StepId, number>>;
+  /** token budget of the data part of one generation message (default 6000) */
+  generationContextTokens?: number;
 }
 
 export class StepFailure extends Error {

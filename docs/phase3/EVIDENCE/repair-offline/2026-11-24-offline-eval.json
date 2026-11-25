@@ -1,0 +1,367 @@
+{
+  "schema": "nuzm.repair-offline-eval/1",
+  "session": "P3-S03",
+  "claim": "SIMULATED",
+  "label": "SIMULATED: the model is a scripted stand-in (developer-written replies); the verifier for typescript cases is the REAL TypeScript compiler run in memory (no runtime, nothing executed). This measures the repair ENGINE (diagnosis, class routing, deterministic fixers, guards, rounds, bookkeeping), not model quality and not a real build.",
+  "components": {
+    "compiler": "typescript 5.9.3",
+    "recordedTools": [
+      "tsc 5.9.3",
+      "vitest 5.1.0 darwin-x64 node-v22.15.0",
+      "esbuild 0.28.2",
+      "Dart SDK version: 3.9.2 (stable) (Wed Aug 27 03:49:40 2025 -0700) on \"macos_x64\""
+    ],
+    "model": "scripted (none called)",
+    "runtime": "none (in-memory compile twin, origin MOCK)"
+  },
+  "typescriptCases": {
+    "cases": 10,
+    "green": 10,
+    "greenRateBp": 10000,
+    "byClass": {
+      "type_mismatch": {
+        "attempted": 2,
+        "resolved": 2,
+        "rateBp": 10000,
+        "cases": 2
+      },
+      "undefined_name": {
+        "attempted": 2,
+        "resolved": 2,
+        "rateBp": 10000,
+        "cases": 2
+      },
+      "missing_module": {
+        "attempted": 1,
+        "resolved": 1,
+        "rateBp": 10000,
+        "cases": 1
+      },
+      "missing_export": {
+        "attempted": 1,
+        "resolved": 1,
+        "rateBp": 10000,
+        "cases": 1
+      },
+      "unused_symbol": {
+        "attempted": 1,
+        "resolved": 1,
+        "rateBp": 10000,
+        "cases": 1
+      },
+      "call_signature": {
+        "attempted": 1,
+        "resolved": 1,
+        "rateBp": 10000,
+        "cases": 1
+      },
+      "null_safety": {
+        "attempted": 1,
+        "resolved": 1,
+        "rateBp": 10000,
+        "cases": 1
+      },
+      "missing_property": {
+        "attempted": 1,
+        "resolved": 1,
+        "rateBp": 10000,
+        "cases": 1
+      },
+      "syntax_error": {
+        "attempted": 1,
+        "resolved": 1,
+        "rateBp": 10000,
+        "cases": 1
+      }
+    },
+    "rounds": {
+      "total": 11,
+      "mean10": 11
+    },
+    "tokens": 0,
+    "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+    "strategyKind": "engine+scripted-model"
+  },
+  "predicateCases": {
+    "cases": 1,
+    "green": 1,
+    "greenRateBp": 10000,
+    "byClass": {
+      "test_assertion": {
+        "attempted": 1,
+        "resolved": 1,
+        "rateBp": 10000,
+        "cases": 1
+      }
+    },
+    "rounds": {
+      "total": 1,
+      "mean10": 10
+    },
+    "tokens": 0,
+    "verifier": "static-predicate (SIMULATED: no code executed)",
+    "strategyKind": "engine+scripted-model",
+    "note": "verified by a static predicate: not a build, not a test run"
+  },
+  "cases": [
+    {
+      "id": "ts-type-mismatch",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "type_mismatch"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "model",
+          "before": {
+            "type_mismatch": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 1,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-missing-import",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "undefined_name"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "deterministic:add_missing_import",
+          "before": {
+            "undefined_name": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 0,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-wrong-relative-path",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "missing_module"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "deterministic:rewrite_relative_import",
+          "before": {
+            "missing_module": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 0,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-declared-not-exported",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "missing_export",
+        "unused_symbol"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "deterministic:export_declared_symbol",
+          "before": {
+            "missing_export": 1,
+            "unused_symbol": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 0,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-unused-import",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "unused_symbol"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "deterministic:remove_unused_import",
+          "before": {
+            "unused_symbol": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 0,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-call-signature",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "call_signature"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "model",
+          "before": {
+            "call_signature": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 1,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-possibly-undefined",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "null_safety"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "model",
+          "before": {
+            "null_safety": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 1,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-missing-property",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "missing_property"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "model",
+          "before": {
+            "missing_property": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 1,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-syntax-error",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "syntax_error"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "model",
+          "before": {
+            "syntax_error": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 1,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "ts-two-classes",
+      "verifier": "typescript-in-memory (typescript 5.9.3, real compiler, nothing executed)",
+      "firstClasses": [
+        "undefined_name",
+        "type_mismatch"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "deterministic:add_missing_import",
+          "before": {
+            "undefined_name": 1,
+            "type_mismatch": 1
+          },
+          "after": {
+            "type_mismatch": 1
+          },
+          "outcome": "partial",
+          "asks": 0,
+          "refused": []
+        },
+        {
+          "round": 2,
+          "strategy": "model",
+          "before": {
+            "type_mismatch": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 1,
+          "refused": []
+        }
+      ]
+    },
+    {
+      "id": "test-assertion",
+      "verifier": "static-predicate (SIMULATED: no code executed)",
+      "firstClasses": [
+        "test_assertion"
+      ],
+      "green": true,
+      "stop": "green",
+      "rounds": [
+        {
+          "round": 1,
+          "strategy": "model",
+          "before": {
+            "test_assertion": 1
+          },
+          "after": {},
+          "outcome": "resolved",
+          "asks": 1,
+          "refused": []
+        }
+      ]
+    }
+  ]
+}

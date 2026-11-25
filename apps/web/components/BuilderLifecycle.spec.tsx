@@ -320,3 +320,97 @@ describe.each(LOCALES)('LifecycleStart (%s)', (locale) => {
     expect(txt(screen.getByRole('alert'))).toContain('boom');
   });
 });
+
+describe('repair rounds and the evidence record (P3-S03)', () => {
+  const repairEvents: Ev[] = [
+    ...CLEAN,
+    {
+      type: 'lifecycle_repair',
+      data: {
+        round: 1,
+        classes: ['undefined_name', 'type_mismatch'],
+        strategy: 'deterministic:add_missing_import',
+        outcome: 'pending',
+        asks: 0,
+        tokens: 0,
+        refused: [],
+      },
+    },
+    {
+      type: 'lifecycle_repair',
+      data: { round: 1, outcome: 'partial', after: { type_mismatch: 1 } },
+    },
+    {
+      type: 'lifecycle_repair',
+      data: {
+        round: 2,
+        classes: ['type_mismatch'],
+        strategy: 'model',
+        outcome: 'pending',
+        asks: 2,
+        tokens: 900,
+        refused: ['test_skipped'],
+      },
+    },
+    { type: 'lifecycle_repair', data: { round: 2, outcome: 'resolved' } },
+    {
+      type: 'lifecycle_evidence',
+      data: {
+        claim: 'SIMULATED',
+        models: ['mock-a/m1'],
+        tokens: { in: 700, out: 300 },
+        credits: '9',
+        reconciled: true,
+      },
+    },
+  ];
+  it('rebuilds the repair table and the evidence summary from events; unknown values collapse to safe ones', () => {
+    const v = viewFromEvents(repairEvents)!;
+    expect(v.repairs).toHaveLength(2);
+    expect(v.repairs[0]).toMatchObject({
+      strategy: 'deterministic',
+      outcome: 'partial',
+      classes: ['undefined_name', 'type_mismatch'],
+    });
+    expect(v.repairs[1]).toMatchObject({
+      strategy: 'model',
+      outcome: 'resolved',
+      refused: 1,
+      asks: 2,
+    });
+    expect(v.evidence).toMatchObject({
+      claim: 'SIMULATED',
+      reconciled: true,
+      models: ['mock-a/m1'],
+    });
+    const hostile = viewFromEvents([
+      ...CLEAN,
+      {
+        type: 'lifecycle_repair',
+        data: { round: 1, strategy: '<b>x</b>', outcome: 'evil', classes: ['<script>'] },
+      },
+      { type: 'lifecycle_evidence', data: { claim: 'LIVE-VERIFIED' } },
+    ])!;
+    expect(hostile.repairs[0]).toMatchObject({ strategy: 'none', outcome: 'pending' });
+    expect(hostile.evidence?.claim).toBe('SIMULATED');
+  });
+  it.each(LOCALES)(
+    'renders both in %s as text, with the claim banner and no raw class names',
+    (locale) => {
+      render(
+        <LifecyclePanel
+          locale={locale}
+          state="ready"
+          view={viewFromEvents(repairEvents)!}
+          simulated
+        />,
+      );
+      expect(screen.getByText(t(locale, 'bt.lc.repair.title'))).toBeTruthy();
+      expect(document.body.textContent).toContain(t(locale, 'bt.lc.class.undefined_name'));
+      expect(document.body.textContent).not.toContain('undefined_name');
+      expect(document.body.textContent).toContain(t(locale, 'bt.lc.evidence.SIMULATED'));
+      expect(document.body.textContent).toContain(t(locale, 'bt.lc.evidence.reconciled'));
+      expect(document.body.textContent).toContain(t(locale, 'bt.lc.repair.out.resolved'));
+    },
+  );
+});

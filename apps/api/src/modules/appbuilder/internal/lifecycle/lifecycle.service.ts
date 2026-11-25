@@ -13,7 +13,20 @@ import type { ProjectsPort } from '../ports/m09';
 import { ModelFileGenerator, SkeletonGenerator } from './file-generators';
 import { LifecycleRunner } from './lifecycle.runner';
 import { RunContextHost } from './lifecycle.host';
-import type { ExecutionBudgetPort, FileOp, LifecycleEnv, Usage } from './lifecycle.types';
+import {
+  BUILDER_LIFECYCLE_REAL_PATH_FLAG,
+  BUILDER_LIFECYCLE_REPAIR_ENGINE_FLAG,
+  decideRealPath,
+  flagValue,
+} from './lifecycle.flags';
+import { readRunUsage, reconcile } from './reconcile';
+import type {
+  ExecutionBudgetPort,
+  FileGenerator,
+  FileOp,
+  LifecycleEnv,
+  Usage,
+} from './lifecycle.types';
 
 const T = builderTools;
 
@@ -36,6 +49,8 @@ export interface LifecycleDeps {
   buildPort: (orgId: string, runId: string) => builderTools.BuildPort | null;
   /** null where no model gateway is wired */
   gateway: GatewayService | null;
+  /** generators of product types supplied by other tracks (website, full-stack, mobile), keyed by product type; the default generator serves every other type */
+  generators?: ReadonlyMap<string, FileGenerator>;
 }
 
 const BUDGET_CODES = new Set(['tokens_exceeded', 'credits_exceeded']);
@@ -76,9 +91,37 @@ export class BuilderLifecycleService {
       { db: this.d.db, audit: this.d.audit, store: this.d.store },
       permissions,
     );
-    const env = await this.env(ctx);
+    const port = (this.buildPortOverride ?? this.d.buildPort)(ctx.orgId, ctx.run.id);
+    // the REAL path (default off): every missing piece is a refusal with its own code, never a silent fallback to placeholders or the mock
+    const realFlag = await flagValue(this.d.db, ctx.orgId, BUILDER_LIFECYCLE_REAL_PATH_FLAG);
+    const realRequested =
+      realFlag === true ||
+      (typeof realFlag === 'object' &&
+        realFlag !== null &&
+        (realFlag as { enabled?: unknown }).enabled === true);
+    if (realRequested) {
+      const decision = decideRealPath({
+        flag: realFlag,
+        modelFlagOn: await flagOn(this.d.db, ctx.orgId, BUILDER_LIFECYCLE_MODEL_FLAG),
+        gatewayPresent: this.d.gateway !== null,
+        buildPort: port ? { origin: port.origin } : null,
+      });
+      await host.audit(
+        'builder.lifecycle.real_path_decided',
+        decision.ok ? 'success' : 'failure',
+        decision.ok ? { gates: decision.gates } : { code: decision.code, missing: decision.detail },
+      );
+      if (!decision.ok) {
+        await this.d.store.transition(ctx.orgId, ctx.run.id, 'failed', decision.code);
+        throw new Error(`run ended: ${decision.code}`);
+      }
+    }
+    const env = await this.env(ctx, port);
     const out = await new LifecycleRunner().run(host, env);
     const L = T.lifecycle;
+    const settledNow = out.status !== 'running';
+    const settled = settledNow ? await this.evidenceOf(ctx, host, out) : null;
+    const evidence = settled?.evidence ?? null;
     const result = {
       outcome: 'lifecycle',
       status: out.status,
@@ -93,6 +136,15 @@ export class BuilderLifecycleService {
           }
         : null,
       simulated: out.artifacts.executionOrigin !== 'REAL',
+      repair: evidence?.repair.metrics ?? null,
+      evidence: evidence
+        ? {
+            claim: evidence.claim,
+            label: evidence.label,
+            reconciliation: evidence.reconciliation,
+            artifactId: settled?.artifactId ?? null,
+          }
+        : null,
       note: 'model quality and the result of building it are NOT VERIFIED; a simulated build proves nothing about the code',
     };
     switch (out.status) {
@@ -119,7 +171,70 @@ export class BuilderLifecycleService {
     }
   }
 
-  private async env(ctx: RunContext): Promise<LifecycleEnv> {
+  /** Reads what the gateway recorded for the run, reconciles it with the lifecycle's own accounting, stores the evidence record as a run artifact and emits it. Never throws into the run. */
+  private async evidenceOf(
+    ctx: RunContext,
+    host: RunContextHost,
+    out: Awaited<ReturnType<LifecycleRunner['run']>>,
+  ): Promise<{ evidence: builderTools.lifecycle.RunEvidence; artifactId: string | null } | null> {
+    try {
+      const { usage, run, reservations } = await readRunUsage(this.d.db, ctx.orgId, ctx.run.id);
+      const rec = reconcile(out.state, usage, run, reservations);
+      const evidence = T.lifecycle.buildRunEvidence({
+        runId: ctx.run.id,
+        projectId: ctx.run.projectId!,
+        state: out.state,
+        generator: out.artifacts.generator ?? null,
+        generatedFiles: out.artifacts.generatedFiles ?? 0,
+        builds: out.artifacts.builds ?? [],
+        executionOrigin: out.artifacts.executionOrigin ?? null,
+        repairRecords: out.artifacts.repairRecords ?? [],
+        finishedAt: host.now(),
+        usage: {
+          modelRefs: usage.modelRefs,
+          tokensIn: Number(usage.tokensIn),
+          tokensOut: Number(usage.tokensOut),
+          credits: usage.credits.toString(),
+          costMinor: usage.costMinor === null ? null : usage.costMinor.toString(),
+          calls: usage.calls,
+          realProvider: usage.realProvider,
+        },
+      });
+      const artifactId = await host.storeArtifact('evaluation_report', {
+        evidence,
+        reconciliation: rec,
+      });
+      await host.audit('builder.lifecycle.reconciled', rec.ok ? 'success' : 'failure', {
+        status: out.status,
+        claim: evidence.claim,
+        failed: rec.checks.filter((c) => !c.ok).map((c) => c.name),
+      });
+      await host.emit('lifecycle_evidence', {
+        claim: evidence.claim,
+        models: evidence.model.refs,
+        tokens: evidence.tokens,
+        credits: evidence.credits,
+        repairRounds: evidence.repair.rounds,
+        reconciled: rec.ok,
+      });
+      return { evidence, artifactId };
+    } catch {
+      await host.audit('builder.lifecycle.reconciled', 'failure', {
+        status: out.status,
+        failed: ['evidence_unavailable'],
+      });
+      return null;
+    }
+  }
+
+  private async env(
+    ctx: RunContext,
+    // optional: callers (and the Phase 2 engine specs that wrap `env`) pass only the context; the port is then resolved the same way `execute` does
+    port: builderTools.BuildPort | null = (this.buildPortOverride ?? this.d.buildPort)(
+      ctx.orgId,
+      ctx.run.id,
+    ),
+  ): Promise<LifecycleEnv> {
     const { orgId } = ctx;
     const projectId = ctx.run.projectId!;
     const usage = { in: 0, out: 0, credits: 0n };
@@ -137,6 +252,7 @@ export class BuilderLifecycleService {
     const modelOn =
       this.d.gateway !== null && (await flagOn(this.d.db, orgId, BUILDER_LIFECYCLE_MODEL_FLAG));
     const fence = dataFence();
+    const engineOn = await flagOn(this.d.db, orgId, BUILDER_LIFECYCLE_REPAIR_ENGINE_FLAG);
     // a call id is stable for the same message (a resumed run asks the same thing and the gateway settles it once) and distinct for a retry of it
     const seen = new Map<string, number>();
     const complete = async (message: string, signal?: AbortSignal) => {
@@ -169,16 +285,33 @@ export class BuilderLifecycleService {
       usage.credits += BigInt(u.credits ?? '0');
     };
     const rules = new T.RuleBasedRepair();
-    const repair: builderTools.RepairStrategy = modelOn
-      ? new T.FirstOf([
-          rules,
-          T.modelRepairStrategy(fence, async (m) => {
-            const r = await complete(m);
-            onUsage(r.usage);
-            return r.text;
-          }),
-        ])
-      : rules;
+    let repairTokens = 0;
+    // the repair engine (flag `builder_lifecycle.repair_engine`): error classes, deterministic fixers first, guards on every proposal; its model turns go through the same metered gateway
+    const engine = engineOn
+      ? new T.AutoRepairStrategy({
+          fence,
+          complete: modelOn
+            ? async (m) => {
+                const r = await complete(m);
+                onUsage(r.usage);
+                repairTokens += (r.usage.tokensIn ?? 0) + (r.usage.tokensOut ?? 0);
+                return r.text;
+              }
+            : null,
+        })
+      : null;
+    const repair: builderTools.RepairStrategy = engine
+      ? new T.FirstOf([rules, engine])
+      : modelOn
+        ? new T.FirstOf([
+            rules,
+            T.modelRepairStrategy(fence, async (m) => {
+              const r = await complete(m);
+              onUsage(r.usage);
+              return r.text;
+            }),
+          ])
+        : rules;
     const headOf = async () => {
       const p = await this.d.projects.get(orgId, projectId);
       if (!p) throw new ProblemException('not_found', 'project not found');
@@ -207,7 +340,24 @@ export class BuilderLifecycleService {
         : new SkeletonGenerator(),
       repair,
       modelBacked: { file_generation: modelOn, repair: modelOn },
-      build: (this.buildPortOverride ?? this.d.buildPort)(orgId, ctx.run.id),
+      build: port,
+      ...(this.d.generators ? { generators: this.d.generators } : {}),
+      ...(engine ? { stepEstimates: { repair: 9000 } } : {}),
+      takeRepairTokens: () => {
+        const n = repairTokens;
+        repairTokens = 0;
+        return n;
+      },
+      ...(engine
+        ? {
+            repairReport: () => {
+              const l = engine.last;
+              return l
+                ? { strategy: l.strategy, classes: l.classes, asks: l.asks, refused: l.refused }
+                : null;
+            },
+          }
+        : {}),
       budget: this.d.budget,
       requestDeployApproval: async (summary) => {
         const a = await this.d.approvals.request(orgId, {

@@ -1,0 +1,26 @@
+{
+ "originalProposal": [],
+ "path traversal ../": [
+  "patches[0].path: the path has a . or .. segment"
+ ],
+ "absolute path": [
+  "patches[0].path: the path must be relative to the project"
+ ],
+ "git internals": [
+  "patches[0].path: .git is not a project path"
+ ],
+ "env file": [],
+ "secret in content": [
+  "patches[0].content: a secret pattern (aws_access_key_id) at line 1"
+ ],
+ "modify a file that does not exist": [
+  "app/missing.tsx does not exist"
+ ],
+ "add a file that already exists": [
+  "app/page.tsx already exists (use modify)"
+ ],
+ "install script in package.json": [],
+ "backslash path": [
+  "patches[0].path: backslashes are not allowed"
+ ]
+}

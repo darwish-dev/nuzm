@@ -39,7 +39,7 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
         k,
       ).toBe(true);
   });
-  it('enforces only what an owner milestone has built (M05 S17 offers/quotes and provisioning, M06 node selection and backup sink, M08 data/email placement, M11 connectors and marketplace); the rest is required, owned by its milestone and not yet built', () => {
+  it('enforces only what an owner milestone has built (M05 S17 offers/quotes and provisioning, M06 node selection and backup sink, M08 data/email placement, M10 version store, M11 connectors and marketplace); the rest is required, owned by its milestone and not yet built', () => {
     expect(
       reg.hooks
         .filter((h) => h.enforcement === 'enforced')
@@ -62,6 +62,7 @@ describe('the committed residency hook registry (AC-M04-14)', () => {
       'm10-mobile-artifacts',
       'm10-sandbox-builds',
       'm10-source-export',
+      'm10-version-store',
       'm11-connectors',
       'm11-marketplace',
     ]);

@@ -44,6 +44,10 @@ Sources: `claude/m04-compliance-46a3a9` `52cfc31c5809` (also in `integration/m03
 |---|---|---|---|
 | DL-040 | The admin template upload form cannot state provenance | NOT BUILT | Every upload from the console is `THIRD_PARTY`, so activation needs **two approvals from admins other than the uploader**. The API accepts `FIRST_PARTY` (one approval) with the publish permission. |
 | DL-041 | The project-type filter on the builder start screen is shown only to read-only members | product decision | Changed when the two console designs were reconciled (Phase 3 note). |
+| DL-042 | The AI change path policy accepts `.env` / dotenv files | OPEN, security | Found by the template validation (2026-11-26): `..`, absolute paths, `.git`, backslashes and secret patterns are refused, but a model can add `.env`. Refuse dotenv names in the proposal checks. |
+| DL-043 | A failed copy-from-template leaves an empty project | OPEN | The project row is created before the copy; a failure should remove it or mark it failed. |
+| DL-044 | Plan and run responses do not return the run id | OPEN | Clients must poll the plan to find the run. |
+| DL-045 | A failed run's error shows the raw database message to the customer | OPEN | e.g. a constraint name in `ai.runs.error.message`; map to a registry code. |
 
 ## Known data and test limits (not features)
 - Two chat messages created 2026-11-20 cannot be opened with any field key present on this machine. They are preserved unchanged.

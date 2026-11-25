@@ -31,7 +31,7 @@ Status words follow CLAUDE.md §6.
 ## 3. Verification (actual results)
 | Check | Result | Revision |
 |---|---|---|
-| `pnpm verify` (lint, types, 6,354 unit tests, build, spec, SDK, docs, secrets, ZATCA, claims, testenv) | **PASS** | `ac186dc6` |
+| `pnpm verify` (lint, types, 6,354 unit tests, build, spec, SDK, docs, secrets, ZATCA, claims, testenv) | **PASS** at the time, **corrected 2026-11-26**: the database unit tests were a Turbo cache replay; a real run failed one stale test (fixed; see [template validation report](reports/TEMPLATE-AI-VALIDATION-2026-11-26.md) §7) | `ac186dc6` |
 | Migrations from an empty database, RLS check, classification, ROPA, residency hooks | **PASS** | `ac186dc6` |
 | Integration: db 102, platform 38, worker 92, API 3,069 passed (6 skipped) | **PASS** | `ac186dc6` |
 | Browser E2E, Arabic and English: 64 files, **114 of 114**, 0 retries, 189/189 health checks | **PASS** | `ac186dc6` |

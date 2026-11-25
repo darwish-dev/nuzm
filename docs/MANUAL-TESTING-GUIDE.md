@@ -108,7 +108,8 @@ The start log then says `LIVE model calls are ALLOWED for: claude (billed)`. Wit
 | Item | State |
 |---|---|
 | Build and live preview of Claude's changes | **BLOCKED** (D-21, HG-10-02, ADR-069): next milestone |
-| A real template adaptation by Claude | **NOT VERIFIED**: needs your authorization of billed calls |
+| A real template adaptation by Claude | Run once on 2026-11-26: valid change set, saved after the label fix; an uninterrupted run is **NOT VERIFIED** ([report](reports/TEMPLATE-AI-VALIDATION-2026-11-26.md)) |
+| Template copy fails with "project not found" | your `nuzm_local` still has the platform-wide `app_builder.m09_stubs` flag from 2026-11-23; it must be off for your organization (report, defect D-3) |
 | Template upload form cannot mark a template first-party | backlog DL-040 (the local reviewer covers the second approval) |
 | Real hosting, domains, payments, mobile builds | SIMULATED or BLOCKED, unchanged |
 | Owner approvals D2–D9, D-21, HG-10-02, ADR-069 | not recorded |

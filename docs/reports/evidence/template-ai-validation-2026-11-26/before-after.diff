@@ -1,0 +1,101 @@
+diff --git a/app/globals.css b/app/globals.css
+index 48a9dba..7b14c9d 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -1,10 +1,10 @@
+ :root {
+-  --color-bg: #fffaf3;
+-  --color-text: #2b2118;
+-  --color-primary: #8a4b2a;
++  --color-bg: #f3f8f4;
++  --color-text: #12261a;
++  --color-primary: #1f6f43;
+   --color-primary-text: #ffffff;
+   --color-card: #ffffff;
+-  --color-border: #ead9c6;
++  --color-border: #cfe3d6;
+   --radius: 12px;
+   --space: 16px;
+   --max-width: 1080px;
+@@ -17,15 +17,24 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-bg
+ .header { display: flex; align-items: center; justify-content: space-between; padding: var(--space) 0; }
+ .header nav { display: flex; gap: var(--space); }
+ 
++.main-grid { display: grid; grid-template-columns: 1fr; gap: calc(var(--space) * 2); }
++
+ .hero { padding: calc(var(--space) * 4) 0; text-align: center; }
+ .hero h1 { font-size: 2rem; margin: 0 0 var(--space); }
+ 
+ .features { display: grid; grid-template-columns: 1fr; gap: var(--space); padding-bottom: calc(var(--space) * 3); }
+ @media (min-width: 640px) { .features { grid-template-columns: repeat(2, 1fr); } }
+-@media (min-width: 1024px) { .features { grid-template-columns: repeat(3, 1fr); } .hero h1 { font-size: 3rem; } }
++@media (min-width: 1024px) {
++  .main-grid { grid-template-columns: 1fr 1fr; align-items: start; }
++  .hero { text-align: left; }
++  .hero h1 { font-size: 3rem; }
++  .features { grid-template-columns: 1fr; padding-top: calc(var(--space) * 4); }
++}
+ 
+ .card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: calc(var(--space) * 1.5); }
+ .card h3 { margin: var(--space) 0 calc(var(--space) / 2); }
++.card .badge { display: inline-block; margin-top: calc(var(--space) / 2); padding: 2px 8px; border-radius: 999px; background: var(--color-primary); color: var(--color-primary-text); font-size: 0.75rem; font-weight: 600; }
++.card .badge + h3 { margin-top: calc(var(--space) / 2); }
+ 
+ .button { display: inline-block; padding: 12px 20px; border-radius: var(--radius); background: var(--color-primary); color: var(--color-primary-text); text-decoration: none; font-weight: 600; }
+ .footer { border-top: 1px solid var(--color-border); padding: calc(var(--space) * 2) 0; text-align: center; font-size: 0.875rem; }
+diff --git a/app/page.tsx b/app/page.tsx
+index e0f3a6c..85513c6 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -8,11 +8,11 @@ export default function HomePage() {
+   return (
+     <div className="container">
+       <Header />
+-      <main>
++      <main className="main-grid">
+         <Hero />
+         <section className="features" aria-label="Why visit">
+-          {features.map((f) => (
+-            <FeatureCard key={f.title} feature={f} />
++          {features.map((f, i) => (
++            <FeatureCard key={f.title} feature={f} badge={i === 0 ? 'New' : undefined} />
+           ))}
+         </section>
+       </main>
+diff --git a/components/FeatureCard.tsx b/components/FeatureCard.tsx
+index 0ec88cd..52f0b83 100644
+--- a/components/FeatureCard.tsx
++++ b/components/FeatureCard.tsx
+@@ -1,9 +1,14 @@
+ import type { Feature } from '@/lib/content';
+ 
+-export function FeatureCard({ feature }: { feature: Feature }) {
++export function FeatureCard({ feature, badge }: { feature: Feature; badge?: string }) {
+   return (
+     <article className="card">
+       <span aria-hidden="true">{feature.icon}</span>
++      {badge ? (
++        <div>
++          <span className="badge">{badge}</span>
++        </div>
++      ) : null}
+       <h3>{feature.title}</h3>
+       <p>{feature.body}</p>
+     </article>
+diff --git a/lib/content.ts b/lib/content.ts
+index 3acc83b..952c5b8 100644
+--- a/lib/content.ts
++++ b/lib/content.ts
+@@ -5,9 +5,9 @@ export interface Feature {
+ }
+ 
+ export const site = {
+-  name: 'Synthetic Cafe',
+-  tagline: 'Fresh coffee, quiet corners, open early.',
+-  cta: 'See the menu',
++  name: 'Green Leaf Cafe',
++  tagline: 'Coffee and calm, every morning.',
++  cta: 'Book a table',
+ };
+ 
+ export const features: Feature[] = [

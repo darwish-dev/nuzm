@@ -1,0 +1,458 @@
+{
+ "resourceId": "01a214b1-1fea-72fa-b7be-4783a6e4eb3b",
+ "versionId": "01a214b1-1ff0-7458-8825-19f3c8218067",
+ "orgId": "01a214af-db9f-76da-b2ea-ef9868932585",
+ "projectId": "01a214b2-1848-75e2-b089-13941dd647eb",
+ "planId": "01a214b2-1b5f-70c4-8d7b-4b1fc560f12e",
+ "runId": "01a214b3-ec70-72e5-b828-44a66ca7bb52",
+ "template": {
+  "files": [
+   {
+    "path": "LICENSE",
+    "sha256": "e0b7526a1db0c962f192c6f4039078d039bc441df503fd69b1d91a29da59e942"
+   },
+   {
+    "path": "README.md",
+    "sha256": "8aafec2f2a85eecd9b393ef9afa1122ff3e095dff1c72ff39da352d31f2ab632"
+   },
+   {
+    "path": "app/globals.css",
+    "sha256": "22fb723a9c6c11a3dbe3ff896195bd6c956e346f79b68efc688de80e857f78b3"
+   },
+   {
+    "path": "app/layout.tsx",
+    "sha256": "eb511fc90e9b69adc2e67b507396ba2a085f3e35f8570e4e255137c6fe670537"
+   },
+   {
+    "path": "app/page.tsx",
+    "sha256": "461d2d1782dedc9b4b5b4fb45c2ce9d0ebbc1534dd1057ed1f6c21b0c4345315"
+   },
+   {
+    "path": "components/Button.tsx",
+    "sha256": "cc6290b06cdbbb2e6d107f80f21c8ad32f2d9217f0bbf7928de3ae7b6f60106d"
+   },
+   {
+    "path": "components/FeatureCard.tsx",
+    "sha256": "222f34089bbc5ed192c168db41baa70598750456f38c8e45802497f132e6c8ca"
+   },
+   {
+    "path": "components/Footer.tsx",
+    "sha256": "532c1855012834d648ce59a42d6f414929b732dc2a2bb4e009c8a1e434569837"
+   },
+   {
+    "path": "components/Header.tsx",
+    "sha256": "ad27d9619b8514e5ad0782445191b862ef388d79c3641ce574dcb086b21b4424"
+   },
+   {
+    "path": "components/Hero.tsx",
+    "sha256": "41bf237d3b566018a86288a8dc5c471b943b60eb69193f6e659630bb04553cc6"
+   },
+   {
+    "path": "lib/content.ts",
+    "sha256": "24904d9ad2d8ff30c50aeb7a19e3d7c450d7f5fcb947678074a2a2c6d57a2ca4"
+   },
+   {
+    "path": "next.config.mjs",
+    "sha256": "c756de99cd5b24fe69b4f51a23a2529415eb5aed745fd66653928338a88a2349"
+   },
+   {
+    "path": "package.json",
+    "sha256": "e8cd0d0131f7f355010901ab9b9ac3b20711e371ce686a68ea7f14b69038e81c"
+   },
+   {
+    "path": "tsconfig.json",
+    "sha256": "2521eb534c67925ce299a0360d2215a67ae7a8bfce2655bba5eeb744b9b054fb"
+   }
+  ],
+  "zipSha256": "ddb49185481bebbbf279d09062ddbd83cd0e42ed248b17b8ba8d92f0f8d291ea",
+  "zipBytes": 8104
+ },
+ "analysis": {
+  "findings": [],
+  "files": 14,
+  "components": [
+   "RootLayout",
+   "HomePage",
+   "Button",
+   "FeatureCard",
+   "Footer",
+   "Header",
+   "Hero"
+  ],
+  "manifestKeys": [
+   "versionId",
+   "schemaVersion",
+   "createdAt",
+   "manifest"
+  ]
+ },
+ "phaseA": [
+  {
+   "name": "uploader (staff, platform_admin): signed in to the admin console; two-factor enrolled and verified",
+   "ok": true,
+   "beforeMfa": 403,
+   "afterMfa": 200
+  },
+  {
+   "name": "approver 1 (security): signed in to the admin console; two-factor enrolled and verified",
+   "ok": true,
+   "beforeMfa": 403,
+   "afterMfa": 200
+  },
+  {
+   "name": "approver 2 (platform_admin): signed in to the admin console; two-factor enrolled and verified",
+   "ok": true,
+   "beforeMfa": 403,
+   "afterMfa": 200
+  },
+  {
+   "name": "upload session opened",
+   "ok": true,
+   "status": 201,
+   "uploadId": "01a214b1-1fbd-7607-a763-689e0b246a27"
+  },
+  {
+   "name": "archive part uploaded with its SHA-256",
+   "ok": true,
+   "status": 200
+  },
+  {
+   "name": "upload completed (validation queued)",
+   "ok": true,
+   "status": 202,
+   "resourceId": "01a214b1-1fea-72fa-b7be-4783a6e4eb3b"
+  },
+  {
+   "name": "worker processed the package to AWAITING_REVIEW",
+   "ok": true,
+   "state": "AWAITING_REVIEW",
+   "reason": null,
+   "seconds": 4,
+   "jobs": [
+    "INDEX:SUCCEEDED",
+    "DESIGN:SUCCEEDED",
+    "COMPONENTS:SUCCEEDED",
+    "DETECT:SUCCEEDED",
+    "EXTRACT:SUCCEEDED",
+    "VALIDATE:SUCCEEDED"
+   ]
+  },
+  {
+   "name": "analysis visible: files, components, findings",
+   "ok": true,
+   "findings": [],
+   "files": 14,
+   "components": [
+    "RootLayout",
+    "HomePage",
+    "Button",
+    "FeatureCard",
+    "Footer",
+    "Header",
+    "Hero"
+   ],
+   "manifestKeys": [
+    "versionId",
+    "schemaVersion",
+    "createdAt",
+    "manifest"
+   ]
+  },
+  {
+   "name": "the uploader cannot approve their own third-party upload",
+   "ok": true,
+   "status": 403,
+   "code": "forbidden",
+   "detail": "the uploader cannot review a third-party resource they uploaded"
+  },
+  {
+   "name": "activation before two approvals is refused",
+   "ok": true,
+   "status": 409,
+   "code": "knowledge_approval_required"
+  },
+  {
+   "name": "approval 1 recorded (approver 1)",
+   "ok": true,
+   "status": 201
+  },
+  {
+   "name": "activation with one approval is refused",
+   "ok": true,
+   "status": 409,
+   "code": "knowledge_approval_required"
+  },
+  {
+   "name": "approval 2 recorded (approver 2)",
+   "ok": true,
+   "status": 201
+  },
+  {
+   "name": "version activated",
+   "ok": true,
+   "status": 200
+  },
+  {
+   "name": "published, starter-eligible, AI processing allowed",
+   "ok": true,
+   "status": 200
+  },
+  {
+   "name": "the customer gallery lists the published template",
+   "ok": true,
+   "status": 200,
+   "count": 1
+  },
+  {
+   "name": "the customer gallery lists the published template",
+   "ok": true,
+   "status": 200,
+   "count": 1
+  },
+  {
+   "name": "the customer gallery lists the published template",
+   "ok": true,
+   "status": 200,
+   "count": 1
+  },
+  {
+   "name": "project created from the template",
+   "ok": true,
+   "status": 201,
+   "projectId": "01a214b2-1848-75e2-b089-13941dd647eb"
+  },
+  {
+   "name": "generation plan created",
+   "ok": true,
+   "status": 201,
+   "planId": "01a214b2-1b5f-70c4-8d7b-4b1fc560f12e"
+  },
+  {
+   "name": "context preview built (nothing sent)",
+   "ok": true,
+   "tokens": {
+    "used": 2817,
+    "budget": 12000
+   },
+   "blocks": 17,
+   "aiProcessing": true
+  }
+ ],
+ "context": {
+  "status": 200,
+  "aiProcessing": true,
+  "mode": "ADAPTIVE",
+  "tokens": {
+   "used": 2817,
+   "budget": 12000
+  },
+  "blocks": [
+   {
+    "kind": "requirement",
+    "label": "requirement",
+    "tokens": 239
+   },
+   {
+    "kind": "template",
+    "label": "template",
+    "tokens": 101
+   },
+   {
+    "kind": "file_index",
+    "label": "workspace",
+    "tokens": 176
+   },
+   {
+    "kind": "file",
+    "label": "file-1",
+    "tokens": 46
+   },
+   {
+    "kind": "file",
+    "label": "file-2",
+    "tokens": 123
+   },
+   {
+    "kind": "file",
+    "label": "file-3",
+    "tokens": 130
+   },
+   {
+    "kind": "file",
+    "label": "file-4",
+    "tokens": 119
+   },
+   {
+    "kind": "file",
+    "label": "file-5",
+    "tokens": 204
+   },
+   {
+    "kind": "file",
+    "label": "file-6",
+    "tokens": 366
+   },
+   {
+    "kind": "file",
+    "label": "file-7",
+    "tokens": 161
+   },
+   {
+    "kind": "file",
+    "label": "file-8",
+    "tokens": 534
+   },
+   {
+    "kind": "file",
+    "label": "file-9",
+    "tokens": 67
+   },
+   {
+    "kind": "file",
+    "label": "file-10",
+    "tokens": 107
+   },
+   {
+    "kind": "file",
+    "label": "file-11",
+    "tokens": 63
+   },
+   {
+    "kind": "file",
+    "label": "file-12",
+    "tokens": 102
+   },
+   {
+    "kind": "file",
+    "label": "file-13",
+    "tokens": 97
+   },
+   {
+    "kind": "file",
+    "label": "file-14",
+    "tokens": 182
+   }
+  ],
+  "included": [
+   "next.config.mjs",
+   "package.json",
+   "tsconfig.json",
+   "app/layout.tsx",
+   "app/page.tsx",
+   "LICENSE",
+   "README.md",
+   "app/globals.css",
+   "components/Button.tsx",
+   "components/FeatureCard.tsx",
+   "components/Footer.tsx",
+   "components/Header.tsx",
+   "components/Hero.tsx",
+   "lib/content.ts"
+  ],
+  "excluded": [],
+  "notes": [],
+  "policyChars": 170
+ },
+ "prompt": "Change the layout, colours, text and one reusable component of this site:\n1. Layout: on desktop (min-width 1024px) show the hero on the left and the feature cards on the right in a two-column grid; keep a single column on phones.\n2. Colours: switch to a green theme: background #f3f8f4, text #12261a, primary #1f6f43, card border #cfe3d6.\n3. Text: rename the cafe to \"Green Leaf Cafe\", use the tagline \"Coffee and calm, every morning.\" and the button text \"Book a table\".\n4. Component: give FeatureCard an optional `badge` prop shown as a small label above the title, and show the badge \"New\" on the first feature.\nChange only what is needed; keep TypeScript types valid.",
+ "verification": {
+  "aiVersion": "01a214c4-5fb7-7074-9f19-8ab2ddf39406",
+  "baseVersion": "01a214b2-1857-7617-8eab-53847de3538c",
+  "results": [
+   {
+    "name": "versions: the AI change is a new head version (source ai) on top of the template copy; history kept",
+    "ok": true,
+    "versions": [
+     {
+      "id": "01a214c4",
+      "source": "ai",
+      "label": "Adapt template (ADAPTIVE): Switched the site to a green them",
+      "isHead": true
+     },
+     {
+      "id": "01a214b2",
+      "source": "user",
+      "label": "Start from template: Synthetic Cafe Starter 2026-11-25T21:51",
+      "isHead": false
+     }
+    ]
+   },
+   {
+    "name": "colours: the four requested values",
+    "ok": true
+   },
+   {
+    "name": "text: name, tagline, button text",
+    "ok": true
+   },
+   {
+    "name": "component: FeatureCard has an optional badge prop and renders it",
+    "ok": true
+   },
+   {
+    "name": "component use: the first feature gets the badge \"New\"",
+    "ok": true
+   },
+   {
+    "name": "layout: two columns from 1024px with the hero on the left",
+    "ok": true
+   },
+   {
+    "name": "layout detail: cards in a two-column grid on the right (as requested)",
+    "ok": false,
+    "note": "the model stacked the cards in ONE column inside the right-hand column on desktop"
+   },
+   {
+    "name": "the template-copy version is unchanged (old colours)",
+    "ok": true
+   },
+   {
+    "name": "version diff API: exactly the four modified files",
+    "ok": true,
+    "status": 200,
+    "files": [
+     ":app/globals.css",
+     ":app/page.tsx",
+     ":components/FeatureCard.tsx",
+     ":lib/content.ts"
+    ]
+   },
+   {
+    "name": "another organization sees nothing (project, versions, files, diff, plan, context, workspace, run)",
+    "ok": true,
+    "status": 201,
+    "codes": {
+     "project": 404,
+     "versions": 404,
+     "files": 404,
+     "diff": 404,
+     "plan": 404,
+     "context": 404,
+     "workspace": 404,
+     "run": 404
+    }
+   },
+   {
+    "name": "another user naming this organization in the header is refused",
+    "ok": true,
+    "status": 404
+   },
+   {
+    "name": "rollback to the template copy: a NEW head identical to it; history kept",
+    "ok": true,
+    "status": 201,
+    "newHead": "01a214c5",
+    "source": "restore",
+    "differences": 0,
+    "versions": "2 -> 3"
+   },
+   {
+    "name": "roll forward to Claude's version: a NEW head identical to it",
+    "ok": true,
+    "status": 201,
+    "newHead": "01a214c5",
+    "differences": 0,
+    "versions": "3 -> 4"
+   }
+  ]
+ }
+}

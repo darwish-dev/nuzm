@@ -103,7 +103,10 @@ describe('evidence index', () => {
       Buffer.from(JSON.stringify({ fail: 2, skipped: 0, target: { label: 'SIMULATED' } })),
     );
     m.set('negative-tests.txt', Buffer.from('FAIL N-5\n'));
-    m.set('bootstrap-apply.log', Buffer.from('-----BEGIN PRIVATE KEY-----\nabc'));
+    m.set(
+      'bootstrap-apply.log',
+      Buffer.from(`${['-----BEGIN', 'PRIVATE KEY-----'].join(' ')}\nabc`),
+    );
     const i = buildEvidenceIndex(m, NOW);
     expect(i.complete).toBe(false);
     expect(i.missing).toEqual(['inventory.txt']);

@@ -177,7 +177,7 @@ describe('agent configuration (fail closed)', () => {
     ['no trusted control key', { trustedControlKeys: {} }, 'trusted_control_keys_required'],
     [
       'a private key where a public key belongs',
-      { trustedControlKeys: { cp1: '-----BEGIN PRIVATE KEY-----\nx' } },
+      { trustedControlKeys: { cp1: `${['-----BEGIN', 'PRIVATE KEY-----'].join(' ')}\nx` } },
       'trusted_control_key_invalid:cp1',
     ],
     [

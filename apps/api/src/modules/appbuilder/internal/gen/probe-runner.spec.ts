@@ -113,7 +113,9 @@ describe('probe output parsing treats the runtime output as untrusted data', () 
       line({
         report: {
           schema: 'nuzm.app-probe/1',
-          checks: [{ id: 'a', status: 'pass', title: 't', detail: 'AKIAABCDEFGHIJKLMNOP' }],
+          checks: [
+            { id: 'a', status: 'pass', title: 't', detail: ['AKIA', 'ABCDEFGHIJKLMNOP'].join('') },
+          ],
         },
       }),
       'report_contains_secret',

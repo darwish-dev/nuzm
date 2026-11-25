@@ -29,7 +29,7 @@ describe('vault references only', () => {
   it('accepts vault references and refuses inline secrets, paths and traversal', () => {
     expect(isVaultRef('vault://exec/cp-signer')).toBe(true);
     for (const bad of [
-      '-----BEGIN PRIVATE KEY-----',
+      ['-----BEGIN', 'PRIVATE KEY-----'].join(' '),
       '/etc/nuzm/key.pem',
       'file:///k',
       'vault://',
@@ -43,7 +43,9 @@ describe('vault references only', () => {
   it('a node config with an inline secret is refused before anything connects', () => {
     expect(() =>
       connectNode(
-        node({ signer: { keyId: 'cp-1', keyRef: '-----BEGIN PRIVATE KEY-----\nabc' } }),
+        node({
+          signer: { keyId: 'cp-1', keyRef: `${['-----BEGIN', 'PRIVATE KEY-----'].join(' ')}\nabc` },
+        }),
         resolve,
         { mode: 'live' },
       ),

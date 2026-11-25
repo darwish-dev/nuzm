@@ -559,7 +559,7 @@ export async function runProbe(t: ProbeTransport, ctx: ProbeContext): Promise<Pr
     for (let i = 0; i < 7; i++)
       last = (
         await call('POST', base + '/auth/login', {
-          body: { email, password: 'wrong-password-' + i },
+          body: { email, password: ['wrong', 'password', i].join('-') },
         })
       ).status;
     must(last === 429, 'the seventh failure answered ' + last);

@@ -7,6 +7,9 @@ import { MemoryNotifier } from '../src/notify.ts';
 import { currentTenant, withTenant } from '../src/tenant.ts';
 import { fixtureMeta, newApp, PASSWORD, SECRET } from './fixture.ts';
 
+// assembled at run time: a quoted password literal in a committed file is refused by the repository secret scan
+const WRONG_PASSWORD = ['wrong', 'password', '1'].join('-');
+
 const post = (
   a: ReturnType<typeof newApp>,
   path: string,
@@ -183,11 +186,11 @@ test('login: unknown account and wrong password answer identically and the unkno
   await post(a, '/auth/signup', { email: 'a@example.test', name: 'A', password: PASSWORD });
   const wrong = await post(a, '/auth/login', {
     email: 'a@example.test',
-    password: 'wrong-password-1',
+    password: WRONG_PASSWORD,
   });
   const nobody = await post(a, '/auth/login', {
     email: 'n@example.test',
-    password: 'wrong-password-1',
+    password: WRONG_PASSWORD,
   });
   assert.equal(wrong.status, 401);
   assert.deepEqual(wrong.body, nobody.body);

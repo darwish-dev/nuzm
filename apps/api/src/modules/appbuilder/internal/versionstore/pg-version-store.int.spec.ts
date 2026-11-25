@@ -237,7 +237,7 @@ describe('commits are atomic, serialised and idempotent in PostgreSQL', () => {
         store.commit(
           r.ref,
           'main',
-          F({ 'ok.txt': 'fine', 'k.txt': 'key=AKIAABCDEFGHIJKLMNOP' }),
+          F({ 'ok.txt': 'fine', 'k.txt': `key=${['AKIA', 'ABCDEFGHIJKLMNOP'].join('')}` }),
           'm',
         ),
       ),

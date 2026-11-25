@@ -28,25 +28,6 @@ export default tseslint.config(
     languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly' } },
   },
   {
-    // Design render/export scripts: Node drivers whose page.evaluate callbacks run in the browser (carried from main's config, which the hosting line's design/ scripts need).
-    files: ['design/**/*.mjs'],
-    languageOptions: {
-      globals: {
-        window: 'readonly',
-        document: 'readonly',
-        console: 'readonly',
-        fetch: 'readonly',
-        performance: 'readonly',
-        setTimeout: 'readonly',
-        Blob: 'readonly',
-        btoa: 'readonly',
-        Buffer: 'readonly',
-        MediaRecorder: 'readonly',
-        createImageBitmap: 'readonly',
-      },
-    },
-  },
-  {
     // Design render/export scripts: Node drivers whose page.evaluate callbacks run in the browser.
     files: ['design/**/*.mjs'],
     languageOptions: {

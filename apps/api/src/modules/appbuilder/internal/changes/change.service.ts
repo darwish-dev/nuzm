@@ -19,6 +19,9 @@ import {
   type ProjectVersion,
 } from '../ports/m09';
 
+/** `builder.project_versions.label` allows 1..100 characters (database check `project_versions_label_check`). */
+export const VERSION_LABEL_MAX = 100;
+
 export type PatchOp = 'add' | 'modify' | 'delete' | 'rename';
 export interface Patch {
   op: PatchOp;
@@ -344,7 +347,10 @@ export class ChangeService {
       version = await this.projects.commit(orgId, project.id, {
         baseVersionId: head,
         files: next,
-        label: typeof body.message === 'string' ? body.message.slice(0, 120) : null,
+        label:
+          typeof body.message === 'string' && body.message.length > 0
+            ? body.message.slice(0, VERSION_LABEL_MAX)
+            : null,
         source,
         createdBy: actor,
       });

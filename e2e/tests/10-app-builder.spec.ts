@@ -234,13 +234,13 @@ test('app builder: start from one prompt, agent progress, approvals, spec, data/
     await audit(page, info, 'm10a-versions');
   }
 
-  // ---- the project list shows the type and can be filtered
+  // ---- the projects of the organization are listed in the sidebar of the start screen (the merged console no longer shows a type-filtered list to people who can start projects;
+  // the filter chips remain for read-only members, see ProjectsScreen)
   await page.goto(`${base}/builder/projects?type=webapp`);
-  await expect(page.getByText(T(info, 'm10.proj.type.webapp')).first()).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: T(info, 'm10a.proj.filter.webapp') }),
-  ).toHaveAttribute('aria-current', 'page');
-  await audit(page, info, 'm10a-projects-filtered');
+  await page.getByRole('button', { name: T(info, 'bld.hist.projects'), exact: true }).click();
+  const history = page.getByRole('navigation', { name: T(info, 'bld.hist.projects') });
+  await expect(history.locator('.bh-folder-btn').first()).toBeVisible();
+  await audit(page, info, 'm10a-projects-history');
 });
 
 test('admin: AI run oversight and sandbox fleet are read only (UI-M10-18/19)', async ({

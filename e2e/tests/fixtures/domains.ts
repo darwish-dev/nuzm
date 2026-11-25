@@ -81,7 +81,7 @@ export async function registerDomain(page: Page, info: TestInfo, name: string): 
   await f('postal', '12211');
   await page.getByLabel(T(info, 'dom.checkout.consent')).check();
   await page.getByRole('button', { name: T(info, 'dom.checkout.confirm') }).click();
-  await expect(page).toHaveURL(new RegExp(`/${L}/domains/[0-9a-f-]{36}$`));
+  await expect(page).toHaveURL(/\/domains\/[0-9a-f-]{36}$/);
   const id = page.url().split('/').pop()!;
   await expect
     .poll(

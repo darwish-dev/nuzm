@@ -166,13 +166,18 @@ test('mobile builder: flag, start, the workspace (preview, code, spec), builds, 
   }
   await go(`/mobile/${project}/releases/new`);
   await expect(page).toHaveURL(new RegExp(`/builder/projects/${project}\\?tab=releases&new=1$`));
-  // and a mobile app in "Your projects" opens in the workspace too
+  // and a mobile app in the projects sidebar of the start screen opens in the workspace too (the merged console lists projects there, not in a filtered list)
   await go('/builder/projects?type=mobile');
+  await page.getByRole('button', { name: T(info, 'bld.hist.projects'), exact: true }).click();
+  await page.getByPlaceholder(T(info, 'bld.hist.search')).fill('field teams');
   await page
+    .getByRole('navigation', { name: T(info, 'bld.hist.projects') })
     .getByRole('link', { name: new RegExp('field teams', 'i') })
     .first()
     .click();
-  await expect(page).toHaveURL(new RegExp(`/builder/projects/[0-9a-f-]{36}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/builder/projects/[0-9a-f-]{36}(\\?session=[0-9a-f-]{36})?$`),
+  );
 
   // (the viewer's forbidden state for signing is NOT covered here: the dev identity provider has no viewer user, and the old step signed in as one and asserted nothing)
 });

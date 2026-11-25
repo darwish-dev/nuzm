@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-test('public services render photo-led features and setup steps', async ({ page }, testInfo) => {
+test('public services render the feature tiles, the setup steps and the hero illustration', async ({
+  page,
+}, testInfo) => {
   const locale = testInfo.project.name === 'ar' ? 'ar' : 'en';
   for (const slug of [
     'hosting',
@@ -14,15 +16,13 @@ test('public services render photo-led features and setup steps', async ({ page 
   ]) {
     const response = await page.goto(`/${locale}/services/${slug}`);
     expect(response?.status(), slug).toBe(200);
-    await expect(page.locator('.svc-benefits-layout .svc-card')).toHaveCount(4);
-    await expect(page.locator('.svc-process-layout .svc-steps > li')).toHaveCount(3);
-    await expect(page.locator('.svc-photo img')).toHaveCount(2);
-    await page.locator('.svc-photo img').evaluateAll(async (images) => {
-      await Promise.all(images.map((image) => (image as HTMLImageElement).decode()));
-    });
+    // the service pages use the illustrated design (ServiceDetail): four feature tiles, a three-step timeline and the framed hero illustration (the earlier photo-led layout is gone)
+    await expect(page.locator('.svx-bento .svx-tile')).toHaveCount(4);
+    await expect(page.locator('.svx-timeline > li')).toHaveCount(3);
+    await expect(page.locator('.svx-hero .svx-frame')).toHaveCount(1);
   }
   await page.goto(`/${locale}/services/hosting`);
-  await page.locator('.svc-benefits-section').scrollIntoViewIfNeeded();
+  await page.locator('.svx-bento').scrollIntoViewIfNeeded();
   await testInfo.attach('service-features', {
     body: await page.screenshot(),
     contentType: 'image/png',

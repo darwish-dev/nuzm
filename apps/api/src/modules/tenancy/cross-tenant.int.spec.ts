@@ -9,6 +9,7 @@ import { ProjectsPort } from '../appbuilder';
 import { parse } from 'yaml';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Harness, cookieHeader, type App } from '../identity/testing/app-harness';
+import { CONNECTED_NODE_INVENTORY, startToolsPanel, type ToolsPanel } from '../hosting/testing';
 
 /**
  * Cross-tenant suite GENERATED FROM spec/openapi/openapi.yaml (M01 S03 task 13).
@@ -43,8 +44,12 @@ for (const [path, item] of Object.entries(spec.paths)) {
 const orgScoped = allOps.filter((o) => o.permission);
 const withIds = orgScoped.filter((o) => o.params.length > 0 && !o.global);
 
+/** The domain of org A's hosting site (the panel account of the fixture serves it). */
+const SITE_DOMAIN = 'ct-site.example.com';
+
 const h = new Harness();
 let app: App;
+let panel: ToolsPanel;
 const A: Record<string, string> = {};
 let bobJar: Record<string, string>;
 let bobKey = '';
@@ -63,6 +68,17 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
   if (p === 'backupId') return A.hostingBackup;
   if (p === 'caseId') return A.hostingCase;
   if (o.path.startsWith('/v1/hosting/sites/') && p === 'id') return A.hostingSite;
+  // hosting site tools (S05): the names inside the site (a cron job, a domain, an FTP / protection user, a mailbox and its alias): well-formed, the SITE decides isolation
+  if (o.path.startsWith('/v1/hosting/sites/')) {
+    const inSite: Record<string, string> = {
+      job: '1',
+      domain: SITE_DOMAIN,
+      user: 'ctuser',
+      name: 'ct',
+      alias: 'ct-alias',
+    };
+    if (inSite[p]) return inSite[p];
+  }
   // automation, marketplace and programs (M11)
   if (o.path.startsWith('/v1/workflow-executions/')) return A.execution;
   if (o.path.startsWith('/v1/workflows/')) return A.workflow;
@@ -120,8 +136,31 @@ const fixtureFor = (o: Op, p: string): string | undefined => {
     } as Record<string, string>
   )[root];
 };
-const urlFor = (o: Op) => o.path.replace(/\{(\w+)\}/g, (_m, p) => fixtureFor(o, p)!);
+/** Query parameters a route cannot be called without (a missing one is 422 before the id is even looked at). */
+const queryFor = (o: Op) =>
+  o.path.endsWith('/mail/dns-checks')
+    ? `?domain=${SITE_DOMAIN}`
+    : o.path.endsWith('/files/download') || o.path.endsWith('/files/text')
+      ? '?path=/index.html' // a file of the site (the web root itself is refused)
+      : '';
+const urlFor = (o: Op) => o.path.replace(/\{(\w+)\}/g, (_m, p) => fixtureFor(o, p)!) + queryFor(o);
 const bodyFor = (o: Op): unknown => {
+  // hosting site tools (S05): VALID bodies, so a hostile call is refused for the site and never for its shape
+  if (o.method === 'POST' && o.path.startsWith('/v1/hosting/sites/{id}/')) {
+    const pw = 'correct-horse-9';
+    const bodies: Record<string, object> = {
+      '/cron-jobs': { min: '0', hour: '3', day: '*', month: '*', wday: '*', command: 'echo ct' },
+      '/ftp-accounts': { name: 'ct_ftp', password: pw },
+      '/protection': { user: 'ct_user', password: pw },
+      '/files/folders': { path: 'ct-dir' },
+      '/files/renames': { from: 'a.txt', to: 'b.txt' },
+      '/mail/domains': { domain: SITE_DOMAIN },
+      '/mail/mailboxes': { domain: SITE_DOMAIN, name: 'ctbox', password: pw },
+      '/aliases': { alias: 'ct-alias' },
+    };
+    const hit = Object.keys(bodies).find((k) => o.path.endsWith(k));
+    if (hit) return bodies[hit];
+  }
   if (o.method === 'PATCH') {
     if (o.path.startsWith('/v1/notifications/')) return { read: true };
     if (o.path.startsWith('/v1/billing/subscriptions/')) return { quantity: 2 }; // a VALID change: only the id may differ
@@ -143,7 +182,9 @@ const extraHeaders = (o: Op): Record<string, string> => ({
 
 beforeAll(async () => {
   await h.init();
-  ({ app } = await h.buildApp());
+  // a connected mock panel for org A's hosting site (S05 tools). Its node row below is healthy and configured; a node that is NOT connected keeps answering 503 (hosting-tools.int.spec)
+  panel = await startToolsPanel();
+  ({ app } = await h.buildApp({}, undefined, [], { overrides: panel.overrides }));
   aliceId = await h.createUser('alice');
   const bobId = await h.createUser('bob');
   const aliceJar = await h.sessionFor(app, aliceId);
@@ -356,13 +397,35 @@ beforeAll(async () => {
     `INSERT INTO platform.feature_flags (id, key, org_id, value) VALUES (gen_random_uuid(), 'hosting.enabled', NULL, 'true')`,
   );
   await h.env.sql(
-    `INSERT INTO hosting.plan_definitions (id, key, name_ar, name_en, status, quotas, runtimes, reservation) VALUES ($1, 'ct-plan', 'خطة', 'Plan', 'active', '{"diskMb":1,"inodes":1000,"bandwidthGb":1,"dbCount":1,"sitesCount":1}', '["php"]', '{"cpu_millicores":1,"memory_mb":1,"disk_mb":1}')`,
+    `INSERT INTO hosting.plan_definitions (id, key, name_ar, name_en, status, quotas, runtimes, reservation) VALUES ($1, 'ct-plan', 'خطة', 'Plan', 'active', '{"diskMb":1,"inodes":1000,"bandwidthGb":1,"dbCount":1,"sitesCount":1,"mailboxes":2,"mailboxQuotaMb":500,"mailAliasesPerMailbox":2}', '["php"]', '{"cpu_millicores":1,"memory_mb":1,"disk_mb":1}')`,
     [crypto.randomUUID()],
   );
   await h.env.sql(
     `INSERT INTO hosting.sites (id, org_id, name, token, node_name, plan_id, runtime, status, data_region, created_by, credentials_ref, backup_key_ref)
      SELECT $1, $2, 'ct-site', $4, 's-ct0000000001', id, 'php:8.3', 'active', 'sa-central', $3, 'vault://ct/c', 'vault://ct/b' FROM hosting.plan_definitions LIMIT 1`,
     [A.hostingSite, orgA, aliceId, 'c'.repeat(64)],
+  );
+  // the node of the site: healthy, panel configured, every service present; the site's account (with its domain) exists on the mock panel
+  A.hostingNode = crypto.randomUUID();
+  await h.env.sql(
+    `INSERT INTO hosting.nodes (id, name, compute_instance_id, region, data_region, status, health, panel_host, panel_key_ref, panel_version, last_inventory)
+     VALUES ($1, 'ct-node', 'fake-ct-node', 'sa-central', 'sa-central', 'active', 'healthy', 'ct-node.hosting.example.test', 'vault://ct/panel-key', '1.9.4', $2::jsonb)`,
+    [A.hostingNode, JSON.stringify(CONNECTED_NODE_INVENTORY)],
+  );
+  await h.env.sql(`UPDATE hosting.sites SET node_id = $2, domain_primary = $3 WHERE id = $1`, [
+    A.hostingSite,
+    A.hostingNode,
+    SITE_DOMAIN,
+  ]);
+  await panel.addAccount({
+    credentialsRef: 'vault://ct/c',
+    account: 's-ct0000000001',
+    domain: SITE_DOMAIN,
+  });
+  // S06: the site's WordPress installation state (a row of its own: the route is 404 for a site without one)
+  await h.env.sql(
+    `INSERT INTO hosting.site_apps (id, site_id, org_id, app, state) VALUES (gen_random_uuid(), $1, $2, 'wordpress', 'pending')`,
+    [A.hostingSite, orgA],
   );
   await h.env.sql(
     `INSERT INTO hosting.site_backups (id, site_id, org_id, enc_key_ref, data_region) VALUES ($1, $2, $3, 'vault://ct/b', 'sa-central')`,
@@ -528,6 +591,14 @@ beforeAll(async () => {
      VALUES ($1,$2,$3,'ct-instance','{"vcpu":1,"memoryMb":2048,"diskGb":40,"planRef":"mock.small"}','running','["compute.metrics","compute.action.stop"]', gen_random_uuid(), 'in_kingdom','SA')`,
     [A.instance, orgA, ctResource],
   );
+  // S04: the panel installation of that server (a row of its own: the route is 404 for a server without one)
+  await h.env.sql(
+    `INSERT INTO compute.panel_installs (id, org_id, instance_id, order_id, panel_kind, provider_key, provider_region_id, plan_ref, image_ref, image_name, os_id, os_version,
+       template, panel_version, installer_url, installer_sha256, panel_host, registration_id, registration_hash)
+     VALUES (gen_random_uuid(), $1, $2, gen_random_uuid(), 'hestia', 'mock', 'mock-r1', 'mock.small', 'img-1', 'Ubuntu', 'ubuntu', '24.04', '{}'::jsonb, '1.9.4',
+       'https://example.test/install.sh', $3, 'ct-panel.hosting.example.test', gen_random_uuid(), $4)`,
+    [orgA, A.instance, 'a'.repeat(64), 'b'.repeat(64)],
+  );
   // org B's API key carries EVERY org permission an owner has: the strongest key org B can hold
   const ownerPerms = (
     await h.env.sql(`SELECT permission FROM tenancy.role_permissions WHERE role='owner'`)
@@ -545,7 +616,10 @@ beforeAll(async () => {
   });
   bobKey = k.json().key;
 });
-afterAll(() => h.close());
+afterAll(async () => {
+  await h.close();
+  await panel?.close();
+});
 
 describe('generated cross-tenant coverage', () => {
   it('discovers the org-scoped operations from the OpenAPI spec', () => {
@@ -720,6 +794,7 @@ describe("after all the hostile calls, org A's data is untouched", () => {
     { timeout: 120_000 },
     async () => {
       const alice = await h.sessionFor(app, aliceId);
+      const wrong: string[] = [];
       for (const o of withIds.filter(
         (x) =>
           x.method === 'GET' &&
@@ -742,8 +817,32 @@ describe("after all the hostile calls, org A's data is untouched", () => {
             : o.path.endsWith('/files/content')
               ? 422
               : 200;
-        expect(r.statusCode, `${o.path} → ${r.body.slice(0, 100)}`).toBe(expected);
+        if (r.statusCode !== expected)
+          wrong.push(
+            `${o.path} → ${r.statusCode} (wanted ${expected}) ${r.json().detail ?? r.body.slice(0, 160)}`,
+          );
       }
+      // collected, not thrown at the first one: a new route's missing fixture shows up with all the others in one run
+      expect(wrong).toEqual([]);
     },
   );
+
+  it('the connected node is what makes the tool routes answer: the same site on an unhealthy node is still a 503 (the gate is not bypassed)', async () => {
+    const alice = await h.sessionFor(app, aliceId);
+    const read = () =>
+      app.inject({
+        method: 'GET',
+        url: `/v1/hosting/sites/${A.hostingSite}/cron-jobs`,
+        headers: { cookie: cookieHeader(alice), 'x-nuzm-org': orgA },
+      });
+    expect((await read()).statusCode).toBe(200);
+    await h.env.sql(`UPDATE hosting.nodes SET health = 'unhealthy' WHERE id = $1`, [A.hostingNode]);
+    try {
+      const r = await read();
+      expect(r.statusCode, r.body.slice(0, 120)).toBe(503);
+    } finally {
+      await h.env.sql(`UPDATE hosting.nodes SET health = 'healthy' WHERE id = $1`, [A.hostingNode]);
+    }
+    expect((await read()).statusCode).toBe(200);
+  });
 });

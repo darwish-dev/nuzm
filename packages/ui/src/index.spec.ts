@@ -46,8 +46,13 @@ describe('ui tokens', () => {
     expect(consoleCss).not.toContain('border-inline-start: 4px solid');
     expect(consoleCss).not.toMatch(/\.nzc-stat\[[^\]]*\]::before/);
   });
-  it('has no cross-document view transition (it showed the background between pages) and keeps an opaque canvas', () => {
-    expect(consoleCss).not.toContain('view-transition');
+  it('view transitions exist only for the AI Studio open/close (never under reduce motion) and the canvas stays opaque', () => {
+    // The only allowed block is the one that opens with @media (prefers-reduced-motion: no-preference) and @view-transition.
+    const studio =
+      /@media \(prefers-reduced-motion: no-preference\) \{\n\s*@view-transition[\s\S]*?\n\}\n/;
+    expect(consoleCss).toMatch(studio);
+    // Everything else stays free of view transitions (they showed the background between pages, Nov 2026).
+    expect(consoleCss.replace(studio, '')).not.toContain('view-transition');
     expect(consoleCss).toContain('html:has(.nzc) { background: #0b0b0c; }');
   });
   it('the dashboard status column never gets a scroll bar of its own', () => {

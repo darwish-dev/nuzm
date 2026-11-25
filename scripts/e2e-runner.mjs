@@ -6,7 +6,7 @@
  * It runs EVERY spec file of e2e/tests once per project (ar, then en), one file at a time with one worker; every spec file resets the database itself, so this is
  * the full regression. Needs a leased test database (E2E_PG_PORT, scripts/testenv). Ports are fixed and dedicated (E2E_{WEB,ADMIN,API,IDP}_PORT to change them).
  * Everything is written to .dev-data/e2e-runs/<stamp>/ : status.json, progress.jsonl, health.log, logs/, json/, artifacts/, exit-code.
- * Health (database, API, API->database, both consoles) is checked before each file and while it runs. The run ABORTS when a check fails 3 times in a row, or when 5
+ * Health (database, API, API->database, sign-in service, both consoles) is checked before each file and while it runs. The run ABORTS when a check fails 3 times in a row, or when 5
  * files in a row fail (a shared cause makes the rest meaningless). An aborted run is incomplete and says so: it never counts as a pass.
  * Exit codes: 0 all passed, 1 test failures, 2 setup failed, 3 aborted: infrastructure, 4 aborted: consecutive failures, 5 stopped on request.
  * --resume reuses the PASSED files of an earlier run only when the commit is identical and no tracked source file is modified.
@@ -26,6 +26,7 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkConsole, checkSignIn } from './service-health.mjs';
 
 const { fetch, setTimeout, clearInterval, setInterval, AbortSignal } = globalThis;
 const SELF = fileURLToPath(import.meta.url);
@@ -212,14 +213,19 @@ async function run(dir, resume) {
       apiDatabase: await probe(`${api}/v1/me`, 401, {
         cookie: 'nuzm_session=healthcheck-not-a-session',
       }),
-      // `/login`, not `/ar/login`: the consoles' routes carry no language, so the prefixed form answers with a redirect
-      web: await probe(`http://127.0.0.1:${stackEnv.E2E_WEB_PORT}/login`, 200),
-      admin: await probe(`http://127.0.0.1:${stackEnv.E2E_ADMIN_PORT}/login`, 200),
+      signIn: await checkSignIn(
+        api,
+        `http://127.0.0.1:${stackEnv.E2E_IDP_PORT}`,
+        `http://127.0.0.1:${stackEnv.E2E_WEB_PORT}`,
+      ),
+      // each console's own expected redirects, then the real sign-in page with 200 (scripts/service-health.mjs)
+      web: await checkConsole('web', `http://127.0.0.1:${stackEnv.E2E_WEB_PORT}`),
+      admin: await checkConsole('admin', `http://127.0.0.1:${stackEnv.E2E_ADMIN_PORT}`),
     };
     const bad = Object.entries(checks).filter(([, v]) => v);
     appendFileSync(
       join(dir, 'health.log'),
-      `${new Date().toISOString()} ${bad.length ? `FAIL ${bad.map(([k, v]) => `${k}: ${v}`).join('; ')}` : 'OK database api apiDatabase web admin'}\n`,
+      `${new Date().toISOString()} ${bad.length ? `FAIL ${bad.map(([k, v]) => `${k}: ${v}`).join('; ')}` : 'OK database api apiDatabase signIn web admin'}\n`,
     );
     return bad.map(([k, v]) => `${k}: ${v}`);
   };

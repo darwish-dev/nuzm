@@ -12,6 +12,11 @@
 # Settings (environment): NUZM_PLATFORM_DB (database name, default nuzm_local), NUZM_PLATFORM_{WEB,ADMIN,API,IDP}_PORT, NUZM_PLATFORM_PGPORT.
 #   NUZM_PLATFORM_LIVE_PROVIDERS  e.g. "claude": allows REAL, BILLED model calls with the stored key. Unset (the default) = no live call is possible, whatever the
 #                                 shell environment holds. Each live call costs money; the owner's approvals (D2..D9) are not recorded by setting this.
+# Limits for real model calls (read from the environment of `start`, default in brackets; each only lowers spending, a malformed value stops the API):
+#   AI_MAX_OUTPUT_TOKENS        ceiling on the output tokens of every model call [none; a template adaptation asks for 16000]
+#   AI_MAX_REPAIR_ATTEMPTS      extra requests when an answer is invalid, 0..2 [2]
+#   AI_ATTEMPTS_PER_CANDIDATE   attempts per request on a provider error, >= 1 [2]
+#   spending: the organization's AI budget (customer console, AI -> Budgets), its credit balance, and the vendor-side cap of the API key.
 # Secrets: the API uses apps/api/.dev-vault of THIS checkout (sealed with its dev-seal-key). A wrong or missing key stops the start; no key is ever replaced.
 # Dedicated default ports, so it can run beside other projects: customer 3300, admin 3301, API 4300, dev identity 4310, PostgreSQL 54390.
 # Everything it creates lives in .dev-data/platform/ (gitignored). It has its OWN PostgreSQL cluster on its own port: the project's other development
@@ -195,7 +200,7 @@ seed() {
 }
 
 # The dev identity provider's user picker. These are not real accounts; they have no password.
-DEV_USERS='[{"sub":"dev-owner","email":"owner@example.test","name":"Layla Owner (customer)"},{"sub":"dev-viewer","email":"viewer@example.test","name":"Omar Viewer (customer)"},{"sub":"dev-staff","email":"staff@example.test","name":"Sara Staff (admin)"},{"sub":"dev-approver1","email":"approver1@example.test","name":"Huda Security (second approver)"},{"sub":"dev-approver2","email":"approver2@example.test","name":"Faisal Admin (third approver)"}]'
+DEV_USERS='[{"sub":"dev-owner","email":"owner@example.test","name":"Layla Owner (customer)"},{"sub":"dev-viewer","email":"viewer@example.test","name":"Omar Viewer (customer)"},{"sub":"dev-staff","email":"staff@example.test","name":"Sara Staff (admin)"},{"sub":"dev-approver1","email":"approver1@example.test","name":"Huda Security (second approver)"},{"sub":"dev-approver2","email":"approver2@example.test","name":"Faisal Admin (third approver)"},{"sub":"dev-reviewer","email":"reviewer@example.test","name":"Local Reviewer (security role, local testing only)"}]'
 STAFF='[{"sub":"dev-staff","email":"staff@example.test","role":"platform_admin"},{"sub":"dev-approver1","email":"approver1@example.test","role":"security"},{"sub":"dev-approver2","email":"approver2@example.test","role":"platform_admin"}]'
 
 health() {

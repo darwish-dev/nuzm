@@ -43,7 +43,7 @@ say() { printf '%s\n' "$*"; }
 die() { printf 'local-platform: %s\n' "$*" >&2; exit 1; }
 pidfile() { echo "$RUN/$1.pid"; }
 alive() { local f; f="$(pidfile "$1")"; [ -f "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null; }
-holder() { lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1" pid "$2}'; }
+holder() { { lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null || true; } | awk 'NR==2 {print $1" pid "$2}'; } # lsof exits 1 for a free port: not an error
 require_free() { local h; h="$(holder "$1")"; [ -z "$h" ] || die "port $1 ($2) is already used by $h. Stop it yourself, or choose another port with $3=<port>."; }
 pg_running() { "$PGBIN/pg_ctl" -D "$PGDIR" status >/dev/null 2>&1; }
 
@@ -103,7 +103,11 @@ build() {
   say "build: all packages and both consoles (a few minutes; log: $LOGS/build.log)"
   # The consoles bake the API origin and the preview frame origin (with its port, or the browser blocks the preview frame) into the build.
   API_ORIGIN="$API" ADMIN_ORIGIN="$ADMIN" BUILDER_PREVIEW_DOMAIN="preview.localhost:$API_PORT" BUILDER_PREVIEW_SCHEME=http \
-    pnpm exec turbo run build --force --concurrency="${NUZM_BUILD_CONCURRENCY:-2}" > "$LOGS/build.log" 2>&1 || die "build failed: see $LOGS/build.log"
+    pnpm exec turbo run build --force --env-mode=loose --concurrency="${NUZM_BUILD_CONCURRENCY:-2}" > "$LOGS/build.log" 2>&1 || die "build failed: see $LOGS/build.log"
+  # turbo's default (strict) mode hides undeclared variables from the build: the consoles would point at the default API (:4000), which may be another project's server
+  for app in web admin; do
+    grep -qF "\"$API/v1/:path*\"" "apps/$app/.next/routes-manifest.json" || die "the $app console was built for another API address (expected $API): see $LOGS/build.log"
+  done
   printf '%s %s %s\n' "$(git rev-parse HEAD)" "$API_PORT" "$ADMIN_PORT" > "$RUN/build.stamp"
   say "build: done"
 }
@@ -251,7 +255,7 @@ case "${1:-}" in
     for a in "$@"; do case "$a" in --skip-build) skip_build=1 ;; --seed-demo) seed_demo=1 ;; *) die "unknown option $a" ;; esac; done
     preflight
     mkdir -p "$RUN" "$LOGS" "$SECRETS"; chmod 700 "$HOME_DIR" "$SECRETS"
-    for s in $SERVICES; do alive "$s" && die "already running: use 'status', or 'stop' first"; done
+    for s in $SERVICES; do if alive "$s"; then die "already running: use 'status', or 'stop' first"; fi; done
     require_free "$API_PORT" API NUZM_PLATFORM_API_PORT
     require_free "$IDP_PORT" "dev identity provider" NUZM_PLATFORM_IDP_PORT
     require_free "$WEB_PORT" "customer console" NUZM_PLATFORM_WEB_PORT

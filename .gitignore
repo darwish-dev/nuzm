@@ -20,6 +20,11 @@ coverage/
 !.vscode/extensions.json
 infra/docker/data/
 .dev-vault/
+# every variant of a vault folder or key file (copies and backups included): secrets never reach Git
+.dev-vault*
+**/.dev-vault*
+dev-seal-key*
+field-key-*
 next-env.d.ts
 *.tsbuildinfo
 .dev-data/

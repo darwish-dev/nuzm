@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
-import { SecretStore } from './secrets';
+import { SecretExistsError, SecretNotFoundError, SecretStore } from './secrets';
 
 /**
  * Field-level encryption (M04 S13d). A value is sealed with AES-256-GCM under a per-column subkey derived (HKDF-SHA256) from a master key that
@@ -89,18 +89,29 @@ export class KeyringFieldCipher extends FieldCipher {
           );
         // development fallback: one throwaway key in the dev secret store
         // the dev stores name their refs vault://dev/<id> (file) or vault://mem/<id> (memory): look for an existing key before creating one
-        let value: string | null = null;
-        for (const prefix of ['vault://dev/', 'vault://mem/']) {
-          try {
-            value = await this.store.get(`${prefix}${DEV_SECRET}`);
-            break;
-          } catch {
-            /* not in this store */
+        // ONLY "nothing is stored there" may lead to a new key. A key that exists but does not open (wrong seal key, damaged or unreadable file) stops here:
+        // replacing it would leave every value sealed with it unreadable for good.
+        const find = async () => {
+          for (const prefix of ['vault://dev/', 'vault://mem/']) {
+            try {
+              return await this.store.get(`${prefix}${DEV_SECRET}`);
+            } catch (e) {
+              if (!(e instanceof SecretNotFoundError)) throw e;
+            }
           }
-        }
+          return null;
+        };
+        let value = await find();
         if (value === null) {
-          const ref = await this.store.put(DEV_SECRET, randomBytes(32).toString('base64'));
-          value = await this.store.get(ref);
+          try {
+            value = await this.store.get(
+              await this.store.create(DEV_SECRET, randomBytes(32).toString('base64')),
+            );
+          } catch (e) {
+            if (!(e instanceof SecretExistsError)) throw e;
+            value = await find(); // another process created it first: use that one
+            if (value === null) throw e;
+          }
         }
         keys.set(DEV_KEY_ID, Buffer.from(value, 'base64'));
         current = DEV_KEY_ID;

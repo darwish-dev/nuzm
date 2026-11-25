@@ -25,7 +25,7 @@ export interface Scenario {
 }
 
 const PROVIDER = ['D2', 'D5', 'D6', 'D4', 'D3', 'D9'];
-const RUNTIME = ['D-21', 'HG-10-02', 'ADR-067'];
+const RUNTIME = ['D-21', 'HG-10-02', 'ADR-069'];
 const DEPLOY = ['HG-05', 'HG-06', 'HOST-TRANSPORT', 'B-DOMAIN', 'HOST-JOIN'];
 
 export const SCENARIOS: Scenario[] = [

@@ -35,7 +35,7 @@ Each negative is written as the secure expectation; while a defect is open it is
 | Credential leak scan of logs, database, artifacts, responses, audit rows, evidence files after a real run | D2, D5, D6, D4, D3, D9 | `security` (`kind: credential-leak-scan`) | BLOCKED (D2..D9): the harness scenario Q01 stops at the missing approvals |
 | Wallet, ledger and usage reconcile to the cent after every real paid run | the same | `security` (`kind: ledger-wallet-reconciliation`) | BLOCKED |
 | Prompt injection through real model outputs and project files | the same + runtime | `security` | BLOCKED |
-| Independent re-run of the escape suite (reviewer brief, `PHASE2-SECURITY-QUALIFICATION.md` section 5) | D-21, HG-10-02, ADR-067, a Linux node | `security` (`runtime-escape-independent`) | BLOCKED |
+| Independent re-run of the escape suite (reviewer brief, `PHASE2-SECURITY-QUALIFICATION.md` section 5) | D-21, HG-10-02, ADR-069, a Linux node | `security` (`runtime-escape-independent`) | BLOCKED |
 | SSRF/egress on a real network (metadata endpoint, DNS rebinding) | the node | `security` | BLOCKED |
 | Audit chain verification after real spend | the same | `security` | BLOCKED |
 The exact blocker per row is generated into `docs/phase3/EVIDENCE/ACCEPTANCE-MATRIX.md`.

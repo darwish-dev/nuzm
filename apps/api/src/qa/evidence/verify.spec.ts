@@ -6,6 +6,7 @@ import { registryOf, parseDecisionLog } from './approvals';
 import { DETAILS, H, baseRecord, liveRecord, notVerifiedRecord, simulatedRecord } from './fixtures';
 import { SchemaSet } from './json-schema';
 import { REQUIREMENTS, buildMatrix } from './matrix';
+import { SCENARIOS } from '../harness/scenarios';
 import {
   TRACKS,
   computeContentHash,
@@ -425,6 +426,19 @@ describe('owner approval decision log', () => {
       readFileSync(join(repoRoot(), 'docs/parallel/OWNER-APPROVAL-PACK.md'), 'utf8'),
     );
     expect(Array.isArray(real)).toBe(true);
+  });
+  it('every approval id the matrix and the harness wait for is an id the approval pack tells the owner to record', () => {
+    const pack = readFileSync(join(repoRoot(), 'docs/parallel/OWNER-APPROVAL-PACK.md'), 'utf8');
+    // The id is the bold lead of a row's first cell ("| **ADR-069** (…) | …"). Parenthesised former names are not ids.
+    const asked = new Set([...pack.matchAll(/^\|\s*\*\*([A-Za-z0-9.-]+)\*\*/gm)].map((m) => m[1]));
+    const waitedFor = [...REQUIREMENTS, ...SCENARIOS].flatMap((r) => r.approvals);
+    expect([...new Set(waitedFor)].filter((id) => !asked.has(id))).toEqual([]);
+  });
+  it('the Execution Gateway is ADR-069: an approval recorded for ADR-067 (the HestiaCP panel) does not unblock it', () => {
+    const row = (id: string) => ({ id, decision: 'accept', reference: 'R-1', date: 'd', by: 'b' });
+    const runtime = REQUIREMENTS.find((r) => r.id === 'T2.runtime')!;
+    expect(registryOf([row('ADR-067')]).missing(runtime.approvals)).toContain('ADR-069');
+    expect(registryOf([row('ADR-069')]).missing(runtime.approvals)).not.toContain('ADR-069');
   });
 });
 

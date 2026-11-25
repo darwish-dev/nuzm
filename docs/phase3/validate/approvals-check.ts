@@ -21,7 +21,7 @@ const WHAT: Record<string, string> = {
   'SEC-AG': 'named agent security reviewer',
   'D-21': 'isolation technology and node pool decided',
   'HG-10-02': 'independent sandbox isolation review commissioned, reviewer named',
-  'ADR-067': 'Execution Gateway ADR accepted as binding',
+  'ADR-069': 'Execution Gateway ADR accepted as binding',
   'HG-05': 'real, non-production, throw-away hosting node approved',
   'HG-06': 'panel access on that node approved',
   'HOST-TRANSPORT': 'owner for the artifact upload path assigned',

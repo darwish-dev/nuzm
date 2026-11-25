@@ -89,7 +89,7 @@
       "live": [],
       "simulated": [],
       "blockers": [
-        "approvals not recorded: D-21, HG-10-02, ADR-067 (OWNER-APPROVAL-PACK.md section 6)",
+        "approvals not recorded: D-21, HG-10-02, ADR-069 (OWNER-APPROVAL-PACK.md section 6)",
         "No dedicated non-production Linux node exists (D-21/HG-10-02): nothing can execute generated code in an isolating runtime."
       ]
     },
@@ -99,7 +99,7 @@
       "live": [],
       "simulated": [],
       "blockers": [
-        "approvals not recorded: D2, D5, D6, D4, D3, D9, D-21, HG-10-02, ADR-067, B-DB (OWNER-APPROVAL-PACK.md section 6)",
+        "approvals not recorded: D2, D5, D6, D4, D3, D9, D-21, HG-10-02, ADR-069, B-DB (OWNER-APPROVAL-PACK.md section 6)",
         "No dedicated non-production Linux node exists (D-21/HG-10-02): nothing can execute generated code in an isolating runtime."
       ]
     },
@@ -148,7 +148,7 @@
       "live": [],
       "simulated": [],
       "blockers": [
-        "approvals not recorded: D2, D5, D6, D4, D3, D9, D-21, HG-10-02, ADR-067 (OWNER-APPROVAL-PACK.md section 6)",
+        "approvals not recorded: D2, D5, D6, D4, D3, D9, D-21, HG-10-02, ADR-069 (OWNER-APPROVAL-PACK.md section 6)",
         "No dedicated non-production Linux node exists (D-21/HG-10-02): nothing can execute generated code in an isolating runtime."
       ]
     },
@@ -206,7 +206,7 @@
       "live": [],
       "simulated": [],
       "blockers": [
-        "approvals not recorded: D-21, HG-10-02, ADR-067 (OWNER-APPROVAL-PACK.md section 6)",
+        "approvals not recorded: D-21, HG-10-02, ADR-069 (OWNER-APPROVAL-PACK.md section 6)",
         "No dedicated non-production Linux node exists (D-21/HG-10-02): nothing can execute generated code in an isolating runtime."
       ]
     }

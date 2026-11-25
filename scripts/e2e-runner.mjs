@@ -212,8 +212,9 @@ async function run(dir, resume) {
       apiDatabase: await probe(`${api}/v1/me`, 401, {
         cookie: 'nuzm_session=healthcheck-not-a-session',
       }),
-      web: await probe(`http://127.0.0.1:${stackEnv.E2E_WEB_PORT}/ar/login`, 200),
-      admin: await probe(`http://127.0.0.1:${stackEnv.E2E_ADMIN_PORT}/ar/login`, 200),
+      // `/login`, not `/ar/login`: the consoles' routes carry no language, so the prefixed form answers with a redirect
+      web: await probe(`http://127.0.0.1:${stackEnv.E2E_WEB_PORT}/login`, 200),
+      admin: await probe(`http://127.0.0.1:${stackEnv.E2E_ADMIN_PORT}/login`, 200),
     };
     const bad = Object.entries(checks).filter(([, v]) => v);
     appendFileSync(

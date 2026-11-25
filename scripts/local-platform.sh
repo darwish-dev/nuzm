@@ -175,7 +175,7 @@ start_console() { # <web|admin> <port>
   launch "$name" "$ROOT/apps/$name" env \
     API_ORIGIN="$API" WEB_ORIGIN="$WEB" ADMIN_ORIGIN="$ADMIN" PSP_SANDBOX_UI=true \
     node_modules/.bin/next start -p "$port" -H 127.0.0.1
-  wait_http "$name" "http://127.0.0.1:$port/ar/login" "${NUZM_START_TIMEOUT:-240}"
+  wait_http "$name" "http://127.0.0.1:$port/login" "${NUZM_START_TIMEOUT:-240}"
   say "$name: http://127.0.0.1:$port"
 }
 
@@ -203,8 +203,9 @@ health() {
   check "PostgreSQL        127.0.0.1:$PGPORT" "$PGBIN/pg_isready" -h 127.0.0.1 -p "$PGPORT" -d "$DBNAME"
   check "API               $API/healthz" curl -fsS --max-time 10 "$API/healthz"
   check "dev identity      $IDP/.well-known/openid-configuration" curl -fsS --max-time 10 "$IDP/.well-known/openid-configuration"
-  check "customer console  $WEB/ar/login" curl -fsS --max-time 30 "$WEB/ar/login"
-  check "admin console     $ADMIN/ar/login" curl -fsS --max-time 30 "$ADMIN/ar/login"
+  # a real 200 from the page itself (`curl -f` alone also accepts a redirect)
+  check "customer console  $WEB/login answers 200" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 '$WEB/login')\" = 200 ]"
+  check "admin console     $ADMIN/login answers 200" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 '$ADMIN/login')\" = 200 ]"
   check "console -> API    $WEB/v1/me answers 401 without a session" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$WEB/v1/me')\" = 401 ]"
   check "console -> API    $ADMIN/v1/me answers 401 without a session" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$ADMIN/v1/me')\" = 401 ]"
   check "worker            process and database session" bash -c "kill -0 \"\$(cat '$(pidfile worker)')\" && [ \"\$('$PGBIN/psql' -h 127.0.0.1 -p $PGPORT -U nuzm_admin -d $DBNAME -Atc \"SELECT count(*)>0 FROM pg_stat_activity WHERE usename='nuzm_worker'\")\" = t ]"
@@ -214,8 +215,8 @@ health() {
 urls() {
   cat <<EOT
 
-  Customer console   $WEB/ar   (English: $WEB/en)
-  Admin console      $ADMIN/ar/login
+  Customer console   $WEB/login   (Arabic by default; add ?lang=en for English)
+  Admin console      $ADMIN/login
   API                $API      health: $API/healthz
   Dev identity       $IDP
 

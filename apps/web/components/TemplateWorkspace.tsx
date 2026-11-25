@@ -1,4 +1,5 @@
 'use client';
+import { PROJECT_PROMPT_MAX } from '../lib/appbuilder';
 import { useRef, useState, type FormEvent } from 'react';
 import { t, tDynamic, type Locale, type MessageKey } from '@nuzm/i18n';
 import {
@@ -270,12 +271,17 @@ function PlanCard({
                 id="gen-text"
                 label={t(locale, 'gen.plan.text')}
                 help={t(locale, 'tpl.rec.text.help')}
+
+                error={
+                  text.trim().length > PROJECT_PROMPT_MAX
+                    ? t(locale, 'bld.start.promptErr', { max: PROJECT_PROMPT_MAX })
+                    : undefined
+                }
               >
                 {(a) => (
                   <Input
                     {...a}
                     value={text}
-                    maxLength={2000}
                     onChange={(e) => {
                       setText(e.target.value);
                       planKey.current = newKey();

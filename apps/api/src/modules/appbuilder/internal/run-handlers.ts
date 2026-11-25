@@ -1,3 +1,4 @@
+import { PROMPT_LIMITS } from '@nuzm/domain';
 import { ProblemException } from '../../../common/errors';
 import { SegmentSuspend, WorkerCrash, type RunContext, type RunKindHandler } from '../../ai';
 import { assembleFiles } from './agents/webapp-agents';
@@ -78,11 +79,11 @@ export class WebappRunHandler extends AppRunHandler {
         b === null ||
         typeof b.prompt !== 'string' ||
         b.prompt.trim().length < 1 ||
-        b.prompt.length > 4000
+        b.prompt.length > PROMPT_LIMITS.projectPromptChars
       )
         throw new ProblemException(
           'validation_failed',
-          'a builder lifecycle run needs input.brief.prompt of 1 to 4000 characters',
+          `a builder lifecycle run needs input.brief.prompt of 1 to ${PROMPT_LIMITS.projectPromptChars} characters`,
         );
       const r = input.maxRepairRounds;
       if (r !== undefined && (!Number.isInteger(r) || (r as number) < 1 || (r as number) > 3))
@@ -107,10 +108,13 @@ export class WebappRunHandler extends AppRunHandler {
     if (typeof b !== 'object' || b === null || Array.isArray(b))
       throw new ProblemException('validation_failed', 'input.brief must be an object');
     const prompt = (b as { prompt?: unknown }).prompt;
-    if (prompt !== undefined && (typeof prompt !== 'string' || prompt.length > 4000))
+    if (
+      prompt !== undefined &&
+      (typeof prompt !== 'string' || prompt.length > PROMPT_LIMITS.projectPromptChars)
+    )
       throw new ProblemException(
         'validation_failed',
-        'input.brief.prompt must be a string of at most 4000 characters',
+        `input.brief.prompt must be a string of at most ${PROMPT_LIMITS.projectPromptChars} characters`,
       );
   }
   async execute(ctx: RunContext): Promise<void> {

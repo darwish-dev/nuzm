@@ -5,6 +5,8 @@ import {
   REQUIREMENTS_TURN_SCHEMA,
   type DataBlock,
   type RequirementsTurn,
+  shortOrPointer,
+  PROMPT_LIMITS,
 } from '@nuzm/domain';
 import { ProblemException } from '../../../common/errors';
 import type { RunContext, RunKindHandler } from './run-kinds';
@@ -33,6 +35,12 @@ export class ChatRunHandler implements RunKindHandler {
       throw new ProblemException(
         'validation_failed',
         `input.answers must be an object of at most ${MAX_QUESTIONS} short strings`,
+      );
+    const d = input.description;
+    if (d !== undefined && (typeof d !== 'string' || d.length > PROMPT_LIMITS.projectPromptChars))
+      throw new ProblemException(
+        'validation_failed',
+        `input.description must be a string of at most ${PROMPT_LIMITS.projectPromptChars} characters`,
       );
   }
   async execute(ctx: RunContext): Promise<void> {
@@ -117,9 +125,12 @@ export class ChatRunHandler implements RunKindHandler {
         answers: ctx.run.input.answers ?? {},
         skip,
         answeredSoFar: asked,
-        description: String(ctx.run.input.description ?? '').slice(0, 600),
+        description: shortOrPointer(String(ctx.run.input.description ?? ''), 'description'),
       },
-      data,
+      // the customer's whole description is DATA, like their messages; the param above repeats it only when it is short
+      data: ctx.run.input.description
+        ? [{ label: 'description', text: String(ctx.run.input.description) }, ...data]
+        : data,
       schema: REQUIREMENTS_TURN_SCHEMA,
       maxTokens: 2500,
     });

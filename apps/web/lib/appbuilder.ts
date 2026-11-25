@@ -228,7 +228,12 @@ export function splitNames(text: string): string[] {
 export const validName = (v: string) =>
   // eslint-disable-next-line no-control-regex
   v.length >= 1 && v.length <= 60 && !/[\u0000-\u001f\u007f<>]/.test(v);
-export const PROMPT_MAX = 8000;
+/**
+ * How much a customer may write to the AI builder: the first description of a project and one follow-up message. The API holds the same numbers
+ * (`PROMPT_LIMITS` in packages/domain; a test keeps them equal). Over the limit is an error shown to the person, never a silent cut (no `maxLength` on these boxes).
+ */
+export const PROJECT_PROMPT_MAX = 30_000;
+export const CHAT_MESSAGE_MAX = 20_000;
 
 /** A name for the new project, taken from the first line of the prompt (80 characters at most). */
 export function projectNameFrom(prompt: string): string {

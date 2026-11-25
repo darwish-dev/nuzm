@@ -420,7 +420,11 @@ describe('live egress is closed by default (S-AG4 gate)', () => {
         { callId: 'live-gate' },
         { model: CLAUDE_MODEL_ID, messages: [{ role: 'user', content: 'hi' }], maxTokens: 10 },
       ),
-    ).rejects.toMatchObject({ code: 'unavailable', retryable: false });
+    ).rejects.toMatchObject({
+      code: 'unavailable',
+      retryable: false,
+      name: 'LiveCallsNotApprovedError',
+    });
     await expect(
       (async () => {
         for await (const _ of real!.stream(
@@ -435,10 +439,15 @@ describe('live egress is closed by default (S-AG4 gate)', () => {
 });
 
 describe('a closed live gate seen from the gateway', () => {
-  it('a provider whose live calls are not approved serves nothing: 503 for the caller, no upstream call, no charge, nothing reserved', async () => {
+  it('a provider whose live calls are not approved serves nothing: a specific 503 (ai_provider_not_enabled) for the caller, no upstream call, no charge, nothing reserved', async () => {
     await only(adapter({ live: () => false }));
     const wallet = await e.wallet(A());
-    await expect(gw.invoke(call())).rejects.toMatchObject({ code: 'service_unavailable' });
+    const refused = await gw.invoke(call()).catch((x: unknown) => x);
+    expect(refused).toMatchObject({ code: 'ai_provider_not_enabled' });
+    expect((refused as { getStatus(): number }).getStatus()).toBe(503);
+    // a gate refusal is not a provider failure: however often it repeats, the circuit stays closed and the answer stays the same (never "paused after repeated failures")
+    for (let i = 0; i < 6; i++)
+      await expect(gw.invoke(call())).rejects.toMatchObject({ code: 'ai_provider_not_enabled' });
     expect(seen).toHaveLength(0);
     expect(await e.wallet(A())).toBe(wallet);
     expect(await held()).toBe(0);

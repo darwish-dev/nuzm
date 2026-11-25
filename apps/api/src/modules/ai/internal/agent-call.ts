@@ -3,6 +3,7 @@ import {
   dataFence,
   envelopeSchema,
   parseModelJson,
+  MAX_PARAM_CHARS,
   sanitizeUntrusted,
   scanForSecrets,
   validateSchema,
@@ -17,7 +18,7 @@ import { AgentOutputInvalid, type AgentCall, type RunRow } from './run-kinds';
 import type { AiConfig } from './model';
 
 const cleanParams = (v: unknown, fence: string): unknown => {
-  if (typeof v === 'string') return sanitizeUntrusted(v, fence).slice(0, 2000);
+  if (typeof v === 'string') return sanitizeUntrusted(v, fence).slice(0, MAX_PARAM_CHARS);
   if (Array.isArray(v)) return v.slice(0, 200).map((x) => cleanParams(x, fence));
   if (v && typeof v === 'object')
     return Object.fromEntries(

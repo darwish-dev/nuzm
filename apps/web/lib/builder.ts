@@ -128,6 +128,8 @@ export interface SeoCheck {
 export interface ProjectDetail extends Project {
   versionId: string;
   versionSeq: number;
+  /** who made the shown version; `system` and `template` are starters (placeholders), not generated content */
+  versionSource?: 'user' | 'ai' | 'restore' | 'template' | 'system';
   siteModel: SiteModel;
   seo: { score: number; checks: SeoCheck[] };
   diff: Diff | null;
@@ -385,6 +387,7 @@ const PROBLEM_KEYS: Record<string, MessageKey> = {
   residency_denied: 'bld.err.residency_denied',
   unsupported_capability: 'bld.err.unsupported_capability',
   ai_unavailable: 'bld.err.ai_unavailable',
+  ai_provider_not_enabled: 'bld.err.ai_provider_not_enabled',
   quota_exceeded: 'bld.err.quota_exceeded',
   name_taken: 'bld.err.name_taken',
   run_active: 'bld.err.run_active',
@@ -502,6 +505,43 @@ export const isRunActive = (state: string): boolean =>
 /** States after which nothing more happens on its own. */
 export const isRunFinished = (state: string): boolean =>
   ['succeeded', 'failed', 'cancelled', 'budget_exceeded'].includes(state);
+/**
+ * What the website canvas may show. A `system` or `template` version is the STARTER the project was created with (its title is the project name), not generated
+ * content: while no generation or edit has replaced it, the canvas shows the generation state instead of presenting the starter as an AI result.
+ *  - `site`: show the preview (the version was made by the AI, by the person, or by a restore)
+ *  - `processing`: a run is queued or working; `approval`: the run waits for the person's approval
+ *  - `failed`: the last run failed, was cancelled or ran out of budget; `errorKey` says why in the person's language
+ *  - `empty`: nothing has been generated yet (no run, or a run that changed nothing)
+ */
+export type CanvasState =
+  | { kind: 'site' }
+  | { kind: 'processing' }
+  | { kind: 'approval' }
+  | { kind: 'failed'; state: string; errorKey: MessageKey; code: string | null }
+  | { kind: 'empty' };
+export function canvasState(
+  versionSource: string | undefined,
+  run: Pick<Run, 'state' | 'error'> | null,
+): CanvasState {
+  if (versionSource !== 'system' && versionSource !== 'template') return { kind: 'site' };
+  if (!run) return { kind: 'empty' };
+  if (run.state === 'waiting_approval') return { kind: 'approval' };
+  if (isRunActive(run.state)) return { kind: 'processing' };
+  if (run.state === 'failed' || run.state === 'cancelled' || run.state === 'budget_exceeded') {
+    const e = run.error as { code?: unknown } | null;
+    const code = typeof e?.code === 'string' ? e.code : null;
+    const errorKey: MessageKey =
+      run.state === 'cancelled'
+        ? 'bld.canvas.cancelled'
+        : run.state === 'budget_exceeded'
+          ? 'bld.canvas.budget'
+          : code && PROBLEM_KEYS[code]
+            ? PROBLEM_KEYS[code]!
+            : 'bld.canvas.failedGeneric';
+    return { kind: 'failed', state: run.state, errorKey, code };
+  }
+  return { kind: 'empty' };
+}
 export const runTone = (state: string): Tone =>
   state === 'succeeded'
     ? 'success'

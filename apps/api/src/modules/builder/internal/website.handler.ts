@@ -10,6 +10,8 @@ import {
   type Locale,
   type Requirements,
   type RequirementsTurn,
+  PROMPT_LIMITS,
+  shortOrPointer,
 } from '@nuzm/domain';
 import { ProblemException } from '../../../common/errors';
 import type { RunContext, RunKindHandler } from '../../ai';
@@ -42,11 +44,12 @@ export class WebsiteRunHandler implements RunKindHandler {
       );
     if (
       input.description !== undefined &&
-      (typeof input.description !== 'string' || input.description.length > 600)
+      (typeof input.description !== 'string' ||
+        input.description.length > PROMPT_LIMITS.projectPromptChars)
     )
       throw new ProblemException(
         'validation_failed',
-        'input.description must be up to 600 characters',
+        `input.description must be up to ${PROMPT_LIMITS.projectPromptChars} characters`,
       );
     if (!input.requirementsArtifactId && !input.description)
       throw new ProblemException(
@@ -79,7 +82,8 @@ export class WebsiteRunHandler implements RunKindHandler {
           task: 'requirements',
           instruction: WEBSITE_REQUIREMENTS_DEFAULTS,
           params: {
-            description: String(ctx.run.input.description ?? '').slice(0, 600),
+            // the whole description travels as the data block below; a short one is repeated here, a long one is never cut
+            description: shortOrPointer(String(ctx.run.input.description ?? ''), 'description'),
             skip: true,
             answeredSoFar: 0,
           },
@@ -94,6 +98,11 @@ export class WebsiteRunHandler implements RunKindHandler {
       await ctx.save({ requirements: req }, 'requirements');
     }
     const req = ctx.checkpoint.requirements as Requirements;
+    // the site's name is the business the requirements name (e.g. "VERTEX Media"), not the project name, which the start screen derives from the first words of the
+    // customer's description; the project name is the fallback only
+    const siteName = req.businessName?.trim() ? req.businessName.trim() : projectName;
+    const description = String(ctx.run.input.description ?? '');
+    const brief = description ? [{ label: 'description', text: description }] : [];
 
     // 2. architecture
     if (!ctx.checkpoint.architecture) {
@@ -101,6 +110,8 @@ export class WebsiteRunHandler implements RunKindHandler {
         task: 'architecture',
         instruction: INSTR_ARCH,
         params: { requirements: req, locales },
+        // the customer's whole description (DATA) next to its structured summary: details the summary had no field for are not lost
+        data: brief,
         schema: ARCHITECTURE_SCHEMA,
         maxTokens: 4000,
       });
@@ -151,12 +162,13 @@ export class WebsiteRunHandler implements RunKindHandler {
         task: 'page',
         instruction: INSTR_PAGE,
         params: { architecture: arch, pageId: ap.pageId, requirements: req, locales },
+        data: brief,
         schema: PAGE_RESULT_SCHEMA,
         // the same validation the finished site gets, on this one page: what is wrong goes back to the model instead of failing the run at the end
         check: (res) =>
           checkPageResult(
             (page) =>
-              assembleGenerated({ name: projectName, locales }, req, arch, [page as PageResult]),
+              assembleGenerated({ name: siteName, locales }, req, arch, [page as PageResult]),
             { ...(res as PageResult), pageId: ap.pageId },
             arch.siteMap.map((x) => x.pageId),
           ),
@@ -170,12 +182,7 @@ export class WebsiteRunHandler implements RunKindHandler {
     }
 
     // 5. assemble, validate, commit as a NEW version
-    const model = assembleGenerated(
-      { name: projectName, locales },
-      req,
-      arch,
-      Object.values(pages),
-    );
+    const model = assembleGenerated({ name: siteName, locales }, req, arch, Object.values(pages));
     const issues = validateSiteModel(model);
     if (issues.length) {
       await ctx.emit('model_invalid', { issues: issues.slice(0, 10) });

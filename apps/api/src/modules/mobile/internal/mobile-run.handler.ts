@@ -1,4 +1,4 @@
-import { MOBILE_DESIGN } from '@nuzm/domain';
+import { MOBILE_DESIGN, PROMPT_LIMITS } from '@nuzm/domain';
 import { PINNED_TOOLCHAIN } from './flutter/toolchain';
 import { MOBILE_SPEC_SCHEMA, validateMobileSpec, type MobileSpec } from './flutter/spec';
 import { analyzeProject } from './flutter/analysis';
@@ -23,10 +23,10 @@ export class MobileRunHandler implements RunKindHandler {
 
   validateInput(input: Record<string, unknown>): void {
     const d = input.description;
-    if (typeof d !== 'string' || d.trim().length < 3 || d.length > 600)
+    if (typeof d !== 'string' || d.trim().length < 3 || d.length > PROMPT_LIMITS.projectPromptChars)
       throw new ProblemException(
         'validation_failed',
-        'input.description must be 3 to 600 characters',
+        `input.description must be 3 to ${PROMPT_LIMITS.projectPromptChars} characters`,
       );
     const extra = Object.keys(input).filter((k) => k !== 'description');
     if (extra.length)

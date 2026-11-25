@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import {
+  LiveCallsNotApprovedError,
   ModelAdapterError,
   abortableSleep,
   applyFallbackPolicy,
@@ -360,6 +361,9 @@ export class GatewayService {
     let firstDenied: BudgetDenied | null = null;
     let lastError: ModelAdapterError | null = null;
     let circuitSkipped = 0;
+    // candidates the owner's live gate refused before anything was sent, and candidates that failed for any other reason
+    let gateRefused = 0;
+    let otherFailures = 0;
     // a provider whose own SPENDING limit answered (a rate_limited error that is not retryable) refuses every model of its account: its other models are not tried
     const spendLimited = new Set<string>();
     const { retry, breaker, health } = this.resilience;
@@ -465,8 +469,16 @@ export class GatewayService {
             prompt,
           );
         } catch (e) {
+          if (e instanceof LiveCallsNotApprovedError) {
+            // the gate refused before the request left the process: not a provider failure (no health sample, no circuit count) and never retried
+            lastError = e;
+            gateRefused++;
+            releaseBreaker();
+            break;
+          }
           if (e instanceof ModelAdapterError) {
             lastError = e;
+            otherFailures++;
             health.recordFailure(key, e.code, Date.now() - attemptStarted);
             health.recordFailure(pkey, e.code, Date.now() - attemptStarted);
             // only a failure that speaks for the provider's health counts toward the circuit; a cancel or a filtered request just frees a half-open trial slot
@@ -585,6 +597,11 @@ export class GatewayService {
         { level: firstDenied.level, reason: firstDenied.reason },
       );
     }
+    if (gateRefused > 0 && otherFailures === 0 && circuitSkipped === 0)
+      throw new ProblemException(
+        'ai_provider_not_enabled',
+        'no AI model provider is enabled for live calls in this environment; nothing was sent and nothing was charged',
+      );
     throw new ProblemException(
       'service_unavailable',
       lastError === null && circuitSkipped > 0

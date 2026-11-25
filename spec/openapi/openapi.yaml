@@ -9495,7 +9495,7 @@ paths:
       operationId: createAiRun
       tags: [ai]
       summary: 'Start an AI run'
-      description: "Body {sessionId, kind: website|edit|chat|webapp|test-fix|mobile, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. `webapp` (the 7-agent graph; `input: {brief: {prompt}, maxMinutes?, specRef?}`, needs a web-app project, served only while the org flag `app_builder.enabled` is on) and `test-fix` (bounded debugging loop) are registered by the app-builder module (M10A). `mobile` (M10B, flag `mobile_builder.enabled`) needs a project of type mobile and input {description: 3..600 characters}: the design agent returns a structured mobile spec, a human approves it (approval kind `plan`), then the Flutter project is written as a new project version. Model quality is NOT VERIFIED. A webapp run that needs a human (destructive migration, dependency outside the policy, ...) waits in `waiting_approval` and is decided in the approvals inbox (`/v1/ai/approvals`; `pendingApproval.scopeHash` is the hash to quote), not through `POST /v1/ai/runs/{id}/approvals`. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`). A webapp run with input {builderLifecycle: true, brief: {prompt: 1..4000 characters}, maxRepairRounds?: 1..3, maxMinutes?: 1..60} runs the builder agent loop: it analyses the brief, plans, writes the plan's files as ONE validated change (AI branch only), reviews, builds and tests through the Execution Gateway, repairs failures within hard limits (3 repair rounds, 2 attempts per step on a transient error, 60 steps, the run's token and credit budget) and ends by asking for a deployment approval (approval type production_deploy, decided by an owner or admin in the approvals inbox). It deploys nothing. Served only while the organization flags builder_tools.enabled and builder_lifecycle.enabled are on (otherwise the run ends unsupported_capability). Build and test results are SIMULATED (a mock execution port) until the sandbox runtime is approved (D-21, HG-10-02, the Execution Gateway ADR); the result says so (simulated: true). 422 validation_failed for a malformed input; the usual 402/403/422/429/503 of run creation."
+      description: "Body {sessionId, kind: website|edit|chat|webapp|test-fix|mobile, projectId?, input, budget?: {maxTokens, maxCredits}}. 202 with the run and its operation. Text limits (refused with 422 above them, never shortened): a project's first description or brief (`input.description` of website, chat and mobile, `input.brief.prompt` of webapp) at most 30000 characters; an `edit` instruction at most 20000 characters. `webapp` (the 7-agent graph; `input: {brief: {prompt}, maxMinutes?, specRef?}`, needs a web-app project, served only while the org flag `app_builder.enabled` is on) and `test-fix` (bounded debugging loop) are registered by the app-builder module (M10A). `mobile` (M10B, flag `mobile_builder.enabled`) needs a project of type mobile and input {description: 3..30000 characters}: the design agent returns a structured mobile spec, a human approves it (approval kind `plan`), then the Flutter project is written as a new project version. Model quality is NOT VERIFIED. A webapp run that needs a human (destructive migration, dependency outside the policy, ...) waits in `waiting_approval` and is decided in the approvals inbox (`/v1/ai/approvals`; `pendingApproval.scopeHash` is the hash to quote), not through `POST /v1/ai/runs/{id}/approvals`. 402 `insufficient_credits`, 429 (too many active runs), 403 `residency_denied`, 422 `unsupported_capability` (no provider enabled), 503 `ai_unavailable` (kill switch), 409 `run_active` (one active run per session and per project). Idempotent per Idempotency-Key. Requires permission `ai:write`. Audited (`ai.run.created`). A webapp run with input {builderLifecycle: true, brief: {prompt: 1..30000 characters}, maxRepairRounds?: 1..3, maxMinutes?: 1..60} runs the builder agent loop: it analyses the brief, plans, writes the plan's files as ONE validated change (AI branch only), reviews, builds and tests through the Execution Gateway, repairs failures within hard limits (3 repair rounds, 2 attempts per step on a transient error, 60 steps, the run's token and credit budget) and ends by asking for a deployment approval (approval type production_deploy, decided by an owner or admin in the approvals inbox). It deploys nothing. Served only while the organization flags builder_tools.enabled and builder_lifecycle.enabled are on (otherwise the run ends unsupported_capability). Build and test results are SIMULATED (a mock execution port) until the sandbox runtime is approved (D-21, HG-10-02, the Execution Gateway ADR); the result says so (simulated: true). 422 validation_failed for a malformed input; the usual 402/403/422/429/503 of run creation."
       x-nuzm-permission: ai:write
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -10065,7 +10065,7 @@ paths:
       operationId: previewBuilderPlan
       tags: [builder]
       summary: 'Plan a product from a requirement text'
-      description: 'Body {text (at most 20000 characters), hint?: product type, repairRounds?: 0 to 3}. Pure and local: the text is analysed with fixed Arabic and English keyword tables and is never sent to a model or a vendor, so no credit is spent and no residency decision applies. Answers the validated implementation plan (tasks in stages with files, acceptance criteria and approvals), the open questions and an ESTIMATE of tokens and cost in integer minor units (a planning figure, not a quote). Permission `builder:read`. Flag `builder_tools.enabled` (404 when off).'
+      description: 'Body {text (at most 30000 characters), hint?: product type, repairRounds?: 0 to 3}. Pure and local: the text is analysed with fixed Arabic and English keyword tables and is never sent to a model or a vendor, so no credit is spent and no residency decision applies. Answers the validated implementation plan (tasks in stages with files, acceptance criteria and approvals), the open questions and an ESTIMATE of tokens and cost in integer minor units (a planning figure, not a quote). Permission `builder:read`. Flag `builder_tools.enabled` (404 when off).'
       x-nuzm-permission: builder:read
       x-nuzm-org-scoped: true
       security: [{ sessionCookie: [], csrfHeader: [] }, { apiKey: [] }]
@@ -23479,6 +23479,12 @@ components:
           properties:
             versionId: { type: string, format: uuid }
             versionSeq: { type: integer }
+            versionSource:
+              {
+                type: string,
+                enum: [user, ai, restore, template, system],
+                description: 'Who made the shown version of a website. `system` (the empty starter) and `template` (a built-in starter) are placeholders until a generation or an edit replaces them: the console shows the run state instead of presenting them as an AI result.',
+              }
             siteModel:
               {
                 type: [object, 'null'],
@@ -23698,7 +23704,7 @@ components:
       type: object
       required: [text]
       properties:
-        text: { type: string, maxLength: 20000 }
+        text: { type: string, maxLength: 30000 }
         hint:
           {
             type: string,
@@ -26514,7 +26520,7 @@ components:
       type: object
       properties:
         text:
-          { type: string, maxLength: 2000, description: 'The requirement in Arabic or English.' }
+          { type: string, maxLength: 30000, description: 'The requirement in Arabic or English.' }
         platform: { type: string, enum: [WEB, MOBILE, BACKEND, FULL_STACK, CROSS_PLATFORM] }
         frameworks: { type: array, maxItems: 10, items: { type: string } }
         frameworksRequired:
@@ -26784,7 +26790,7 @@ components:
     BuilderTemplateRecommendationRequest:
       type: object
       properties:
-        text: { type: string, maxLength: 2000 }
+        text: { type: string, maxLength: 30000 }
         platform: { type: string, enum: [WEB, MOBILE, BACKEND, FULL_STACK, CROSS_PLATFORM] }
         frameworks: { type: array, maxItems: 10, items: { type: string } }
         frameworksRequired: { type: boolean }

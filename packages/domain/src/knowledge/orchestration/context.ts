@@ -1,4 +1,5 @@
 import type { Schema } from '../../schema';
+import { PROMPT_LIMITS } from '../../builder/prompt-limits';
 
 /**
  * Context assembly (S-K6): the bounded, ordered material a model receives when it adapts a copied template to a requirement. Pure and deterministic, so the customer can be
@@ -26,7 +27,8 @@ export const CONTEXT_LIMITS = {
   maxFiles: 40,
   /** entries of the workspace index */
   maxIndexEntries: 400,
-  maxRequirementChars: 4_000,
+  /** the whole customer requirement is sent (the API refuses longer ones); the pack budget grows to hold it, see `assembleContext` */
+  maxRequirementChars: PROMPT_LIMITS.projectPromptChars,
 } as const;
 
 export const approxTokens = (s: string): number => Math.ceil(s.length / 3);
@@ -100,9 +102,15 @@ function rank(f: WorkspaceFile): number {
 }
 
 export function assembleContext(input: ContextInput): AssembledContext {
+  // the requirement is never shortened or dropped to fit: the pack's budget grows by the requirement's own size (within the hard ceiling), so a long brief does
+  // not push the template's files out of the pack either. Whether the finished call fits a model is the router's decision (context window), not this function's.
+  const reqTokens = approxTokens(input.requirement.text ?? '');
   const budget = Math.max(
     1_000,
-    Math.min(CONTEXT_LIMITS.maxBudgetTokens, input.budgetTokens ?? CONTEXT_LIMITS.budgetTokens),
+    Math.min(
+      CONTEXT_LIMITS.maxBudgetTokens,
+      (input.budgetTokens ?? CONTEXT_LIMITS.budgetTokens) + reqTokens,
+    ),
   );
   const blocks: ContextBlock[] = [];
   const excluded: AssembledContext['excluded'] = [];
@@ -132,7 +140,9 @@ export function assembleContext(input: ContextInput): AssembledContext {
   ]
     .filter(Boolean)
     .join('\n');
-  push('requirement', 'requirement', req);
+  // the requirement is always part of the pack (it is what the customer asked for); it counts against the budget like any block
+  blocks.push({ kind: 'requirement', label: 'requirement', text: req, tokens: approxTokens(req) });
+  used += approxTokens(req);
 
   // 2. template facts (metadata, never source)
   if (input.template) {

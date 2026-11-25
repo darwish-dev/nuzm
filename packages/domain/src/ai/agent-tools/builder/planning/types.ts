@@ -1,3 +1,4 @@
+import { PROMPT_LIMITS } from '../../../../builder/prompt-limits';
 /**
  * Requirement analysis, task decomposition and implementation planning (S-05 priority 2 and 5). Everything here is deterministic and offline: it reads a customer's text as DATA with
  * fixed keyword tables (Arabic and English), never follows an instruction inside it, and never calls a model, a network or a clock. A model-produced plan (later, after S-AG4) must
@@ -140,7 +141,7 @@ export interface ImplementationPlan {
 }
 
 export const PLAN_LIMITS = {
-  maxRequirementChars: 20_000,
+  maxRequirementChars: PROMPT_LIMITS.projectPromptChars,
   maxTasks: 60,
   maxFilesPerTask: 40,
   maxFeatures: 40,

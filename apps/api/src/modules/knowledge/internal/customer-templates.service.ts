@@ -252,7 +252,7 @@ export class CustomerTemplateService {
 
   // ---- recommendation --------------------------------------------------------------------------------------------------------------
   /** The engine of S-K5, answered for a customer: only what the customer may see (no exclusion list, no document text, no paths, nothing about unpublished resources). */
-  async recommend(orgId: string, body: Row) {
+  async recommend(orgId: string, body: Row, actor?: string) {
     const r = (await this.retrieval.recommend({
       ...body,
       requiresAiProcessing: undefined,
@@ -293,6 +293,36 @@ export class CustomerTemplateService {
             `INSERT INTO knowledge.usage_events (id, org_id, resource_id, version_id, kind) VALUES ($1,$2,$3,$4,'RECOMMENDED')`,
             [newId(), orgId, x.resourceId, x.versionId],
           );
+      });
+    // which template and components were chosen, and why (the decision's reason codes and the scores of what was considered); never the customer's text
+    if (actor)
+      await this.audit.record({
+        action: 'knowledge.template.recommended',
+        actorUserId: actor,
+        actorType: 'user',
+        orgId,
+        resource: { type: 'knowledge_recommendation', id: newId() },
+        outcome: 'success',
+        detail: {
+          strategy: decision.strategy,
+          reasons: decision.notes,
+          selected: r.selected
+            ? {
+                resourceId: (r.selected as Row).resourceId,
+                versionId: (r.selected as Row).versionId,
+                score: (r.selected as Row).score,
+                confidence: (r.selected as Row).confidence,
+                components: (((r.selected as Row).components as { name: string }[]) ?? [])
+                  .slice(0, 12)
+                  .map((x) => x.name),
+              }
+            : null,
+          considered: ranked
+            .slice(0, 3)
+            .map((x) => ({ resourceId: x.resourceId, score: x.score, confidence: x.confidence })),
+          eligible: stats.eligible,
+          textChars: typeof body.text === 'string' ? body.text.length : 0,
+        },
       });
     return {
       requirement: { groups: (r.requirement as Row).groups },
@@ -459,7 +489,8 @@ export class CustomerTemplateService {
     );
     const sel = rec.selected;
     const requirements = {
-      text: typeof body.text === 'string' ? body.text.slice(0, 2000) : null,
+      // stored whole: the recommendation step above already refused a text over the limit
+      text: typeof body.text === 'string' ? body.text : null,
       platform: body.platform ?? null,
       frameworks: Array.isArray(body.frameworks)
         ? (body.frameworks as unknown[]).filter((x) => typeof x === 'string').slice(0, 10)

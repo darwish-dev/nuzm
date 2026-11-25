@@ -203,7 +203,7 @@ describe('flags and input', () => {
     for (const input of [
       { builderLifecycle: true },
       { builderLifecycle: true, brief: { prompt: '' } },
-      { builderLifecycle: true, brief: { prompt: 'x'.repeat(4001) } },
+      { builderLifecycle: true, brief: { prompt: 'x'.repeat(30_001) } },
       { builderLifecycle: 'yes', brief: { prompt: 'x' } },
       { builderLifecycle: true, brief: { prompt: 'x' }, maxRepairRounds: 5 },
       { builderLifecycle: true, brief: { prompt: 'x' }, agentic: true },

@@ -1863,7 +1863,7 @@ describe('retrieval and recommendation (S-K5)', () => {
       { design: { darkMode: 'yes' } },
       { limit: 0 },
       { limit: 21 },
-      { text: 'x'.repeat(2001) },
+      { text: 'x'.repeat(30_001) },
       { strategy: 'NOPE' },
       { strategy: 'USER_SELECTED' },
       { resourceId: 'x' },
@@ -2198,6 +2198,14 @@ describe('customer templates (S-K7)', () => {
     ]);
     expect(await events(A(), 'RECOMMENDED')).toBeGreaterThan(before); // the customer's own usage events
     expect(await events(B(), 'RECOMMENDED')).toBe(0);
+    // the decision and its reasons are recorded (selected template and components, reason codes, scores of what was considered), never the customer's text
+    const rec = e.sink.events.filter((x) => x.action === 'knowledge.template.recommended').at(-1)
+      ?.detail as Row | undefined;
+    expect(rec, 'the recommendation is audited').toBeDefined();
+    expect(rec).toMatchObject({ strategy: 'AUTO_SELECT', textChars: 'لوحة تحكم'.length });
+    expect(Array.isArray(rec!.reasons)).toBe(true);
+    expect((rec!.considered as Row[]).length).toBeGreaterThan(0);
+    expect(JSON.stringify(rec)).not.toContain('لوحة');
   });
 
   it("a user's choice: an eligible one is honoured; one the customer may not see is 'not found'; an unusable but visible one is explained; nothing is substituted", async () => {

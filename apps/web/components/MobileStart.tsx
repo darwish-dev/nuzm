@@ -161,7 +161,6 @@ export function MobileStart({ locale, canRun }: { locale: Locale; canRun: boolea
             className="nz-input"
             dir="auto"
             rows={5}
-            maxLength={DESCRIPTION_MAX}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />

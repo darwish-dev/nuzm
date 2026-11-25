@@ -92,7 +92,7 @@ describe('BuilderInsightService', () => {
     expect(Number.isInteger(r.estimate.costMinor)).toBe(true);
     expect(r.estimateNote).toMatch(/not a quote/);
     expect(await code(svc.plan(ORG, { text: '' }))).toBe('validation_failed');
-    expect(await code(svc.plan(ORG, { text: 'x'.repeat(20_001) }))).toBe('validation_failed');
+    expect(await code(svc.plan(ORG, { text: 'x'.repeat(30_001) }))).toBe('validation_failed');
     expect(await code(svc.plan(ORG, { text: 'a store', hint: 'spaceship' }))).toBe(
       'validation_failed',
     );

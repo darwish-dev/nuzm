@@ -1,4 +1,5 @@
 'use client';
+import { PROJECT_PROMPT_MAX } from '../lib/appbuilder';
 import { useId, useState, type FormEvent } from 'react';
 import { t, tDynamic, type Locale } from '@nuzm/i18n';
 import { Badge, Banner, Button, Field, Ltr } from '@nuzm/ui';
@@ -299,7 +300,7 @@ export function failureKey(code: string | null): string {
   return `bt.lc.failure.${code && known.includes(code) ? code : 'unknown'}`;
 }
 
-const MAX_BRIEF = 4000;
+const MAX_BRIEF = PROJECT_PROMPT_MAX;
 /** a message looked up by a key built from data: an unknown one shows a dash, never the raw key or server text */
 const dyn = (locale: Locale, key: string): string => tDynamic(locale, key, '—');
 
@@ -348,7 +349,6 @@ export function LifecycleStart({
           <textarea
             className="nz-input"
             rows={6}
-            maxLength={MAX_BRIEF + 1}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             disabled={disabled || busy}

@@ -176,8 +176,8 @@ describe('start', () => {
   it('description bounds and language order', () => {
     expect(validDescription('ab')).toBe(false);
     expect(validDescription('app')).toBe(true);
-    expect(validDescription('x'.repeat(600))).toBe(true);
-    expect(validDescription('x'.repeat(601))).toBe(false);
+    expect(validDescription('x'.repeat(30_000))).toBe(true);
+    expect(validDescription('x'.repeat(30_001))).toBe(false); // refused, never cut
     expect(orderLocales(['en', 'ar'])).toEqual(['ar', 'en']);
     expect(orderLocales(['en'])).toEqual(['en']);
   });

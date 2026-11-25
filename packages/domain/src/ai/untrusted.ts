@@ -9,7 +9,12 @@ export interface DataBlock {
   label: string;
   text: string;
 }
-export const MAX_BLOCK_CHARS = 20_000;
+/**
+ * Upper bound of one data block. It is a safety bound, not a way to shorten requests: it is above the longest customer prompt (`PROMPT_LIMITS.projectPromptChars`,
+ * 30,000 characters, plus a JSON envelope), and when a block is longer anyway the model is TOLD how much was left out instead of receiving a silently cut text.
+ * Whether the whole call fits a model is decided by routing (context window), never by trimming here.
+ */
+export const MAX_BLOCK_CHARS = 64_000;
 
 export function dataFence(rand: () => string = () => randomBytes(9).toString('hex')): string {
   return `DATA-${rand()}`;
@@ -22,8 +27,13 @@ export function sanitizeUntrusted(text: string, fence: string): string {
       .replace(/\bDATA-[0-9a-f]{18}\b/g, '[fence-removed]')
       // eslint-disable-next-line no-control-regex -- stripping control characters is the point
       .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f‪-‮⁦-⁩]/g, '') // controls and bidi overrides
-      .slice(0, MAX_BLOCK_CHARS)
   );
+}
+/** A block's text inside the bound; an over-long text says how many characters were not included (never a silent cut). */
+function bounded(text: string): string {
+  return text.length <= MAX_BLOCK_CHARS
+    ? text
+    : `${text.slice(0, MAX_BLOCK_CHARS)}\n[${text.length - MAX_BLOCK_CHARS} more characters were not included: the data block limit is ${MAX_BLOCK_CHARS}]`;
 }
 export function wrapUntrusted(blocks: readonly DataBlock[], fence: string): string {
   const head =
@@ -33,7 +43,7 @@ export function wrapUntrusted(blocks: readonly DataBlock[], fence: string): stri
   const body = blocks
     .map(
       (b) =>
-        `<<${fence}:${b.label.replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 40)}>>\n${sanitizeUntrusted(b.text, fence)}\n<<${fence}:end>>`,
+        `<<${fence}:${b.label.replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 40)}>>\n${bounded(sanitizeUntrusted(b.text, fence))}\n<<${fence}:end>>`,
     )
     .join('\n');
   return `${head}\n${body}`;
@@ -72,4 +82,16 @@ export function checkToolCall(kind: RunKind, call: ToolCall): string | null {
   if (!allowedTools(kind).includes(call.name))
     return `tool ${String(call.name).slice(0, 60)} is not allowed for run kind ${kind}`;
   return null;
+}
+
+/** Longest string a call's PARAMS carry (the agent call cuts params at this length; long customer text belongs in a data block). */
+export const MAX_PARAM_CHARS = 2000;
+/**
+ * A customer text repeated in a call's params: the text itself when it is short, otherwise a pointer to the data block that carries it whole. A param copy is
+ * never a cut version of what the customer wrote.
+ */
+export function shortOrPointer(text: string, blockLabel: string): string {
+  return text.length <= MAX_PARAM_CHARS
+    ? text
+    : `(${text.length} characters: the whole text is in the data block "${blockLabel}")`;
 }

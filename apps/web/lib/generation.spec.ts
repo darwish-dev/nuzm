@@ -55,9 +55,12 @@ describe('numbers and the plan request', () => {
       platform: 'WEB',
       mode: 'ADAPTIVE',
     });
+    // the whole requirement is sent (owner request 2026-11-26): never cut; over the limit is no request at all
     expect(
-      (planBody({ projectId: 'p', text: 'x'.repeat(3000), mode: 'STRICT' })!.text as string).length,
-    ).toBe(2000);
+      (planBody({ projectId: 'p', text: 'x'.repeat(30_000), mode: 'STRICT' })!.text as string)
+        .length,
+    ).toBe(30_000);
+    expect(planBody({ projectId: 'p', text: 'x'.repeat(30_001), mode: 'STRICT' })).toBeNull();
     expect(planBody({ projectId: 'p', text: 'a', mode: 'STRICT' })!.mode).toBe('STRICT');
   });
 });

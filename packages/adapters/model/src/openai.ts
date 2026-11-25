@@ -15,6 +15,7 @@ import {
   type StreamChunk,
   type ToolCall,
   type Usage,
+  LiveCallsNotApprovedError,
 } from './types';
 import { allowedToolCalls, assertToolCalls, assertToolRequest, parseToolArgs } from './tools';
 import {
@@ -286,12 +287,7 @@ export class OpenAIModelAdapter implements ModelAdapter {
   // ---- internals --------------------------------------------------------------------------------------------------------------------------------------------
 
   private assertLive(): void {
-    if (this.o.liveEnabled && !this.o.liveEnabled())
-      throw new ModelAdapterError(
-        'unavailable',
-        'live calls to this model provider are not approved in this environment',
-        false,
-      );
+    if (this.o.liveEnabled && !this.o.liveEnabled()) throw new LiveCallsNotApprovedError();
   }
   private async key(): Promise<string> {
     const key = await this.o.getApiKey().catch(() => null);

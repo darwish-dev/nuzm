@@ -1373,6 +1373,10 @@ html:has(.nzc[data-theme="light"]) { background: #f4f4f5; }
 .bld-run .nz-card .bld-list { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 8px; }
 .bld-run .nz-card .bld-list li { padding: 4px 10px; border-radius: 999px; background: var(--nzc-field); font-size: 12px; }
 .bws-working { position: absolute; inset-block-end: 24px; inset-inline: 0; margin-inline: auto; inline-size: max-content; max-inline-size: 90%; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-radius: 999px; background: var(--nzc-elev); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); font-size: 13px; }
+.bws-gen-state { flex: 1; min-block-size: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 32px; text-align: center; background: var(--nzc-card); }
+.bws-gen-state p { margin: 0; max-inline-size: 60ch; color: var(--nzc-fg); }
+.bws-gen-state p.nz-muted { color: var(--nzc-muted); }
+.bws-gen-state[data-state='failed'] h2 { color: var(--nzc-danger, #e5484d); }
 .bws-edit { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--nzc-field); color: var(--nzc-muted); font: inherit; font-size: 13px; cursor: pointer; }
 .bws-edit:hover, .bws-edit[aria-pressed='true'] { background: var(--nzc-card-hi); color: var(--nzc-fg); }
 .bws-more-meta { padding: 8px 12px; font-size: 12px; color: var(--nzc-muted); }

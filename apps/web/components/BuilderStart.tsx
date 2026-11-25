@@ -1,4 +1,5 @@
 'use client';
+import { PROJECT_PROMPT_MAX } from '../lib/appbuilder';
 import { useRouter } from 'next/navigation';
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { t, tDynamic, type Locale, type MessageKey } from '@nuzm/i18n';
@@ -36,7 +37,7 @@ export const startTypes = (appsEnabled: boolean, mobileEnabled = false) =>
     available: x.id === 'webapp' ? appsEnabled : x.id === 'mobile' ? mobileEnabled : x.available,
   }));
 
-const MAX_PROMPT = 600;
+const MAX_PROMPT = PROJECT_PROMPT_MAX;
 /** A project name (1..100 characters) from the first words of the description: the person never has to name anything to start. */
 export function nameFromPrompt(prompt: string): string {
   const words = prompt
@@ -108,6 +109,10 @@ export function BuilderStart({
     imported?: boolean;
     linked?: boolean;
     versionId?: string | null;
+    /** the Knowledge Library was asked once for this request; `libraryPick` is what it selected (null: nothing suitable, generate from scratch) */
+    libraryChecked?: boolean;
+    libraryPick?: { resourceId: string; versionId: string } | null;
+    planId?: string;
   }>({});
   const importKeys = useRef<string[]>([]);
   const keys = useRef({ project: newKey(), session: newKey(), message: newKey(), run: newKey() });
@@ -189,6 +194,17 @@ export function BuilderStart({
     setOptErr('');
     setPartial(null);
     const c = created.current;
+    // a description with no imported source and no built-in starter chosen first asks the approved Knowledge Library for a fitting template: when one is selected,
+    // the project starts from its source and the AI adapts it to the whole description (the checked template path: copy, plan, one adaptation run)
+    if (
+      text &&
+      !source &&
+      !template &&
+      appsEnabled &&
+      (effectiveType === 'website' || effectiveType === 'webapp') &&
+      (await startFromLibrary(text, cap))
+    )
+      return;
     if (!c.projectId) {
       const base = nameFromPrompt(
         text ||
@@ -286,6 +302,90 @@ export function BuilderStart({
         setPartial(c.projectId ?? null);
       },
     );
+  }
+
+  /**
+   * Asks the Knowledge Library (published, active, licence-cleared templates only; the server applies those filters and records the decision and its reasons) for a
+   * template that fits the description. Returns false when there is none (the normal generation goes on), true when this path took over (started, or stopped with
+   * its own message).
+   */
+  async function startFromLibrary(text: string, cap: string): Promise<boolean> {
+    const c = created.current;
+    if (!c.libraryChecked) {
+      const rec = await bapi.post<{ selected?: { resourceId: string; versionId: string } | null }>(
+        '/v1/builder/template-recommendations',
+        { body: { text, platform: 'WEB', mode: 'ADAPTIVE', limit: 3 } },
+      );
+      c.libraryChecked = true;
+      // the library is off for this organization (404), or it found nothing suitable: generate from scratch as before
+      c.libraryPick =
+        rec.response.ok && rec.data?.selected
+          ? { resourceId: rec.data.selected.resourceId, versionId: rec.data.selected.versionId }
+          : null;
+    }
+    const pick = c.libraryPick;
+    if (!pick) return false;
+    if (!c.projectId) {
+      const base = nameFromPrompt(text);
+      for (let attempt = 0; attempt < 3 && !c.projectId; attempt++) {
+        const name = attempt === 0 ? base : `${base.slice(0, 90)} ${attempt + 1}`;
+        let taken = false;
+        const ok = await call.run(
+          () =>
+            bapi.post<{ project: { id: string } }>('/v1/builder/projects/from-template', {
+              body: {
+                resourceId: pick.resourceId,
+                versionId: pick.versionId,
+                name,
+                adaptationMode: 'ADAPTIVE',
+              },
+              idempotencyKey: keys.current.project,
+            }),
+          (r) => {
+            c.projectId = r.project.id;
+          },
+          (p) => {
+            if (p.code === 'name_taken' && attempt < 2) {
+              taken = true;
+              keys.current.project = newKey();
+              return true;
+            }
+          },
+        );
+        if (!ok && !taken) return true;
+      }
+      if (!c.projectId) return true;
+    }
+    if (!c.planId) {
+      const ok = await call.run(
+        () =>
+          bapi.post<{ id: string }>('/v1/builder/generation-plans', {
+            // the whole description is the requirement (never shortened)
+            body: { projectId: c.projectId, text, platform: 'WEB', mode: 'ADAPTIVE' },
+            idempotencyKey: keys.current.session,
+          }),
+        (p) => {
+          c.planId = p.id;
+        },
+        () => {
+          setPartial(c.projectId ?? null);
+        },
+      );
+      if (!ok) return true;
+    }
+    await call.run(
+      () =>
+        bapi.post(`/v1/builder/generation-plans/${c.planId}/runs`, {
+          body: cap ? { budget: { maxCredits: Number(cap) } } : {},
+          idempotencyKey: keys.current.run,
+        }),
+      () => router.push(`/builder/projects/${c.projectId}`),
+      (p) => {
+        if (p.status !== 599) keys.current.run = newKey();
+        setPartial(c.projectId ?? null);
+      },
+    );
+    return true;
   }
 
   /** Brings the chosen source into the new project. Local files: change sets through the safe-diff pipeline, chained on the version each one creates
@@ -388,7 +488,6 @@ export function BuilderStart({
               className="bl-input"
               dir="auto"
               rows={4}
-              maxLength={MAX_PROMPT}
               value={prompt}
               placeholder={
                 source ? t(locale, 'bld.src.promptOptional') : t(locale, 'bld.start.placeholder')
@@ -398,6 +497,8 @@ export function BuilderStart({
               onChange={(e) => {
                 setPrompt(e.target.value);
                 if (err) setErr('');
+                // other words, another search: the library is asked again unless a project was already made for this request
+                if (!created.current.projectId) created.current.libraryChecked = false;
               }}
               onKeyDown={onKey}
             />
@@ -441,7 +542,11 @@ export function BuilderStart({
                   e.target.value = '';
                 }}
               />
-              <span className="bl-count" id="bld-prompt-hint">
+              <span
+                className="bl-count"
+                id="bld-prompt-hint"
+                data-over={prompt.trim().length > MAX_PROMPT || undefined}
+              >
                 <bdi dir="ltr">
                   {prompt.length}/{MAX_PROMPT}
                 </bdi>{' '}

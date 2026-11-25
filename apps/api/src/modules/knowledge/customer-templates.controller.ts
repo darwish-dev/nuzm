@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { Org, RequirePermission } from '../../common/access';
+import { Access, Org, RequirePermission, type AccessContext } from '../../common/access';
 import { KnowledgeCustomerTemplatesGuard } from './internal/flag';
 import { CustomerTemplateService } from './internal/customer-templates.service';
 import type { Row } from './internal/model';
@@ -44,11 +44,11 @@ export class CustomerTemplatesController {
     return this.templates.get(orgId, id);
   }
 
-  /** A computation: it ranks and explains; the only thing written is the customer's own usage event for the top results. */
+  /** A computation: it ranks and explains; what is written is the customer's own usage event for the top results and an audit record of the decision and its reasons. */
   @RequirePermission('builder:read')
   @Post('template-recommendations')
   @HttpCode(200)
-  recommend(@Org() orgId: string, @Body() b: unknown) {
-    return this.templates.recommend(orgId, body(b));
+  recommend(@Org() orgId: string, @Access() a: AccessContext, @Body() b: unknown) {
+    return this.templates.recommend(orgId, body(b), a.actor.userId);
   }
 }

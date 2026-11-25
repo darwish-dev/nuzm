@@ -1,4 +1,5 @@
 /** Pure helpers of the template workspace screen (S-K6: comparison with the template copy, the context preview, the adaptation run). No I/O: unit-tested in `generation.spec.ts`. */
+import { PROJECT_PROMPT_MAX } from './appbuilder';
 import type { MessageKey } from '@nuzm/i18n';
 import type { Schemas } from '@nuzm/sdk';
 import { problemKey, type BuilderProblem } from './builder';
@@ -51,14 +52,14 @@ export function generationProblemKey(p: BuilderProblem): MessageKey {
 export const pct = (n: unknown): number =>
   typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0;
 
-/** The request of a plan: only a non-empty text of at most 2000 characters is a requirement. */
+/** The request of a plan: only a non-empty text within `PROJECT_PROMPT_MAX` is a requirement (a longer one is refused, never cut). */
 export function planBody(i: {
   projectId: string;
   text: string;
   mode: string;
 }): Record<string, unknown> | null {
-  const text = i.text.trim().slice(0, 2000);
-  if (!text) return null;
+  const text = i.text.trim();
+  if (!text || text.length > PROJECT_PROMPT_MAX) return null;
   return {
     projectId: i.projectId,
     text,

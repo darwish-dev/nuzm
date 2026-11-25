@@ -1,4 +1,5 @@
 'use client';
+import { CHAT_MESSAGE_MAX } from '../lib/appbuilder';
 import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { t, type Locale, type MessageKey } from '@nuzm/i18n';
 import { Banner, Icon } from '@nuzm/ui';
@@ -22,7 +23,7 @@ const CHAT = {
     kind: 'edit',
     input: (instruction: string) => ({ instruction }),
     min: 1,
-    max: 2000,
+    max: CHAT_MESSAGE_MAX,
     title: 'bld.chat.title',
     empty: 'bld.chat.empty',
     placeholder: 'bld.chat.placeholder',
@@ -33,7 +34,7 @@ const CHAT = {
     kind: 'mobile',
     input: (description: string) => ({ description }),
     min: 3,
-    max: 600,
+    max: CHAT_MESSAGE_MAX,
     title: 'mws.chat.title',
     empty: 'mws.chat.empty',
     placeholder: 'mws.chat.placeholder',
@@ -44,7 +45,7 @@ const CHAT = {
     kind: 'webapp',
     input: (prompt: string) => ({ brief: { prompt } }),
     min: 1,
-    max: 8000,
+    max: CHAT_MESSAGE_MAX,
     title: 'mws.web.chat.title',
     empty: 'mws.web.chat.empty',
     placeholder: 'mws.web.chat.placeholder',
@@ -192,7 +193,8 @@ export function Chat({
   async function send(e: FormEvent) {
     e.preventDefault();
     const instruction = text.trim();
-    if (!instruction || activeRun || instruction.length < cfg.min) return;
+    if (!instruction || activeRun || instruction.length < cfg.min || instruction.length > cfg.max)
+      return;
     let sid = sessionId;
     if (!sid) {
       const ok = await call.run(
@@ -321,10 +323,10 @@ export function Chat({
                 className="bld-composer-input"
                 dir="auto"
                 rows={1}
-                maxLength={cfg.max}
                 placeholder={t(locale, activeRun ? cfg.busy : cfg.placeholder)}
                 disabled={activeRun}
                 aria-describedby="bld-chat-help"
+                aria-invalid={text.trim().length > cfg.max || undefined}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
@@ -338,7 +340,12 @@ export function Chat({
               <button
                 type="submit"
                 className="bld-send"
-                disabled={call.busy || activeRun || text.trim().length < cfg.min}
+                disabled={
+                  call.busy ||
+                  activeRun ||
+                  text.trim().length < cfg.min ||
+                  text.trim().length > cfg.max
+                }
                 aria-label={t(locale, 'bld.chat.send')}
               >
                 <Icon name="send" size={17} />
@@ -372,7 +379,15 @@ export function Chat({
             </p>
           )}
           <p className="bld-composer-help" id="bld-chat-help">
-            {t(locale, cfg.help)} <span className="bcx-keys">{t(locale, 'bld.chat.keys')}</span>
+            {text.trim().length > cfg.max ? (
+              <span className="nz-error" role="alert">
+                {t(locale, 'bld.chat.tooLong', { max: cfg.max, n: text.trim().length })}
+              </span>
+            ) : (
+              <>
+                {t(locale, cfg.help)} <span className="bcx-keys">{t(locale, 'bld.chat.keys')}</span>
+              </>
+            )}
           </p>
         </form>
       ) : (

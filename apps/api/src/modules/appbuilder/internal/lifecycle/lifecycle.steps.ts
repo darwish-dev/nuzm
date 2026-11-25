@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from 'uuid';
-import { builderTools } from '@nuzm/domain';
+import { builderTools, PROMPT_LIMITS } from '@nuzm/domain';
 import { ProblemException } from '../../../../common/errors';
 import {
   StepFailure,
@@ -32,7 +32,7 @@ export interface StepCtx {
 }
 export type StepFn = (c: StepCtx) => Promise<StepResult>;
 
-const MAX_PROMPT = 4000;
+const MAX_PROMPT = PROMPT_LIMITS.projectPromptChars;
 const PROFILES_BUILD: builderTools.BuildProfile[] = ['typecheck', 'build'];
 const PROFILES_TESTS: builderTools.BuildProfile[] = ['unit-tests'];
 const need = <X>(v: X | undefined, what: string): X => {

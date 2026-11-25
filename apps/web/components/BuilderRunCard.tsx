@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
 import { Banner, Icon } from '@nuzm/ui';
 import {
+  problemKey,
   approvalView,
   credits,
   isAnnounced,
@@ -179,7 +180,13 @@ export function RunCard({
         ))}
       </ol>
       {run.state === 'failed' && (
-        <Banner tone="danger">{t(locale, 'bld.run.failedNote', { code: errCode ?? '—' })}</Banner>
+        <Banner tone="danger">
+          {/* the reason in the person's language first (by error code), then the code for support */}
+          {errCode && errCode in FAILURE_REASON_CODES
+            ? `${t(locale, problemKey({ status: 0, code: errCode, issues: [] }))} `
+            : ''}
+          {t(locale, 'bld.run.failedNote', { code: errCode ?? '—' })}
+        </Banner>
       )}
       {run.state === 'budget_exceeded' && (
         <Banner tone="danger">{t(locale, 'bld.run.budgetExceeded')}</Banner>
@@ -230,3 +237,14 @@ export function RunCard({
     </section>
   );
 }
+
+/** Error codes whose localized reason is worth showing above the generic failure note (the rest only have the generic note). */
+const FAILURE_REASON_CODES = {
+  ai_provider_not_enabled: true,
+  ai_unavailable: true,
+  insufficient_credits: true,
+  residency_denied: true,
+  unsupported_capability: true,
+  content_blocked: true,
+  secret_detected: true,
+} as const;

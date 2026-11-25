@@ -1,4 +1,5 @@
 'use client';
+import { PROJECT_PROMPT_MAX } from '../lib/appbuilder';
 import { useState, type FormEvent } from 'react';
 import { t, tDynamic, type Locale, type MessageKey } from '@nuzm/i18n';
 import { Badge, Button, Card, EmptyState, Field, Input, Ltr, Select } from '@nuzm/ui';
@@ -51,10 +52,14 @@ export function TemplateRecommend({ locale }: { locale: Locale }) {
           id="tpl-rec-text"
           label={t(locale, 'tpl.rec.text')}
           help={t(locale, 'tpl.rec.text.help')}
+
+          error={
+            text.trim().length > PROJECT_PROMPT_MAX
+              ? t(locale, 'bld.start.promptErr', { max: PROJECT_PROMPT_MAX })
+              : undefined
+          }
         >
-          {(a) => (
-            <Input {...a} value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} />
-          )}
+          {(a) => <Input {...a} value={text} onChange={(e) => setText(e.target.value)} />}
         </Field>
         <Field id="tpl-rec-platform" label={t(locale, 'tpl.filter.platform')}>
           {(a) => (

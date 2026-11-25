@@ -3,6 +3,7 @@ import { tDynamic } from '@nuzm/i18n';
 
 const has = (key: string) => (['ar', 'en'] as const).every((l) => tDynamic(l, key, '') !== '');
 import {
+  canvasState,
   EVENT_KEYS,
   TEMPLATE_IDS,
   approvalView,
@@ -473,5 +474,42 @@ describe('misc readers', () => {
     for (const id of TEMPLATE_IDS) {
       expect(has(`bld.tpl.${id}`)).toBe(true);
     }
+  });
+});
+
+describe('canvasState: a starter is never presented as generated content', () => {
+  const run = (state: string, code?: string) => ({ state, error: code ? { code } : null });
+  it('a version made by the AI, the person or a restore shows the site', () => {
+    for (const s of ['ai', 'user', 'restore'])
+      expect(canvasState(s, run('failed', 'service_unavailable')).kind).toBe('site');
+  });
+  it('the starter (system or template) shows the state of the newest run instead', () => {
+    for (const s of ['system', 'template']) {
+      expect(canvasState(s, null).kind).toBe('empty');
+      expect(canvasState(s, run('queued')).kind).toBe('processing');
+      expect(canvasState(s, run('running')).kind).toBe('processing');
+      expect(canvasState(s, run('waiting_approval')).kind).toBe('approval');
+      expect(canvasState(s, run('succeeded')).kind).toBe('empty');
+    }
+  });
+  it('a failed run says why in the person language, by error code', () => {
+    expect(canvasState('system', run('failed', 'ai_provider_not_enabled'))).toEqual({
+      kind: 'failed',
+      state: 'failed',
+      errorKey: 'bld.err.ai_provider_not_enabled',
+      code: 'ai_provider_not_enabled',
+    });
+    expect(canvasState('system', run('failed', 'insufficient_credits'))).toMatchObject({
+      errorKey: 'bld.err.insufficient_credits',
+    });
+    expect(canvasState('system', run('failed', 'internal_error'))).toMatchObject({
+      errorKey: 'bld.canvas.failedGeneric',
+    });
+    expect(canvasState('system', run('cancelled'))).toMatchObject({
+      errorKey: 'bld.canvas.cancelled',
+    });
+    expect(canvasState('system', run('budget_exceeded'))).toMatchObject({
+      errorKey: 'bld.canvas.budget',
+    });
   });
 });

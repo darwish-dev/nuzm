@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
 import { Badge, Banner, Button, EmptyState, Field, Ltr, Meter } from '@nuzm/ui';
-import { safeText } from '../lib/appbuilder';
+import { safeText, PROJECT_PROMPT_MAX } from '../lib/appbuilder';
 import {
   approvalsOfRun,
   budgetWarns,
@@ -25,7 +25,7 @@ interface PendingRow {
 }
 
 /** The brief of a build run: the person's words are DATA (`input.brief.prompt`); nothing else of the page is ever sent as an instruction. */
-const MAX_BRIEF = 8000;
+const MAX_BRIEF = PROJECT_PROMPT_MAX;
 
 /** One-line text of an agent event for the screen-reader live region (unknown event types fall back to their code). */
 export function nodeEventLine(locale: Locale, e: RunEvent): string {
@@ -120,7 +120,6 @@ function StartBuild({
             className="nz-input"
             dir="auto"
             rows={4}
-            maxLength={MAX_BRIEF}
             value={prompt}
             onChange={(e) => {
               setPrompt(e.target.value);

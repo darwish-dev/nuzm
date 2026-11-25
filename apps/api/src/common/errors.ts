@@ -171,6 +171,10 @@ export const ERROR_REGISTRY = {
   op_invalid: { status: 422, title: 'An editor operation is not valid' },
   approval_expired: { status: 409, title: 'The approval has expired' },
   ai_unavailable: { status: 503, title: 'AI is switched off or no model provider is available' },
+  ai_provider_not_enabled: {
+    status: 503,
+    title: 'No AI model provider is enabled for live generation in this environment',
+  },
   payload_too_large: { status: 413, title: 'The request body is too large' },
   // <<< M09 error codes
   // >>> M10B error codes (mobile builder)

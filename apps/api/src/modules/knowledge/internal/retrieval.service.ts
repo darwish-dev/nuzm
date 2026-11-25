@@ -27,6 +27,7 @@ import {
   type Requirement,
   type Strategy,
   type TermGroup,
+  PROMPT_LIMITS,
 } from '@nuzm/domain';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
@@ -647,10 +648,11 @@ export class RetrievalService {
     const mode = oneOf(MODES, b.mode ?? 'ADAPTIVE', 'mode') as Mode;
     const req: Requirement = { mode };
     if (b.text !== undefined && b.text !== null) {
-      if (typeof b.text !== 'string' || b.text.length > 2000)
+      // the whole customer requirement may be given; the search itself reads a bounded set of its terms (`termGroups`)
+      if (typeof b.text !== 'string' || b.text.length > PROMPT_LIMITS.projectPromptChars)
         throw new ProblemException(
           'validation_failed',
-          'text must be a string of at most 2000 characters',
+          `text must be a string of at most ${PROMPT_LIMITS.projectPromptChars} characters`,
         );
       if (b.text.trim()) req.text = b.text.trim();
     }

@@ -142,7 +142,8 @@ export function validateSigning(
 /* ------------------------------------------------------------------ start (UI-M10-12) */
 
 export const DESCRIPTION_MIN = 3;
-export const DESCRIPTION_MAX = 600;
+/** the same limit as every first project description (`PROJECT_PROMPT_MAX`) */
+export const DESCRIPTION_MAX = 30_000;
 export const validDescription = (d: string): boolean =>
   d.trim().length >= DESCRIPTION_MIN && d.length <= DESCRIPTION_MAX;
 export const validProjectName = (n: string): boolean =>

@@ -1,4 +1,5 @@
 /** Pure helpers of the customer template screens (S-K7: gallery, one template, recommendation, start from a template). No I/O: unit-tested in `templates.spec.ts`. */
+import { PROJECT_PROMPT_MAX } from './appbuilder';
 import { tDynamic, type Locale, type MessageKey } from '@nuzm/i18n';
 import type { Schemas } from '@nuzm/sdk';
 import { problemKey, type BuilderProblem } from './builder';
@@ -134,8 +135,9 @@ export function recommendBody(i: {
   platform: string;
   mode: string;
 }): Record<string, unknown> | null {
-  const text = i.text.trim().slice(0, 2000);
+  const text = i.text.trim();
   if (!text && !i.platform) return null;
+  if (text.length > PROJECT_PROMPT_MAX) return null; // refused, never cut
   return {
     ...(text ? { text } : {}),
     ...((PLATFORMS as readonly string[]).includes(i.platform) ? { platform: i.platform } : {}),

@@ -133,7 +133,7 @@ describe('agent run progress (UI-M10-06)', () => {
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: t('en', 'm10a.build.start') }));
-    expect(screen.getByText(t('en', 'm10a.build.briefErr', { max: 8000 }))).toBeTruthy();
+    expect(screen.getByText(t('en', 'm10a.build.briefErr', { max: 30000 }))).toBeTruthy();
     expect(calls).toHaveLength(0);
   });
   it('a member who cannot run sees the honest message and no form', () => {
@@ -719,11 +719,13 @@ describe('start a web app (UI-M10-01)', () => {
   });
   it('flag on: project(type webapp) → session → run kind webapp with the prompt as brief data and the cap as budget, then the app workspace opens', async () => {
     mockFetch((url) =>
-      url === '/v1/builder/projects'
-        ? json(201, { id: 'p1' })
-        : url === '/v1/ai/sessions'
-          ? json(201, { id: 's1' })
-          : json(202, { id: 'r1' }),
+      url === '/v1/builder/template-recommendations'
+        ? json(200, { selected: null, ranked: [], decision: { strategy: 'GENERATE_FROM_SCRATCH' } })
+        : url === '/v1/builder/projects'
+          ? json(201, { id: 'p1' })
+          : url === '/v1/ai/sessions'
+            ? json(201, { id: 's1' })
+            : json(202, { id: 'r1' }),
     );
     render(<BuilderStart locale="en" credits={wallet} canRun appsEnabled initialType="webapp" />);
     fireEvent.change(screen.getByLabelText(t('en', 'bld.start.promptLabel')), {
@@ -734,14 +736,17 @@ describe('start a web app (UI-M10-01)', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
     await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p1'));
+    // the Knowledge Library is asked first with the whole description; it selected nothing, so the project is generated from scratch
     expect(calls.map((c) => c.url)).toEqual([
+      '/v1/builder/template-recommendations',
       '/v1/builder/projects',
       '/v1/ai/sessions',
       '/v1/ai/runs',
     ]);
-    expect(calls[0]!.body).toMatchObject({ type: 'webapp', locale: ['ar', 'en'] });
-    expect(calls[0]!.body).not.toHaveProperty('templateId');
-    expect(calls[2]!.body).toMatchObject({
+    expect(calls[0]!.body).toMatchObject({ text: 'A CRM for my sales team', platform: 'WEB' });
+    expect(calls[1]!.body).toMatchObject({ type: 'webapp', locale: ['ar', 'en'] });
+    expect(calls[1]!.body).not.toHaveProperty('templateId');
+    expect(calls[3]!.body).toMatchObject({
       kind: 'webapp',
       projectId: 'p1',
       sessionId: 's1',
@@ -752,6 +757,7 @@ describe('start a web app (UI-M10-01)', () => {
   it('after a refused run (no credits) the retry continues where it stopped and never creates a second project', async () => {
     let runs = 0;
     mockFetch((url) => {
+      if (url === '/v1/builder/template-recommendations') return json(404, { code: 'not_found' }); // the library is off: generate from scratch
       if (url === '/v1/builder/projects') return json(201, { id: 'p1' });
       if (url === '/v1/ai/sessions') return json(201, { id: 's1' });
       runs += 1;
@@ -769,6 +775,41 @@ describe('start a web app (UI-M10-01)', () => {
     go();
     await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p1'));
     expect(calls.filter((c) => c.url === '/v1/builder/projects')).toHaveLength(1);
+    expect(calls.filter((c) => c.url === '/v1/builder/template-recommendations')).toHaveLength(1); // asked once per request
+  });
+  it('a fitting template from the Knowledge Library: the project starts from it and the AI adapts it to the WHOLE description', async () => {
+    const long = `A website for a cafe. ${'Menu and opening hours. '.repeat(1200)}END`;
+    mockFetch((url) =>
+      url === '/v1/builder/template-recommendations'
+        ? json(200, {
+            selected: { resourceId: 'tpl1', versionId: 'v1' },
+            decision: { strategy: 'AUTO_SELECT' },
+          })
+        : url === '/v1/builder/projects/from-template'
+          ? json(201, { project: { id: 'p9' } })
+          : url === '/v1/builder/generation-plans'
+            ? json(201, { id: 'plan1' })
+            : json(202, { id: 'plan1' }),
+    );
+    render(<BuilderStart locale="en" credits={wallet} canRun appsEnabled />);
+    fireEvent.change(screen.getByLabelText(t('en', 'bld.start.promptLabel')), {
+      target: { value: long },
+    });
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p9'));
+    expect(calls.map((c) => c.url)).toEqual([
+      '/v1/builder/template-recommendations',
+      '/v1/builder/projects/from-template',
+      '/v1/builder/generation-plans',
+      '/v1/builder/generation-plans/plan1/runs',
+    ]);
+    expect(calls[1]!.body).toMatchObject({
+      resourceId: 'tpl1',
+      versionId: 'v1',
+      adaptationMode: 'ADAPTIVE',
+    });
+    expect((calls[2]!.body as { text: string }).text).toBe(long); // never cut
+    expect(long.length).toBeGreaterThan(20_000);
   });
 });
 

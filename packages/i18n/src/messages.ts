@@ -5326,6 +5326,8 @@ export const messages = {
     'bld.err.unsupported_capability':
       'لم يُفعَّل أي مزوّد نماذج ذكاء اصطناعي بعد، لذلك لا يمكن التنفيذ. أعيدوا المحاولة بعد أن تفعّله المنصة.',
     'bld.err.ai_unavailable': 'ميزات الذكاء الاصطناعي متوقفة مؤقتًا من المنصة. يُرجى المحاولة لاحقًا.',
+    'bld.err.ai_provider_not_enabled':
+      'لم يُفعَّل بعد أي مزوّد نماذج ذكاء اصطناعي للتوليد المباشر على هذه المنصة، فلم يُرسل طلبكم ولم تُخصم أي أرصدة. وصفكم ومشروعكم محفوظان؛ أعيدوا التشغيل بعد أن يفعّل مسؤول المنصة التوليد.',
     'bld.err.quota_exceeded': 'بلغتم الحد الأقصى لمشاريع المواقع في مؤسستكم.',
     'bld.err.name_taken': 'يوجد مشروع أو نموذج بهذا الاسم. اختاروا اسمًا آخر.',
     'bld.err.run_active':
@@ -5369,7 +5371,7 @@ export const messages = {
     'bld.wiz.name.err': 'أدخلوا اسمًا من حرف واحد إلى 100 حرف.',
     'bld.wiz.description': 'صِفوا نشاطكم',
     'bld.wiz.description.help': 'ما تقدّمونه، ومن هم عملاؤكم، والأسلوب الذي تريدونه. حتى {max} حرف.',
-    'bld.wiz.description.err': 'صِفوا نشاطكم في 1 إلى 600 حرف.',
+    'bld.wiz.description.err': 'صِفوا نشاطكم في 1 إلى 30٬000 حرف.',
     'bld.wiz.languages': 'لغات الموقع',
     'bld.wiz.languages.help':
       'اللغة الأولى المحددة هي اللغة الافتراضية للموقع، وتُعرض الصفحات العربية من اليمين إلى اليسار.',
@@ -5519,6 +5521,8 @@ export const messages = {
     'bld.chat.role.system': 'النظام',
     'bld.chat.input': 'ما الذي تريدون تغييره؟',
     'bld.chat.help': 'يقترح المساعد التعديل فقط، ولا يُطبَّق شيء حتى توافقوا عليه.',
+    'bld.chat.tooLong':
+      'الرسالة أطول من الحد ({n} من {max} حرف). اختصروها أو قسّموها إلى رسائل؛ لن يُرسل نص مقطوع.',
     'bld.chat.att.list': 'المرفقات',
     'bld.chat.att.link': 'رابط',
     'bld.chat.att.remove': 'إزالة {name}',
@@ -5562,6 +5566,24 @@ export const messages = {
     'bld.run.announce': 'حالة التشغيلة: {state}',
     'bld.run.budgetExceeded': 'توقفت التشغيلة لتجاوز ميزانيتها. لم يُنفَق شيء فوق السقف.',
     'bld.run.cancelledNote': 'أُلغيت التشغيلة. لم يُطبَّق شيء على موقعكم.',
+    'bld.canvas.processing.title': 'جارٍ توليد موقعكم',
+    'bld.canvas.processing.body':
+      'تظهر المعاينة هنا عندما يجهز أول إصدار مولَّد. يمكنكم متابعة المراحل في المحادثة.',
+    'bld.canvas.approval.title': 'بانتظار موافقتكم',
+    'bld.canvas.approval.body':
+      'خطة الموقع جاهزة في المحادثة. وافقوا عليها ليكمل التوليد؛ لن تظهر معاينة قبل ذلك.',
+    'bld.canvas.failed.title': 'لم يكتمل توليد الموقع',
+    'bld.canvas.failedGeneric':
+      'تعذّر إكمال التوليد. لم يُنشأ أي محتوى بعد. أعيدوا المحاولة من المحادثة.',
+    'bld.canvas.cancelled': 'أُلغي التوليد قبل أن يكتمل، فلم يُنشأ أي محتوى بعد.',
+    'bld.canvas.budget':
+      'بلغ التوليد حد الميزانية قبل أن يكتمل، فلم يُنشأ أي محتوى. ارفعوا الحد أو أعيدوا المحاولة.',
+    'bld.canvas.failed.saved': 'وصفكم ومشروعكم محفوظان، ولم يُعرض أي محتوى على أنه نتيجة.',
+    'bld.canvas.empty.title': 'لا يوجد محتوى مولَّد بعد',
+    'bld.canvas.empty.body': 'صِفوا موقعكم في المحادثة لتوليده. تظهر المعاينة بعد أول إصدار مولَّد.',
+    'bld.canvas.showStarter': 'عرض القالب المبدئي (غير مولَّد)',
+    'bld.canvas.starterBanner':
+      'هذا هو القالب المبدئي للمشروع، وليس محتوى مولَّدًا بالذكاء الاصطناعي. عنوانه هو اسم المشروع.',
     'bld.run.failedNote': 'فشلت التشغيلة (الرمز {code}). لم يُطبَّق شيء على موقعكم.',
     'bld.run.conflict':
       'يتعارض التعديل المقترح مع إصدار أحدث من الموقع. أعيدوا تحميل الموقع واطلبوه مجددًا.',
@@ -7089,7 +7111,7 @@ export const messages = {
     'mws.chat.placeholder': 'صِفوا التطبيق أو التغيير الذي تريدونه…',
     'mws.chat.placeholderBusy': 'جارٍ العمل على تطبيقكم…',
     'mws.chat.help':
-      'كل طلب يقترح تصميمًا جديدًا تراجعونه وتوافقون عليه قبل توليد المشروع (من ٣ إلى ٦٠٠ حرف).',
+      'كل طلب يقترح تصميمًا جديدًا تراجعونه وتوافقون عليه قبل توليد المشروع (من ٣ إلى ٢٠٬٠٠٠ حرف).',
     'mws.run.label': 'طلب تصميم التطبيق',
     'mws.run.title.queued': 'طلبكم في الانتظار',
     'mws.run.title.designing': 'جارٍ تصميم تطبيقكم',
@@ -8609,7 +8631,7 @@ export const messages = {
       'محاكاة: البناء والاختبار هنا نتائج مُحاكاة ولا تثبت أن الشيفرة تعمل. التشغيل الحقيقي غير مفعّل بعد.',
     'bt.lc.start.title': 'ابدأ عملية بناء',
     'bt.lc.start.prompt': 'وصف التطبيق',
-    'bt.lc.start.prompt.hint': 'من 1 إلى 4000 حرف. اكتب بالعربية أو الإنجليزية.',
+    'bt.lc.start.prompt.hint': 'من 1 إلى 30٬000 حرف. اكتب بالعربية أو الإنجليزية.',
     'bt.lc.start.rounds': 'أقصى جولات الإصلاح',
     'bt.lc.start.submit': 'ابدأ',
     'bt.lc.start.submitting': 'جارٍ البدء…',
@@ -14370,6 +14392,8 @@ export const messages = {
       'No AI model provider is enabled yet, so this cannot run. Try again once the platform enables one.',
     'bld.err.ai_unavailable':
       'AI features are paused by the platform at the moment. Please try again later.',
+    'bld.err.ai_provider_not_enabled':
+      'No AI model provider is enabled for live generation on this platform yet, so your request was not sent and no credits were used. Your description and project are saved; start the run again once a platform administrator enables generation.',
     'bld.err.quota_exceeded':
       'You have reached the limit of website projects for your organization.',
     'bld.err.name_taken': 'A project or form with this name already exists. Choose another name.',
@@ -14419,7 +14443,7 @@ export const messages = {
     'bld.wiz.description': 'Describe your business',
     'bld.wiz.description.help':
       'What you offer, who your customers are, and the tone you want. Up to {max} characters.',
-    'bld.wiz.description.err': 'Describe your business in 1 to 600 characters.',
+    'bld.wiz.description.err': 'Describe your business in 1 to 30,000 characters.',
     'bld.wiz.languages': 'Website languages',
     'bld.wiz.languages.help':
       'The first selected language is the default of the site; Arabic pages are laid out right to left.',
@@ -14598,6 +14622,8 @@ export const messages = {
     'bld.chat.role.assistant': 'Assistant',
     'bld.chat.role.system': 'System',
     'bld.chat.input': 'What should change?',
+    'bld.chat.tooLong':
+      'The message is longer than the limit ({n} of {max} characters). Shorten it or split it into several messages; a cut text is never sent.',
     'bld.chat.help':
       'The assistant only proposes the change. Nothing is applied until you approve it.',
     'bld.chat.send': 'Send',
@@ -14616,6 +14642,27 @@ export const messages = {
     'bld.run.budgetExceeded':
       'The run stopped because its budget was exceeded. Nothing beyond the cap was spent.',
     'bld.run.cancelledNote': 'The run was cancelled. Nothing was applied to your site.',
+    'bld.canvas.processing.title': 'Generating your site',
+    'bld.canvas.processing.body':
+      'The preview appears here when the first generated version is ready. You can follow the stages in the chat.',
+    'bld.canvas.approval.title': 'Waiting for your approval',
+    'bld.canvas.approval.body':
+      'The site plan is ready in the chat. Approve it so generation can continue; there is no preview before that.',
+    'bld.canvas.failed.title': 'The site was not generated',
+    'bld.canvas.failedGeneric':
+      'Generation could not finish. No content has been created yet. Try again from the chat.',
+    'bld.canvas.cancelled':
+      'Generation was cancelled before it finished, so no content has been created yet.',
+    'bld.canvas.budget':
+      'Generation reached its budget limit before it finished, so no content was created. Raise the limit or try again.',
+    'bld.canvas.failed.saved':
+      'Your description and project are saved; nothing is shown as a result.',
+    'bld.canvas.empty.title': 'No generated content yet',
+    'bld.canvas.empty.body':
+      'Describe your site in the chat to generate it. The preview appears after the first generated version.',
+    'bld.canvas.showStarter': 'Show the starter layout (not generated)',
+    'bld.canvas.starterBanner':
+      'This is the starter layout of the project, not AI-generated content. Its title is the project name.',
     'bld.run.failedNote': 'The run failed (code {code}). Nothing was applied to your site.',
     'bld.run.conflict':
       'The proposed change conflicts with a newer version of the site. Reload the site and ask again.',
@@ -16192,7 +16239,7 @@ export const messages = {
     'mws.chat.placeholder': 'Describe the app or the change you want…',
     'mws.chat.placeholderBusy': 'Working on your app…',
     'mws.chat.help':
-      'Each request proposes a new design that you review and approve before the project is generated (3 to 600 characters).',
+      'Each request proposes a new design that you review and approve before the project is generated (3 to 20,000 characters).',
     'mws.run.label': 'App design request',
     'mws.run.title.queued': 'Your request is queued',
     'mws.run.title.designing': 'Designing your app',
@@ -17740,7 +17787,7 @@ export const messages = {
       'Simulated: builds and tests here are simulated results and do not show that the code works. Real execution is not enabled yet.',
     'bt.lc.start.title': 'Start a build',
     'bt.lc.start.prompt': 'Describe the app',
-    'bt.lc.start.prompt.hint': '1 to 4000 characters. Arabic or English.',
+    'bt.lc.start.prompt.hint': '1 to 30,000 characters. Arabic or English.',
     'bt.lc.start.rounds': 'Most repair rounds',
     'bt.lc.start.submit': 'Start',
     'bt.lc.start.submitting': 'Starting…',

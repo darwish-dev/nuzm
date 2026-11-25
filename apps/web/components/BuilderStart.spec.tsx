@@ -116,7 +116,7 @@ describe('start a project (one prompt, no steps)', () => {
     mockFetch(() => json(500, {}));
     screenUnderTest();
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    expect(screen.getByRole('alert').textContent).toContain('600');
+    expect(screen.getByRole('alert').textContent).toContain('30000');
     expect(calls).toHaveLength(0);
   });
 

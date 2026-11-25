@@ -374,7 +374,7 @@ export class ProjectService {
       if (!isUuid(vid)) throw new ProblemException('not_found');
       const v = (
         await c.query(
-          `SELECT id, seq, site_model FROM builder.project_versions WHERE id=$1 AND project_id=$2`,
+          `SELECT id, seq, source, site_model FROM builder.project_versions WHERE id=$1 AND project_id=$2`,
           [vid, id],
         )
       ).rows[0] as Row | undefined;
@@ -395,6 +395,8 @@ export class ProjectService {
         ...(await this.dto(c, r)),
         versionId: v.id as string,
         versionSeq: Number(v.seq),
+        // a `system`/`template` starter is a placeholder, not a result: the console shows the generation state instead of it (no AI success is implied)
+        versionSource: v.source as string,
         siteModel: model,
         seo: seoReport(model),
         diff,

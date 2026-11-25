@@ -5,6 +5,8 @@ import {
   applyOps,
   type Schema,
   type SiteModel,
+  PROMPT_LIMITS,
+  shortOrPointer,
 } from '@nuzm/domain';
 import { ProblemException } from '../../../common/errors';
 import type { BudgetService } from '../../ai';
@@ -82,11 +84,11 @@ export class EditRunHandler implements RunKindHandler {
     if (
       typeof input.instruction !== 'string' ||
       input.instruction.trim().length < 1 ||
-      input.instruction.length > 2000
+      input.instruction.length > PROMPT_LIMITS.chatMessageChars
     )
       throw new ProblemException(
         'validation_failed',
-        'input.instruction must be 1..2000 characters',
+        `input.instruction must be 1..${PROMPT_LIMITS.chatMessageChars} characters`,
       );
   }
   async execute(ctx: RunContext): Promise<void> {
@@ -100,7 +102,7 @@ export class EditRunHandler implements RunKindHandler {
       task: 'edit',
       instruction: INSTR,
       params: {
-        instruction: String(ctx.run.input.instruction).slice(0, 2000), // data, sanitised like every param
+        instruction: shortOrPointer(String(ctx.run.input.instruction), 'instruction'), // the whole text is the data block below
         pageIds: m.pages.map((p) => p.id),
         locales: m.locales,
         pages: m.pages.map((p) => ({

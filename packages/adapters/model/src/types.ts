@@ -178,6 +178,21 @@ export class ModelAdapterError extends Error {
   }
 }
 
+/**
+ * The owner's live gate (`liveEnabled`, AI_LIVE_PROVIDERS) refused the call before anything was sent. It is NOT a provider outage: the gateway must not count it toward the
+ * provider's health or circuit, and it tells the caller that no provider is enabled for live calls here (`ai_provider_not_enabled`) instead of a generic unavailability.
+ */
+export class LiveCallsNotApprovedError extends ModelAdapterError {
+  constructor() {
+    super(
+      'unavailable',
+      'live calls to this model provider are not approved in this environment',
+      false,
+    );
+    this.name = 'LiveCallsNotApprovedError';
+  }
+}
+
 export interface ModelAdapter {
   readonly id: string;
   readonly kind: 'model';

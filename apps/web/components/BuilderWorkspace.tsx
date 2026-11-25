@@ -6,10 +6,11 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
-import { t, type Locale } from '@nuzm/i18n';
+import { t, type Locale, type MessageKey } from '@nuzm/i18n';
 import { PanelResizer } from './PanelResizer';
 import { Banner, Icon, type IconName } from '@nuzm/ui';
 import {
+  canvasState,
   emptyHistory,
   finishRedo,
   finishUndo,
@@ -106,6 +107,10 @@ export function Workspace({
   }, [progress.active]);
   const [runId, setRunId] = useState<string | null>(initialRun?.id ?? null);
   const [runActive, setRunActive] = useState(initialRun ? isRunActive(initialRun.state) : false);
+  // the newest run of this project: while the site is still its starter, the canvas shows this run's state instead of the starter
+  const [lastRun, setLastRun] = useState<Run | null>(initialRun ?? null);
+  const [showStarter, setShowStarter] = useState(false);
+  const canvas = canvasState(detail.versionSource, lastRun);
   const [chatKey, setChatKey] = useState(0);
   const [reloadError, setReloadError] = useState(false);
 
@@ -183,6 +188,7 @@ export function Workspace({
   const onRun = useCallback(
     (run: Run) => {
       setRunId(run.id);
+      setLastRun(run);
       setRunActive(isRunActive(run.state));
       setChatKey((k) => k + 1);
       // a finished run may have created a version (generation, an approved change set): take the new head; the undo history of the old one no longer applies
@@ -450,19 +456,30 @@ export function Workspace({
               can={panelCan}
               onSelect={openPanel}
             />
-          ) : view === 'preview' ? (
-            <PreviewPane
-              bare
+          ) : view === 'preview' && canvas.kind !== 'site' && !showStarter ? (
+            <GenerationState
               locale={locale}
-              projectId={detail.id}
-              versionId={detail.versionId}
-              siteLocales={siteLocales}
-              canWrite={canWrite}
-              viewport={viewport}
-              onViewport={setViewport}
-              siteLocale={siteLocale}
-              onSiteLocale={setSiteLocale}
+              state={canvas}
+              onShowStarter={() => setShowStarter(true)}
             />
+          ) : view === 'preview' ? (
+            <>
+              {canvas.kind !== 'site' && (
+                <Banner tone="warn">{t(locale, 'bld.canvas.starterBanner')}</Banner>
+              )}
+              <PreviewPane
+                bare
+                locale={locale}
+                projectId={detail.id}
+                versionId={detail.versionId}
+                siteLocales={siteLocales}
+                canWrite={canWrite}
+                viewport={viewport}
+                onViewport={setViewport}
+                siteLocale={siteLocale}
+                onSiteLocale={setSiteLocale}
+              />
+            </>
           ) : view === 'code' ? (
             <CodePane
               locale={locale}
@@ -501,6 +518,65 @@ export function Workspace({
           />
         </aside>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The canvas while the site is still its starter (no generated content yet): the run's state, in words, never the starter presented as a result. The starter
+ * can still be looked at on request, under a banner that says what it is.
+ */
+function GenerationState({
+  locale,
+  state,
+  onShowStarter,
+}: {
+  locale: Locale;
+  state: Exclude<ReturnType<typeof canvasState>, { kind: 'site' }>;
+  onShowStarter: () => void;
+}) {
+  const title: MessageKey =
+    state.kind === 'processing'
+      ? 'bld.canvas.processing.title'
+      : state.kind === 'approval'
+        ? 'bld.canvas.approval.title'
+        : state.kind === 'failed'
+          ? 'bld.canvas.failed.title'
+          : 'bld.canvas.empty.title';
+  const body: MessageKey =
+    state.kind === 'processing'
+      ? 'bld.canvas.processing.body'
+      : state.kind === 'approval'
+        ? 'bld.canvas.approval.body'
+        : state.kind === 'failed'
+          ? state.errorKey
+          : 'bld.canvas.empty.body';
+  return (
+    <div
+      className="bws-gen-state"
+      data-state={state.kind}
+      role={state.kind === 'failed' ? 'alert' : 'status'}
+      data-testid="bld-canvas-state"
+    >
+      {state.kind === 'processing' && <span className="bld-spinner" aria-hidden="true" />}
+      <h2 className="nz-h2">{t(locale, title)}</h2>
+      <p>{t(locale, body)}</p>
+      {state.kind === 'failed' && (
+        <p className="nz-muted">
+          {t(locale, 'bld.canvas.failed.saved')}
+          {state.code && (
+            <>
+              {' '}
+              <bdi dir="ltr">({state.code})</bdi>
+            </>
+          )}
+        </p>
+      )}
+      {state.kind !== 'processing' && (
+        <button type="button" className="nz-btn" onClick={onShowStarter}>
+          {t(locale, 'bld.canvas.showStarter')}
+        </button>
+      )}
     </div>
   );
 }

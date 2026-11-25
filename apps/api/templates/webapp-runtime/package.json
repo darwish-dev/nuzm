@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Nuzm webapp-runtime template. This file only lets the template's own unit tests run; it is NOT copied into generated apps (their package.json is generated)."
+}

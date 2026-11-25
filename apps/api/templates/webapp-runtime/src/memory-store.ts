@@ -1,3 +1,4 @@
+import { currentTenant } from './tenant.ts';
 import type { AppMeta, AuditEntry, ListQuery, Row, Scope, Store, UserRow } from './types.ts';
 
 function inScope(r: Row, s: Scope): boolean {
@@ -19,23 +20,56 @@ function cmp(a: unknown, b: unknown): number {
 export class MemoryStore implements Store {
   private meta: AppMeta;
   private tables = new Map<string, Map<string, Row>>();
-  private files = new Map<string, Uint8Array>();
-  private audit: AuditEntry[] = [];
+  private fileParts = new Map<string, Map<string, Uint8Array>>();
+  private auditParts = new Map<string, AuditEntry[]>();
   private users = new Map<string, UserRow>();
+  private revoked = new Map<string, number>();
+  private tenants = new Map<string, { id: string; name: string; createdAt: string }>();
+  private multi: boolean;
   constructor(meta: AppMeta) {
     this.meta = meta;
+    this.multi = meta.auth?.tenancy === 'multi';
+  }
+  /** Multi-tenant apps keep one partition per tenant, so a query can only ever see the partition of the tenant of the request; no tenant context = an empty, discarded partition (fail closed). */
+  private part(): string | null {
+    if (!this.multi) return '';
+    return currentTenant();
   }
   private t(entity: string): Map<string, Row> {
-    let m = this.tables.get(entity);
+    const p = this.part();
+    if (p === null) return new Map();
+    const key = p + '|' + entity;
+    let m = this.tables.get(key);
     if (!m) {
       m = new Map();
-      this.tables.set(entity, m);
+      this.tables.set(key, m);
     }
     return m;
+  }
+  private get files(): Map<string, Uint8Array> {
+    const p = this.part();
+    if (p === null) return new Map();
+    let m = this.fileParts.get(p);
+    if (!m) {
+      m = new Map();
+      this.fileParts.set(p, m);
+    }
+    return m;
+  }
+  private get audit(): AuditEntry[] {
+    const p = this.part();
+    if (p === null) return [];
+    let a = this.auditParts.get(p);
+    if (!a) {
+      a = [];
+      this.auditParts.set(p, a);
+    }
+    return a;
   }
   async insert(entity: string, row: Row): Promise<Row> {
     const em = this.meta.entities[entity];
     if (!em) throw new Error('unknown entity ' + entity);
+    if (this.part() === null) throw new Error('no tenant context');
     for (const f of em.fields) {
       if (f.unique && row[f.name] !== null && row[f.name] !== undefined) {
         for (const o of this.t(entity).values())
@@ -187,6 +221,20 @@ export class MemoryStore implements Store {
     return { ...u };
   }
   async listUsers(): Promise<UserRow[]> {
-    return [...this.users.values()].map((u) => ({ ...u }));
+    const p = this.part();
+    if (p === null) return [];
+    return [...this.users.values()]
+      .filter((u) => !this.multi || u.tenantId === p)
+      .map((u) => ({ ...u }));
+  }
+  async revokeSession(jti: string, expiresAt: number): Promise<void> {
+    this.revoked.set(jti, expiresAt);
+    for (const [k, v] of this.revoked) if (v * 1000 < Date.now()) this.revoked.delete(k);
+  }
+  async isSessionRevoked(jti: string): Promise<boolean> {
+    return this.revoked.has(jti);
+  }
+  async insertTenant(t: { id: string; name: string; createdAt: string }): Promise<void> {
+    this.tenants.set(t.id, { ...t });
   }
 }

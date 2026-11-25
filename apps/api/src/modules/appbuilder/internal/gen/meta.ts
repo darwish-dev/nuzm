@@ -2,7 +2,11 @@ import type { AppSpec, FieldSpec } from '../spec/app-spec';
 import { toSnake } from '../spec/app-spec';
 
 /** Runtime metadata of the generated application, derived from the approved spec (src/meta.ts and public/meta.json). The shape is `AppMeta` of the runtime types. */
-export function buildMeta(spec: AppSpec): Record<string, unknown> {
+export interface AuthMeta {
+  signupRole: string | null;
+  tenancy: 'single' | 'multi';
+}
+export function buildMeta(spec: AppSpec, auth?: AuthMeta): Record<string, unknown> {
   const field = (f: FieldSpec) => ({
     name: f.name,
     column: toSnake(f.name),
@@ -18,6 +22,7 @@ export function buildMeta(spec: AppSpec): Record<string, unknown> {
     labels: f.labels,
   });
   return {
+    ...(auth ? { auth } : {}),
     slug: spec.slug,
     name: spec.name,
     locales: spec.locales,

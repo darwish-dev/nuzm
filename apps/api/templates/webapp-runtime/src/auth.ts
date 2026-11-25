@@ -35,11 +35,25 @@ export function signToken(
   ttlSeconds: number,
   nowMs: number,
 ): string {
-  const payload = b64(JSON.stringify({ uid: userId, exp: Math.floor(nowMs / 1000) + ttlSeconds }));
+  // `jti` identifies the session so that logout can revoke it server-side (the token itself is otherwise stateless)
+  const payload = b64(
+    JSON.stringify({
+      uid: userId,
+      exp: Math.floor(nowMs / 1000) + ttlSeconds,
+      jti: randomBytes(16).toString('hex'),
+    }),
+  );
   const mac = createHmac('sha256', secret).update(payload).digest('base64url');
   return payload + '.' + mac;
 }
-export function verifyToken(secret: string, token: string, nowMs: number): string | null {
+export interface Session {
+  uid: string;
+  /** absent only in tokens issued before revocation existed; such a token cannot be revoked and expires on its own */
+  jti: string | null;
+  /** expiry, seconds since the epoch */
+  exp: number;
+}
+export function readSession(secret: string, token: string, nowMs: number): Session | null {
   const [payload, mac] = token.split('.');
   if (!payload || !mac) return null;
   const expected = createHmac('sha256', secret).update(payload).digest();
@@ -49,10 +63,14 @@ export function verifyToken(secret: string, token: string, nowMs: number): strin
     const p = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
       uid?: unknown;
       exp?: unknown;
+      jti?: unknown;
     };
     if (typeof p.uid !== 'string' || typeof p.exp !== 'number' || p.exp * 1000 < nowMs) return null;
-    return p.uid;
+    return { uid: p.uid, exp: p.exp, jti: typeof p.jti === 'string' ? p.jti : null };
   } catch {
     return null;
   }
+}
+export function verifyToken(secret: string, token: string, nowMs: number): string | null {
+  return readSession(secret, token, nowMs)?.uid ?? null;
 }

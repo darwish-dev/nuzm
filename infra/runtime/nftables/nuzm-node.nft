@@ -1,0 +1,38 @@
+# STATIC default-deny firewall of the runtime node (P3-S02). STATUS: REVIEWED ARTIFACT, `nft -c` NEVER RUN. Replaces the ruleset written by bootstrap v1: v1 forwarded sandbox
+# traffic to a proxy ELSEWHERE; v2 puts the proxy ON the node (a dummy-interface address) so a sandbox's only reachable thing is a local socket, and nothing is ever forwarded.
+# Variables are substituted by install-agent.sh from the reviewer-signed environment (never defaults): OPERATOR_CIDR, CONTROL_PLANE_CIDR, AGENT_PORT, PROXY_IP, PROXY_PORT.
+flush ruleset
+table inet nuzm_sandbox {
+  set blocked_v4 {
+    type ipv4_addr; flags interval
+    elements = { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/3 }
+  }
+  chain input {
+    type filter hook input priority 0; policy drop;
+    ct state established,related accept
+    ct state invalid drop
+    iif lo accept
+    # sandboxes (veth host ends vh-*) may reach ONE socket on this node: the egress proxy. Nothing else, including the agent, SSH and the metrics port.
+    iifname "vh-*" ip daddr ${PROXY_IP} tcp dport ${PROXY_PORT} accept
+    iifname "vh-*" drop
+    ip saddr ${OPERATOR_CIDR} tcp dport 22 accept
+    ip saddr ${CONTROL_PLANE_CIDR} tcp dport ${AGENT_PORT} accept comment "node agent: mTLS + signed tokens"
+    icmp type echo-request limit rate 5/second accept
+  }
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+    # nothing is forwarded: a sandbox cannot reach another sandbox, the control plane, the database, the queue or the internet
+  }
+  chain output {
+    type filter hook output priority 0; policy drop;
+    ct state established,related accept
+    oif lo accept
+    # the egress proxy (its own system user) may reach public HTTPS and DNS, but never a blocked range (defence in depth beyond the proxy's own address check)
+    meta skuid "nuzm-proxy" ip daddr @blocked_v4 drop
+    meta skuid "nuzm-proxy" tcp dport 443 accept
+    meta skuid "nuzm-proxy" udp dport 53 accept
+    meta skuid "nuzm-proxy" tcp dport 53 accept
+    # the node itself: replies only (above). Package updates and the pinned downloads happen in a maintenance window with this chain relaxed by the operator, then re-loaded.
+    ip daddr 169.254.0.0/16 drop comment "metadata service: unreachable for everyone"
+  }
+}

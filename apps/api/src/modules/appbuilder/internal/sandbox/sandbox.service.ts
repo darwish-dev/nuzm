@@ -48,6 +48,8 @@ export interface SandboxConfig {
   idleMinutes: number;
   maxLifetimeMinutes: number;
   concurrentPerOrg: number;
+  /** SERVER-SIDE ONLY: the template-origin proof handed to host runners (host-exec-guard.ts); undefined for every real deployment, set only by template tests */
+  hostOrigin?: unknown;
 }
 export const DEFAULT_SANDBOX_CONFIG: SandboxConfig = {
   nodeRegion: 'sa-central',
@@ -186,6 +188,7 @@ export class SandboxService {
         projectId: project.id,
         quota: DEFAULT_QUOTA,
         egressProfile: 'default',
+        origin: this.cfg.hostOrigin,
       });
       const ready = await this.db.withOrg(
         orgId,

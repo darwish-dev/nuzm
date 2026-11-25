@@ -1,0 +1,15 @@
+; Global npm configuration baked into the sandbox rootfs at /usr/local/etc/npmrc (read-only at run time).
+; The sandbox environment is the 5-variable constant (no npm_config_*), so this file is the only npm configuration the workload gets from the platform.
+ignore-scripts=true
+update-notifier=false
+fund=false
+audit=false
+; the network class `registry-only` reaches ONLY the egress proxy on the node (a dummy-interface address; see network.ts); `none` has no network at all
+registry=https://registry.npmjs.org/
+https-proxy=http://10.200.0.1:3128
+proxy=http://10.200.0.1:3128
+noproxy=
+strict-ssl=true
+cache=/scratch/.npm
+; never let a package manager write outside /work and /scratch
+prefix=/scratch/.npm-global

@@ -1,0 +1,13 @@
+# STATUS: REVIEWED ARTIFACT, NEVER RUN. The dummy interface that carries the egress proxy's address (sandboxes route to it over their veth).
+[Unit]
+Description=Nuzm egress proxy address (dummy interface)
+Before=nuzm-egress-proxy.service network-online.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/ip link add nzproxy0 type dummy
+ExecStart=/usr/sbin/ip addr add 10.200.0.1/32 dev nzproxy0
+ExecStart=/usr/sbin/ip link set nzproxy0 up
+ExecStop=/usr/sbin/ip link del nzproxy0
+[Install]
+WantedBy=multi-user.target

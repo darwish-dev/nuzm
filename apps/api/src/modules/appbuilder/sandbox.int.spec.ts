@@ -1,3 +1,4 @@
+import { executionGateway as eg } from '@nuzm/domain';
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createEnv, ORG_A, ORG_B, SEED_USER, type TestEnv } from '@nuzm/platform/testing';
@@ -376,6 +377,7 @@ describe('local dev runner (NOT isolated; dev only)', () => {
   });
   it('runs allow-listed commands without a shell, with a scrubbed environment and a wall-clock kill; labelled isolation none', async () => {
     process.env.SANDBOX_LOCAL_DEV = 'true';
+    process.env.NUZM_LOCAL_DEV_EXEC = '1';
     process.env.NUZM_SECRET_PROBE = 'should-not-leak';
     const rt = new LocalDevSandboxRuntime();
     expect(rt).toMatchObject({ kind: 'local-dev', isolation: 'none' });
@@ -385,6 +387,7 @@ describe('local dev runner (NOT isolated; dev only)', () => {
       projectId: 'p',
       quota: { vcpu: 1, memoryMb: 1, diskGb: 1, pids: 1, buildTimeoutMinutes: 1 },
       egressProfile: 'default',
+      origin: eg.templateOrigin('sandbox-int-fixture'),
     });
     await rt.writeFiles(
       h,

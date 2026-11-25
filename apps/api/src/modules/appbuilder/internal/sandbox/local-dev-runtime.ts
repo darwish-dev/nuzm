@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { executionGateway as eg } from '@nuzm/domain';
 import {
   mkdirSync,
   mkdtempSync,
@@ -47,7 +48,9 @@ export class LocalDevSandboxRuntime extends SandboxRuntime {
   async freeSlots() {
     return Math.max(0, this.maxSandboxes - this.dirs.size);
   }
-  async create(_spec: RuntimeSpec): Promise<string> {
+  async create(spec: RuntimeSpec): Promise<string> {
+    // R5: this runner is NOT isolated. Beyond the dev switch it needs the opt-in env and a server-minted template-origin proof; model/customer code never runs here.
+    eg.assertHostExecAllowed('local-dev-sandbox', spec?.origin);
     if ((await this.freeSlots()) <= 0) throw new RuntimeNoCapacity();
     const dir = mkdtempSync(join(tmpdir(), 'nuzm-sbx-'));
     const handle = 'local-' + randomBytes(8).toString('hex');

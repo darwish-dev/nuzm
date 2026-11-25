@@ -1,0 +1,22 @@
+# STATUS: REVIEWED ARTIFACT, NEVER RUN. The node agent runs as root on the dedicated node because starting gVisor sandboxes needs mount, network-namespace and cgroup
+# privileges (V: the reviewer decides whether to narrow this to ambient capabilities and a dedicated user). It is the only service that touches sandboxes; it listens on the
+# management interface only (mTLS + signed tokens), never on a wildcard. Its configuration refuses to start if anything is off (see config.ts).
+[Unit]
+Description=Nuzm runtime node agent
+After=network-online.target nuzm-proxy-addr.service containerd.service
+Wants=network-online.target
+[Service]
+Type=simple
+ExecStart=/usr/bin/node /opt/nuzm/runtime-agent/dist/main.js --config /etc/nuzm/agent.json
+Restart=on-failure
+RestartSec=3
+# the agent kills stray sandboxes itself at start; a stop must not leave workspaces to be reaped by anyone but the control plane
+KillMode=process
+TimeoutStopSec=30
+LimitNOFILE=65536
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ReadWritePaths=/var/lib/nuzm /var/log/nuzm /run/nuzm
+[Install]
+WantedBy=multi-user.target

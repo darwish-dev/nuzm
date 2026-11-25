@@ -30,6 +30,11 @@ export interface RuntimeSpec {
   quota: Quota;
   /** Egress profile id: the policy the sandbox proxy enforces. */
   egressProfile: string;
+  /**
+   * SERVER-SIDE ONLY: the origin proof of the code this sandbox will run (`executionGateway.templateOrigin(id)`). Never read from a request. A host runner
+   * (`LocalDevSandboxRuntime`) refuses to create a sandbox without a template proof (host-exec-guard.ts); isolated runtimes ignore it.
+   */
+  origin?: unknown;
 }
 export interface ExecRequest {
   /** argv, never a shell string: there is no shell interpretation anywhere. */

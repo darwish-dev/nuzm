@@ -3,11 +3,14 @@
 # NUZM STAGING RUNTIME NODE BOOTSTRAP (gVisor / runsc, systrap platform)            STATUS: REVIEWED ARTIFACT. NEVER EXECUTED. NOT TESTED ON ANY MACHINE.
 #
 # Purpose : prepare ONE dedicated, disposable Linux staging node for the isolation qualification described in docs/parallel/RUNTIME-QUALIFICATION.md.
+# REVISION 2 (P3-S02): the firewall is no longer written here. v1 forwarded sandbox traffic to an egress proxy on ANOTHER host; the real runtime puts the proxy ON the node (a dummy-interface
+#            address) so nothing is ever forwarded, and the static ruleset lives in infra/runtime/nftables/nuzm-node.nft, rendered and loaded by infra/runtime/install-agent.sh. This script now
+#            stops after the host baseline, gVisor, audit rules and the node identity file; install-agent.sh is the next (separately reviewed) step. A new revision needs a NEW reviewer sign-off.
 # Safety  : * the default mode is --plan: it PRINTS every step and changes nothing (it runs no command of the steps, it only echoes them);
 #           * --apply is refused unless ALL of: root, Linux, a reviewer's sign-off reference, a node id, the pinned runsc release and its sha512 (supplied by the reviewer, no default),
 #             and the node looks dedicated (no container-runtime socket, nothing listening except sshd);
 #           * it never touches the network except to download the two pinned binaries from the URL below and verify their sha512 BEFORE installing them;
-#           * it does not start the node agent (the agent does not exist yet: D-21), does not enable any customer route, and installs no credential of any kind.
+#           * it does not install or start the node agent (infra/runtime/install-agent.sh does, separately reviewed), does not enable any customer route, and installs no credential of any kind.
 # Never run it on a developer machine, on a shared host, or on a node that holds anything else. Every line marked (V) must be verified by the reviewer against the pinned release.
 # Assumed OS: Ubuntu Server 24.04 LTS or 22.04 LTS (V). Adapt package names for another distribution.
 #
@@ -17,10 +20,7 @@
 #   NUZM_RUNSC_VERSION          the pinned gVisor release, e.g. 20260101.0 (V: the reviewer picks it)
 #   NUZM_RUNSC_SHA512           sha512 of the runsc binary for this architecture, from the reviewer's own verification of the release
 #   NUZM_SHIM_SHA512            sha512 of containerd-shim-runsc-v1 for this architecture
-#   NUZM_OPERATOR_CIDR          the only network allowed to SSH in (e.g. 203.0.113.10/32)
-#   NUZM_CONTROL_PLANE_CIDR     the only network allowed to reach the node agent port
-#   NUZM_PROXY_ADDR             address:port of the egress proxy sandboxes may reach (registry-only class)
-# Optional: NUZM_APPLY_FIREWALL=yes (default no: the ruleset is only checked with nft -c), NUZM_WORKSPACE_DIR (default /var/lib/nuzm/workspaces).
+# Optional: NUZM_WORKSPACE_DIR (default /var/lib/nuzm/workspaces).
 # =====================================================================================================================================================================
 set -euo pipefail
 IFS=$'\n\t'
@@ -43,7 +43,6 @@ step() {
 }
 
 WS_DIR="${NUZM_WORKSPACE_DIR:-/var/lib/nuzm/workspaces}"
-PROXY="${NUZM_PROXY_ADDR:-0.0.0.0:0}"   # placeholder in plan mode only; apply mode refuses if unset
 RUNSC_BASE="https://storage.googleapis.com/gvisor/releases/release"   # (V) URL layout of the pinned release
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------- 0. guards
@@ -59,7 +58,7 @@ preflight() {
   [ "$(uname -s)" = "Linux" ] || die "not Linux"
   [ "$(id -u)" = "0" ] || die "must run as root on the dedicated node"
   local v
-  for v in NUZM_BOOTSTRAP_REVIEW_REF NUZM_NODE_ID NUZM_RUNSC_VERSION NUZM_RUNSC_SHA512 NUZM_SHIM_SHA512 NUZM_OPERATOR_CIDR NUZM_CONTROL_PLANE_CIDR NUZM_PROXY_ADDR; do
+  for v in NUZM_BOOTSTRAP_REVIEW_REF NUZM_NODE_ID NUZM_RUNSC_VERSION NUZM_RUNSC_SHA512 NUZM_SHIM_SHA512; do
     [ -n "${!v:-}" ] || die "missing ${v}"
   done
   [[ "${NUZM_RUNSC_SHA512}" =~ ^[0-9a-f]{128}$ ]] || die "NUZM_RUNSC_SHA512 is not a sha512 hex digest"
@@ -143,46 +142,8 @@ systemctl restart containerd && systemctl enable containerd"
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------- 4. network: default deny
 firewall() {
-  local f="/etc/nftables.d/nuzm-sandbox-node.nft"
-  step "write the default-deny ruleset (input and forward drop; sandboxes may only reach the egress proxy; metadata, link-local and private ranges are blocked in every direction)" \
-    bash -c "install -d -m 0755 /etc/nftables.d && cat > '${f}' <<NFT
-flush ruleset
-table inet nuzm_sandbox {
-  set blocked_v4 {
-    type ipv4_addr; flags interval
-    elements = { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/3 }
-  }
-  chain input {
-    type filter hook input priority 0; policy drop;
-    ct state established,related accept
-    iif lo accept
-    ip saddr ${NUZM_OPERATOR_CIDR:-0.0.0.0/32} tcp dport 22 accept
-    ip saddr ${NUZM_CONTROL_PLANE_CIDR:-0.0.0.0/32} tcp dport 8443 accept comment \"node agent (future), mTLS only\"
-    icmp type echo-request limit rate 5/second accept
-  }
-  chain forward {
-    type filter hook forward priority 0; policy drop;
-    ct state established,related accept
-    # sandbox traffic: only to the egress proxy; everything else, including blocked ranges and the metadata address, is dropped
-    ip daddr @blocked_v4 drop
-    ip daddr ${PROXY%%:*} tcp dport ${PROXY##*:} accept
-  }
-  chain output {
-    type filter hook output priority 0; policy drop;
-    ct state established,related accept
-    oif lo accept
-    # the node itself: DNS and HTTPS for package updates and the pinned downloads only (tighten to the reviewer's allowlist: V)
-    tcp dport { 53, 443 } accept
-    udp dport 53 accept
-  }
-}
-NFT
-nft -c -f '${f}'"
-  if [ "${NUZM_APPLY_FIREWALL:-no}" = "yes" ]; then
-    step "load the ruleset (risk of locking yourself out: confirm NUZM_OPERATOR_CIDR first)" bash -c "nft -f '${f}'"
-  else
-    say "==> ruleset syntax-checked only (nft -c); set NUZM_APPLY_FIREWALL=yes to load it"
-  fi
+  say "==> firewall: NOT written by this script (revision 2). The static default-deny ruleset is infra/runtime/nftables/nuzm-node.nft; infra/runtime/install-agent.sh renders it with the reviewer-signed"
+  say "    operator CIDR, control-plane CIDR, agent port and proxy address and syntax-checks it (nft -c); it is loaded only with NUZM_APPLY_FIREWALL=yes."
 }
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------- 5. audit + identity
@@ -207,6 +168,6 @@ main() {
   gvisor
   firewall
   audit_and_identity
-  say "== done. Next (manual): run node-inventory.sh and keep its output as evidence; the node agent is NOT installed; qualification has NOT started."
+  say "== done. Next (manual): run node-inventory.sh and keep its output as evidence; then infra/runtime/install-agent.sh (--plan first); the node agent is NOT installed yet; qualification has NOT started."
 }
 main

@@ -1,0 +1,5 @@
+{
+  "listen": { "host": "10.200.0.1", "port": 3128 },
+  "metrics": { "port": 9101 },
+  "allowHosts": ["registry.npmjs.org"]
+}

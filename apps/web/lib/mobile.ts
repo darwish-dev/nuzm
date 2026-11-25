@@ -350,7 +350,7 @@ export const workspaceHref = (
   extra?: Record<string, string>,
 ): string => {
   const q = new URLSearchParams({ ...(tab ? { tab } : {}), ...(extra ?? {}) }).toString();
-  return `/${locale}/builder/projects/${projectId}${q ? `?${q}` : ''}`;
+  return `/builder/projects/${projectId}${q ? `?${q}` : ''}`;
 };
 
 /* ---- the design, as the preview draws it */

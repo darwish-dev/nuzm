@@ -16,7 +16,7 @@ export default async function AddPaymentMethod({
 }) {
   const { locale } = await params;
   // where to go after the card is saved (the checkout sends the customer back to it); only a path on this site is followed
-  const next = safeNext((await searchParams).next, `/${locale}/billing/payments#methods`);
+  const next = safeNext((await searchParams).next, `/billing/payments#methods`);
   if (!isLocale(locale)) notFound();
   const s = await requireSession(locale);
   return (

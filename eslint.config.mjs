@@ -15,7 +15,9 @@ export default tseslint.config(
       'apps/api/.gen-tmp/**', // git-ignored: generated apps written by tests and live previews
       'packages/sdk/src/schema.ts',
       '.claude/worktrees/**',
+      'apps/desktop/release/**', // packaged desktop installers (git-ignored)
       'apps/api/templates/webapp-runtime/public/**', // M10A: browser code shipped inside generated apps
+      'apps/mobile/**', // Flutter app: Dart, checked by `flutter analyze`; its build output is generated JS
     ],
   },
   js.configs.recommended,

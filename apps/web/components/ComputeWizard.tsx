@@ -45,6 +45,8 @@ interface OsImage {
   id: string;
   name: string;
   osFamily: string | null;
+  /** HestiaCP can be installed on this image (verified for it, sold placement): the control-panel choice appears only then */
+  hestia?: boolean;
 }
 /** Country name in the page language (ISO code as the fallback). */
 const countryName = (locale: Locale, code: string): string => {
@@ -102,6 +104,9 @@ export function ComputeWizard(p: {
     items: [],
   });
   const [name, setName] = useState('');
+  // control panel (S04): none by default; with HestiaCP the mail service is an EXPLICIT yes/no answer (no default)
+  const [panel, setPanel] = useState<'none' | 'hestia'>('none');
+  const [mail, setMail] = useState<'' | 'yes' | 'no'>('');
   const [disk, setDisk] = useState('');
   const [keysText, setKeysText] = useState('');
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -110,6 +115,8 @@ export function ComputeWizard(p: {
   const createKey = useRef('');
   const heading = useRef<HTMLHeadingElement>(null);
   const offer = p.offers.find((o) => o.offerId === offerId);
+  const hestiaOk = images.items.find((i) => i.id === imageId)?.hestia === true;
+  const hestiaOn = panel === 'hestia' && hestiaOk;
 
   // move focus to the step heading only when the step CHANGES (not on first load, where it would draw a focus ring around the title)
   const firstStep = useRef(true);
@@ -122,6 +129,8 @@ export function ComputeWizard(p: {
     if (!offerId) return;
     let live = true;
     setImageId('');
+    setPanel('none');
+    setMail('');
     setImages({ for: offerId, state: 'loading', items: [] });
     void browserCompute
       .get<{ items: OsImage[] }>(`/v1/offers/${offerId}/images`)
@@ -173,6 +182,7 @@ export function ComputeWizard(p: {
     const next: Record<string, string> = {};
     if (!offer) next.offer = t(locale, 'm05.web.wiz.offer.err');
     if (!isImageId(imageId)) next.image = t(locale, 'm05.web.wiz.image.err');
+    if (hestiaOn && mail === '') next.mail = t(locale, 'cloud.cfg.panel.mail.err');
     if (!isInstanceName(name)) next.name = t(locale, 'm05.web.wiz.name.err');
     if (parseDiskGb(disk) === null) next.disk = t(locale, 'm05.web.wiz.disk.err');
     setErrs(next);
@@ -195,7 +205,22 @@ export function ComputeWizard(p: {
           body: {
             kind: 'compute',
             offerId: offer.offerId,
-            spec: { imageId: imageId.trim(), ...(diskGb ? { diskGb } : {}), count: 1 },
+            spec: {
+              imageId: imageId.trim(),
+              ...(diskGb ? { diskGb } : {}),
+              count: 1,
+              ...(hestiaOn
+                ? {
+                    panel: {
+                      kind: 'hestia',
+                      template: {
+                        id: mail === 'yes' ? 'hestia-web-mail' : 'hestia-web',
+                        mail: mail === 'yes',
+                      },
+                    },
+                  }
+                : {}),
+            },
             term: { period: 'month' },
           },
           idempotencyKey: crypto.randomUUID(),
@@ -227,7 +252,7 @@ export function ComputeWizard(p: {
       (r) => {
         // the basket line this order finished is done
         if (p.orgId && p.basketLineId) removeFromCart(p.orgId, p.basketLineId);
-        router.push(`/${locale}/compute/instances/${r.instance.id}`);
+        router.push(`/compute/instances/${r.instance.id}`);
       },
     );
   }
@@ -238,7 +263,7 @@ export function ComputeWizard(p: {
         title={t(locale, 'm05.web.wiz.noOffers.title')}
         body={t(locale, 'm05.web.wiz.noOffers.body')}
         action={
-          <ButtonLink variant="secondary" href={`/${locale}/compute/offers`}>
+          <ButtonLink variant="secondary" href={`/compute/offers`}>
             {t(locale, 'm05.web.tab.offers')}
           </ButtonLink>
         }
@@ -435,7 +460,13 @@ export function ComputeWizard(p: {
                         name="cfg-os"
                         value={im.id}
                         checked={imageId === im.id}
-                        onChange={() => setImageId(im.id)}
+                        onChange={() => {
+                          setImageId(im.id);
+                          if (!im.hestia) {
+                            setPanel('none');
+                            setMail('');
+                          }
+                        }}
                       />
                     </label>
                   ))}
@@ -444,6 +475,82 @@ export function ComputeWizard(p: {
                   <span className="nz-error-text" role="alert">
                     {errs.image}
                   </span>
+                )}
+              </section>
+
+              <section aria-labelledby="cfg-panel">
+                <h3 className="nzc-cfg-h nzc-cfg-step" id="cfg-panel">
+                  <i aria-hidden="true">5</i>
+                  {t(locale, 'cloud.cfg.panel')}
+                </h3>
+                <div
+                  className="nzc-tlds nzc-tlds-grid"
+                  role="radiogroup"
+                  aria-labelledby="cfg-panel"
+                >
+                  <label className="nzc-tld nzc-opt">
+                    <span className="nzc-opt-name">{t(locale, 'cloud.cfg.panel.none')}</span>
+                    <input
+                      type="radio"
+                      name="cfg-panel"
+                      value="none"
+                      checked={!hestiaOn}
+                      onChange={() => {
+                        setPanel('none');
+                        setMail('');
+                      }}
+                    />
+                  </label>
+                  <label className="nzc-tld nzc-opt" aria-disabled={!hestiaOk}>
+                    <span className="nzc-opt-name">{t(locale, 'cloud.cfg.panel.hestia')}</span>
+                    <input
+                      type="radio"
+                      name="cfg-panel"
+                      value="hestia"
+                      disabled={!hestiaOk}
+                      checked={hestiaOn}
+                      onChange={() => setPanel('hestia')}
+                    />
+                    <span className="nzc-tld-hint">
+                      {t(
+                        locale,
+                        hestiaOk ? 'cloud.cfg.panel.hestia.note' : 'cloud.cfg.panel.unavailable',
+                      )}
+                    </span>
+                  </label>
+                </div>
+                {hestiaOn && (
+                  <>
+                    <h4 className="nzc-cfg-h" id="cfg-mail">
+                      {t(locale, 'cloud.cfg.panel.mail')}
+                    </h4>
+                    <div
+                      className="nzc-tlds nzc-tlds-grid"
+                      role="radiogroup"
+                      aria-labelledby="cfg-mail"
+                    >
+                      {(['no', 'yes'] as const).map((v) => (
+                        <label key={v} className="nzc-tld nzc-opt">
+                          <span className="nzc-opt-name">
+                            {t(locale, `cloud.cfg.panel.mail.${v}`)}
+                          </span>
+                          <input
+                            type="radio"
+                            name="cfg-mail"
+                            value={v}
+                            checked={mail === v}
+                            onChange={() => setMail(v)}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <p className="nzc-dsearch-note">{t(locale, 'cloud.cfg.panel.mail.help')}</p>
+                    {errs.mail && (
+                      <span className="nz-error-text" role="alert">
+                        {errs.mail}
+                      </span>
+                    )}
+                  </>
                 )}
               </section>
 
@@ -525,6 +632,14 @@ export function ComputeWizard(p: {
                   <dt>{t(locale, 'cloud.cfg.os')}</dt>
                   <dd>{images.items.find((i) => i.id === imageId)?.name ?? '—'}</dd>
                 </div>
+                <div>
+                  <dt>{t(locale, 'cloud.cfg.panel')}</dt>
+                  <dd>
+                    {hestiaOn
+                      ? t(locale, mail === 'yes' ? 'vps.panel.tpl.mail' : 'vps.panel.tpl.web')
+                      : t(locale, 'cloud.cfg.panel.none')}
+                  </dd>
+                </div>
               </dl>
               <p className="nzc-cfg-price" aria-live="polite">
                 <span className="nz-muted">{t(locale, 'cloud.cfg.monthly')}</span>
@@ -534,7 +649,7 @@ export function ComputeWizard(p: {
               </p>
               <p className="nzc-dsearch-note">{t(locale, 'cloud.cfg.vatNote')}</p>
               <Button type="submit">{t(locale, 'action.next')}</Button>
-              {p.orgId && (
+              {p.orgId && !hestiaOn && (
                 <Button variant="secondary" onClick={addToBasket}>
                   {carted === 'added' ? (
                     <>
@@ -546,6 +661,9 @@ export function ComputeWizard(p: {
                     </>
                   )}
                 </Button>
+              )}
+              {hestiaOn && p.orgId && (
+                <span className="nzc-dsearch-note">{t(locale, 'cloud.cfg.panel.noCart')}</span>
               )}
               {carted === 'full' && (
                 <span className="nz-error-text" role="alert">
@@ -626,6 +744,14 @@ export function ComputeWizard(p: {
                   {images.items.find((i) => i.id === imageId)?.name ?? <Ltr>{imageId.trim()}</Ltr>}
                 </dd>
               </div>
+              {hestiaOn && (
+                <div className="nz-row">
+                  <dt className="nz-muted">{t(locale, 'cloud.cfg.panel')}</dt>
+                  <dd style={{ margin: 0 }}>
+                    {t(locale, mail === 'yes' ? 'vps.panel.tpl.mail' : 'vps.panel.tpl.web')}
+                  </dd>
+                </div>
+              )}
               <div className="nz-row">
                 <dt className="nz-muted">{t(locale, 'm05.web.wiz.keys')}</dt>
                 <dd style={{ margin: 0 }}>
@@ -711,7 +837,7 @@ export function ComputeWizard(p: {
               <Banner tone="warn">
                 {t(locale, 'm05.web.quote.needsApproval')}{' '}
                 <a
-                  href={`/${locale}/billing/approvals${queryString({
+                  href={`/billing/approvals${queryString({
                     quoteId: quote.id,
                     amountMinor: quote.totalMinor,
                   })}`}

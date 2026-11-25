@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { executionGateway as gw } from '@nuzm/domain';
 
 /**
- * Session 07 (QA) - independent adversarial tests of the Execution Gateway POLICY CORE (ADR-067 PROPOSED, offline, pure functions; nothing here starts a process).
+ * Session 07 (QA) - independent adversarial tests of the Execution Gateway POLICY CORE (ADR-069 PROPOSED, offline, pure functions; nothing here starts a process).
  * Offline policy evidence only: it says nothing about any runtime's isolation (no runtime is verified).
  * Tests marked `it.fails` document a DEFECT in code owned by Session 04 (see docs/parallel/sessions/DEFECT-*.md): the test states the SECURE expectation and is expected to
  * fail today; when the owner fixes the defect the `.fails` test starts failing, which is the signal to remove the marker. No assertion is weakened.

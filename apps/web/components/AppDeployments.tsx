@@ -459,7 +459,7 @@ export function AppDeployments({
             ))}
           </ul>
           <div className="nz-row">
-            <a className="nz-btn" data-variant="primary" href={`/${locale}/approvals`}>
+            <a className="nz-btn" data-variant="primary" href={`/approvals`}>
               {t(locale, 'm10a.dep.openApprovals')}
             </a>
             <Button

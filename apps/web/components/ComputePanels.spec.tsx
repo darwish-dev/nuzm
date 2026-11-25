@@ -128,7 +128,7 @@ describe('offers (UI-M05-01)', () => {
       screen
         .getByRole('link', { name: new RegExp(`^${t('en', 'm05.web.offers.use')}`) })
         .getAttribute('href'),
-    ).toContain('/en/compute/instances/new?offerId=');
+    ).toContain('/compute/instances/new?offerId=');
     expect(
       screen.getByRole('link', { name: t('en', 'm05.web.page.next') }).getAttribute('href'),
     ).toContain('cursor=c2');
@@ -504,6 +504,85 @@ describe('create wizard (UI-M05-02)', () => {
     expect(screen.getByText(t('en', 'm05.web.wiz.name.err'))).toBeTruthy();
     expect(screen.getByText(t('en', 'm05.web.wiz.image.err'))).toBeTruthy();
   });
+  it('HestiaCP is chosen only on a verified image, the mail service is an explicit answer, and the choice travels in the quote spec (S04)', async () => {
+    get.mockResolvedValue(
+      ok({
+        items: [
+          { id: IMAGE_ID, name: 'Ubuntu 24.04 64 bit', osFamily: 'linux', hestia: true },
+          {
+            id: '0198a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a78',
+            name: 'Plain Linux',
+            osFamily: 'linux',
+            hestia: false,
+          },
+        ],
+        panels: {
+          hestia: { available: true, templates: ['hestia-web', 'hestia-web-mail'], minimum: {} },
+        },
+      }),
+    );
+    post.mockResolvedValue(ok(quote(), 201));
+    render(
+      <ComputeWizard locale="en" offers={[O]} initialOfferId={O.offerId} mfaFactorId={null} />,
+    );
+    const hestia = /HestiaCP/;
+    // before an operating system is chosen, and on an image without verification: not selectable
+    fireEvent.click(await screen.findByLabelText('Plain Linux'));
+    expect((screen.getByRole('radio', { name: hestia }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText(t('en', 'cloud.cfg.panel.unavailable'))).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Ubuntu 24.04 64 bit'));
+    expect((screen.getByRole('radio', { name: hestia }) as HTMLInputElement).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('radio', { name: hestia }));
+    fireEvent.change(screen.getByLabelText(t('en', 'field.name')), { target: { value: 'web-01' } });
+    // no default for mail: moving on without answering is refused
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'action.next') }));
+    expect(screen.getByText(t('en', 'cloud.cfg.panel.mail.err'))).toBeTruthy();
+    expect(screen.queryByText(t('en', 'm05.web.wiz.keys'))).toBeNull();
+    // the basket does not keep the panel choice, so it is not offered with it
+    expect(screen.queryByRole('button', { name: t('en', 'cart.add') })).toBeNull();
+    fireEvent.click(screen.getByLabelText(t('en', 'cloud.cfg.panel.mail.yes')));
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'action.next') }));
+    fireEvent.change(screen.getByLabelText(t('en', 'm05.web.wiz.keys')), { target: { value: ed } });
+    fireEvent.click(screen.getByRole('button', { name: t('en', 'm05.web.wiz.getQuote') }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const [, opts] = post.mock.calls[0] as [string, { body: { spec: Record<string, unknown> } }];
+    expect(opts.body.spec).toEqual({
+      imageId: IMAGE_ID,
+      count: 1,
+      panel: { kind: 'hestia', template: { id: 'hestia-web-mail', mail: true } },
+    });
+    expect(await screen.findByText(t('en', 'vps.panel.tpl.mail'))).toBeTruthy(); // the review states it
+  });
+  it('a clean server sends no panel at all, and switching to an unverified image drops a Hestia choice', async () => {
+    get.mockResolvedValue(
+      ok({
+        items: [
+          { id: IMAGE_ID, name: 'Ubuntu 24.04 64 bit', osFamily: 'linux', hestia: true },
+          {
+            id: '0198a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a78',
+            name: 'Plain Linux',
+            osFamily: 'linux',
+            hestia: false,
+          },
+        ],
+      }),
+    );
+    post.mockResolvedValue(ok(quote(), 201));
+    render(
+      <ComputeWizard locale="ar" offers={[O]} initialOfferId={O.offerId} mfaFactorId={null} />,
+    );
+    fireEvent.click(await screen.findByLabelText('Ubuntu 24.04 64 bit'));
+    fireEvent.click(screen.getByRole('radio', { name: /HestiaCP/ }));
+    fireEvent.click(screen.getByLabelText('Plain Linux'));
+    expect(screen.queryByLabelText(t('ar', 'cloud.cfg.panel.mail.yes'))).toBeNull();
+    fireEvent.change(screen.getByLabelText(t('ar', 'field.name')), { target: { value: 'web-01' } });
+    fireEvent.click(screen.getByRole('button', { name: t('ar', 'action.next') }));
+    fireEvent.change(screen.getByLabelText(t('ar', 'm05.web.wiz.keys')), { target: { value: ed } });
+    fireEvent.click(screen.getByRole('button', { name: t('ar', 'm05.web.wiz.getQuote') }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const [, opts] = post.mock.calls[0] as [string, { body: { spec: Record<string, unknown> } }];
+    expect(opts.body.spec.panel).toBeUndefined();
+  });
   it('rejects an invalid SSH key line without calling the API', async () => {
     render(
       <ComputeWizard locale="en" offers={[O]} initialOfferId={O.offerId} mfaFactorId={null} />,
@@ -548,7 +627,7 @@ describe('create wizard (UI-M05-02)', () => {
       ok({ instance: { id: 'new-id', status: 'provisioning' }, operationId: 'op' }, 202),
     );
     fireEvent.click(screen.getByRole('button', { name: t('en', 'm05.web.wiz.confirm') }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/compute/instances/new-id'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/compute/instances/new-id'));
     const [cPath, cOpts] = post.mock.calls[1] as [
       string,
       { body: Record<string, unknown>; idempotencyKey: string },
@@ -607,7 +686,7 @@ describe('create wizard (UI-M05-02)', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain(t('en', 'm05.web.err.spend_approval_required'));
     expect(alert.textContent).toContain('0198a1b2');
-    expect(within(alert).getByRole('link').getAttribute('href')).toBe('/en/billing/approvals');
+    expect(within(alert).getByRole('link').getAttribute('href')).toBe('/billing/approvals');
   });
   it('no_eligible_offer at the quote step lets the user pick another offer', async () => {
     post.mockResolvedValueOnce(fail(422, { code: 'no_eligible_offer' }));
@@ -627,7 +706,7 @@ describe('shared pieces', () => {
   it('lists only the tabs the member may open', () => {
     render(<ComputeTabs locale="en" current="offers" can={(p) => p === 'offers:read'} />);
     expect(screen.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual([
-      '/en/compute/offers',
+      '/compute/offers',
     ]);
   });
   it('maps every known problem code to a localised message in both languages', () => {

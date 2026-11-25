@@ -44,7 +44,7 @@ export function FloatingCart({ locale, orgId }: { locale: Locale; orgId: string 
     return () => window.removeEventListener(CART_ADDED_EVENT, onAdded);
   }, [orgId, locale]);
   // the checkout page shows the lines itself
-  if (!ready || lines.length === 0 || pathname.startsWith(`/${locale}/checkout`)) return null;
+  if (!ready || lines.length === 0 || pathname.startsWith(`/checkout`)) return null;
   const tot = totals(lines);
   const count =
     lines.length === 1
@@ -132,7 +132,7 @@ export function FloatingCart({ locale, orgId }: { locale: Locale; orgId: string 
             <p className="nzc-cart-note">{t(locale, 'cart.unpriced', { n: tot.unpriced })}</p>
           )}
           <p className="nzc-cart-note">{t(locale, 'cart.beforeVat')}</p>
-          <ButtonLink href={`/${locale}/checkout`}>{t(locale, 'cart.checkout')}</ButtonLink>
+          <ButtonLink href={`/checkout`}>{t(locale, 'cart.checkout')}</ButtonLink>
           <button type="button" className="nzc-cart-clear" onClick={() => clearCart(orgId)}>
             {t(locale, 'cart.clear')}
           </button>

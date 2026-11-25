@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import { Harness, cookieHeader, type App } from '../identity/testing/app-harness';
 import { mockStack, type MockStack } from './internal/mock/fixtures';
@@ -12,7 +11,6 @@ import { BACKUP_SINK, COMPUTE_PROVISIONING, DOMAIN_VERIFIER, VAULT_PORT } from '
 import { HostingJobs } from './internal/hosting-jobs';
 import type { MemoryVault } from './internal/mock/mocks';
 import { HOSTING_ADAPTER } from './internal/tokens';
-import { NodesService } from './internal/nodes.service';
 
 export interface Staff {
   id: string;
@@ -67,7 +65,7 @@ export class HostingHarness {
   }
   admin(
     who: string,
-    method: 'GET' | 'POST' | 'PATCH',
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT',
     url: string,
     body?: object,
     extra: Record<string, string> = {},
@@ -87,7 +85,7 @@ export class HostingHarness {
       ...(body ? { payload: body } : {}),
     });
   }
-  /** Add a running compute instance, register it as a node, enrol its agent, inventory it and make it active. Returns the node id. */
+  /** Add a running compute instance, register it as a node, set its panel connection, inventory it and make it active. Returns the node id. */
   async activeNode(
     name: string,
     dataRegion = 'sa-central',
@@ -107,10 +105,13 @@ export class HostingHarness {
       computeInstanceId: instance,
     });
     if (c.statusCode !== 201) throw new Error('node create failed: ' + c.body);
-    const { node, enrolmentToken } = c.json();
+    const { node } = c.json();
     this.stack.addNode(node.id as string, { region: dataRegion });
-    const svc = this.app.get(NodesService);
-    await svc.enrol(enrolmentToken, createHash('sha256').update(name).digest('hex'), '0.1.0-mock');
+    const panel = await this.admin('host', 'PUT', `/v1/admin/hosting/nodes/${node.id}/panel`, {
+      host: `${name}.hosting.example.test`,
+      credentials: { accessKey: 'TESTACCESSKEYID0001:test-secret-access-key-0001' },
+    });
+    if (panel.statusCode !== 200) throw new Error('node panel failed: ' + panel.body);
     await this.admin('host', 'POST', `/v1/admin/hosting/nodes/${node.id}/inventory`);
     const etag = (await this.admin('host', 'GET', `/v1/admin/hosting/nodes/${node.id}`)).headers
       .etag as string;
@@ -187,6 +188,8 @@ export class HostingHarness {
       runtimes?: string[];
       price?: number | null;
       quotas?: object;
+      /** the application installed with the site (`wordpress` = Managed WordPress) */
+      app?: 'wordpress';
     } = {},
   ): Promise<string> {
     const [r] = await this.env.sql(
@@ -213,6 +216,11 @@ export class HostingHarness {
         over.price === undefined ? 10000 : over.price,
       ],
     );
+    if (over.app)
+      await this.env.sql(`UPDATE hosting.plan_definitions SET app_kind = $2 WHERE id = $1`, [
+        r!.id,
+        over.app,
+      ]);
     return r!.id as string;
   }
   async quote(who: string, org: string, planId: string, runtime: string) {

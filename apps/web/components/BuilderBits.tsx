@@ -22,7 +22,7 @@ export function BuilderTabs({
   current: 'workspace' | 'versions' | 'seo' | 'forms' | 'cms' | 'deployments';
   can: (permission: string) => boolean;
 }) {
-  const base = `/${locale}/builder/projects/${projectId}`;
+  const base = `/builder/projects/${projectId}`;
   const tabs = [
     { key: 'workspace', href: base, perm: 'builder:read' },
     { key: 'versions', href: `${base}/versions`, perm: 'builder:read' },
@@ -33,7 +33,7 @@ export function BuilderTabs({
   ] as const;
   return (
     <nav aria-label={t(locale, 'bld.nav.label')} className="nz-row">
-      <a className="nz-btn" data-variant="secondary" href={`/${locale}/builder/projects`}>
+      <a className="nz-btn" data-variant="secondary" href={`/builder/projects`}>
         {t(locale, 'bld.nav.allProjects')}
       </a>
       {tabs

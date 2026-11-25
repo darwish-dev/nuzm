@@ -9,7 +9,7 @@ import type { EntitlementService } from '../../billing';
 import type { OrderService } from '../../commerce';
 import { CapacityService } from './capacity.service';
 import type { HostingConfig } from './config';
-import { siteNameFor, tokenFor } from './cloudpanel-adapter';
+import { siteNameFor, tokenFor } from './hosting-names';
 import {
   PlansService,
   planLimits,
@@ -28,6 +28,8 @@ const iso = (d: unknown) => (d ? (d as Date).toISOString() : null);
 
 /** `platform.operations.kind` values of this module. */
 export const KIND = {
+  wordpress: 'hosting.wordpress.install',
+  drill: 'hosting.restore.drill',
   create: 'hosting.site.create',
   delete: 'hosting.site.delete',
   domain: 'hosting.domain.bind',
@@ -45,6 +47,8 @@ export interface SiteDto {
   plan: { id: string; key: string; name: { ar: string; en: string } };
   dataRegion: string;
   runtime: string;
+  /** `wordpress` when the plan installs Managed WordPress; its state is `GET …/wordpress` */
+  app: 'none' | 'wordpress';
   primaryDomain: string | null;
   domains: { id: string; domain: string; state: string; primary: boolean }[];
   quotas: { dim: string; limit: number; soft: number }[];
@@ -97,7 +101,7 @@ export class SitesService {
   ctx(traceId: string): AccountContext {
     return {
       providerAccountId: 'platform-hosting',
-      credentialRef: 'vault://hosting/node-agent-signing',
+      credentialRef: 'vault://hosting/panel-access',
       traceId,
       deadlineMs: 60_000,
     };
@@ -114,6 +118,7 @@ export class SitesService {
       },
       dataRegion: r.data_region as string,
       runtime: r.runtime as string,
+      app: ((r.app_kind as string | undefined) ?? 'none') as 'none' | 'wordpress',
       primaryDomain: (r.domain_primary as string | null) ?? null,
       domains: domains.map((x) => ({
         id: x.id as string,
@@ -362,8 +367,8 @@ export class SitesService {
     await this.db.withPlatformScope(async (c) => {
       try {
         await c.query(
-          `INSERT INTO hosting.sites (id, org_id, project_id, environment_id, name, token, node_name, plan_id, runtime, status, data_region, quote_id, created_by, credentials_ref, backup_key_ref)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'creating','pending',$10,$11,$12,$13)`,
+          `INSERT INTO hosting.sites (id, org_id, project_id, environment_id, name, token, node_name, plan_id, runtime, status, data_region, quote_id, created_by, credentials_ref, backup_key_ref, app_kind)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'creating','pending',$10,$11,$12,$13,$14)`,
           [
             siteId,
             orgId,
@@ -378,6 +383,7 @@ export class SitesService {
             actor.userId,
             `vault://hosting/org/${orgId}/site/${siteId}/credentials`,
             `vault://hosting/org/${orgId}/site/${siteId}/backup-key`,
+            plan.appKind,
           ],
         );
       } catch (e) {

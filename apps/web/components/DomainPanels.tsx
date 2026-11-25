@@ -166,7 +166,7 @@ export function CheckoutForm({
       }),
     });
     if (orgId && basketLineId) removeFromCart(orgId, basketLineId);
-    router.push(d ? `/${locale}/domains/${d.id}` : `/${locale}/domains`);
+    router.push(d ? `/domains/${d.id}` : `/domains`);
   }
   return (
     <div className="nz-stack" style={{ maxInlineSize: 640 }}>
@@ -768,7 +768,7 @@ export function ContactsForm({
       {canEdit && !privacyOn && (
         <p className="nz-muted">
           {t(locale, 'dom.contacts.public')}{' '}
-          <a href={`/${locale}/privacy#consents`}>{t(locale, 'dom.contacts.consentLink')}</a>
+          <a href={`/privacy#consents`}>{t(locale, 'dom.contacts.consentLink')}</a>
         </p>
       )}
       <ContactFields locale={locale} value={c} onChange={setC} disabled={!canEdit} />
@@ -783,9 +783,15 @@ export function ContactsForm({
 }
 
 /** UI-M07-07: transfer in. The authorization code is write-only: it is cleared from the form as soon as it is sent. */
-export function TransferForm({ locale }: { locale: Locale }) {
+export function TransferForm({
+  locale,
+  initialName = '',
+}: {
+  locale: Locale;
+  initialName?: string;
+}) {
   const router = useRouter();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [auth, setAuth] = useState('');
   const [contact, setContact] = useState<ContactForm>(emptyContact());
   const [consent, setConsent] = useState(false);

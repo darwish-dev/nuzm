@@ -28,7 +28,7 @@ export default async function InstancePage({
     return <EmptyState title={t(locale, 'home.noOrg.title')} body={t(locale, 'home.noOrg.body')} />;
   const title = (
     <>
-      <a className="nzc-back" href={`/${locale}/compute/instances`}>
+      <a className="nzc-back" href={`/compute/instances`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'm05.web.instances.title')}
       </a>

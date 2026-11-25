@@ -4,6 +4,7 @@ import { ContaboVpsAdapter } from '@nuzm/adapter-contabo-vps';
 import { HuaweiEcsAdapter, type HuaweiNetwork } from '@nuzm/adapter-huawei-ecs';
 import { createFetchTransport, type HttpTransport } from '@nuzm/adapter-http';
 import type { AdapterEntry } from '../cloud';
+import type { NetworkSettingsService } from './network-settings.service';
 
 /**
  * Real vendor adapters (M05 S18-S22), registered in the cloud module's AdapterRegistry at bootstrap. Each is built ONLY from the vendor's
@@ -43,6 +44,8 @@ export function vendorEntries(o: {
   vault: VaultClient;
   redactor: Redactor;
   config?: VendorConfig;
+  /** Console-typed network settings (take precedence over `CLOUD_VENDOR_CONFIG`, which stays as a fallback). */
+  network?: NetworkSettingsService;
   /** Tests inject a loopback transport; production always uses the egress-guarded fetch transport. */
   transport?: (adapterId: keyof typeof VENDOR_EGRESS) => HttpTransport;
 }): AdapterEntry[] {
@@ -50,6 +53,34 @@ export function vendorEntries(o: {
     o.transport?.(id) ??
     createFetchTransport({ policy: { adapterId: id, hosts: VENDOR_EGRESS[id] } });
   const cfg = o.config ?? {};
+  const alibabaNet = (r: string): AlibabaNetwork | undefined => {
+    const n = o.network?.get('alibaba', r);
+    return n?.vSwitchId && n.securityGroupId
+      ? {
+          vSwitchId: n.vSwitchId,
+          securityGroupId: n.securityGroupId,
+          ...(n.zoneId ? { zoneId: n.zoneId } : {}),
+        }
+      : cfg.alibaba?.network?.[r];
+  };
+  const huaweiNet = (r: string): HuaweiNetwork | undefined => {
+    const n = o.network?.get('huawei', r);
+    return n?.vpcId && n.subnetId && n.securityGroupId
+      ? {
+          vpcId: n.vpcId,
+          subnetId: n.subnetId,
+          securityGroupId: n.securityGroupId,
+          ...(n.availabilityZone ? { availabilityZone: n.availabilityZone } : {}),
+        }
+      : cfg.huawei?.network?.[r];
+  };
+  // the adapter indexes `projectIds[region]`: a live view over the console settings, then the environment fallback
+  const huaweiProjects = new Proxy({} as Record<string, string>, {
+    get: (_t, region) =>
+      typeof region === 'string'
+        ? (o.network?.get('huawei', region)?.projectId ?? cfg.huawei?.projectIds?.[region])
+        : undefined,
+  });
   return [
     {
       adapterId: 'alibaba-ecs',
@@ -61,7 +92,7 @@ export function vendorEntries(o: {
           vault: o.vault,
           redactor: o.redactor,
           transport: tp('alibaba-ecs'),
-          network: (r) => cfg.alibaba?.network?.[r],
+          network: alibabaNet,
         }),
     },
     {
@@ -74,8 +105,8 @@ export function vendorEntries(o: {
           vault: o.vault,
           redactor: o.redactor,
           transport: tp('huawei-ecs'),
-          network: (r) => cfg.huawei?.network?.[r],
-          ...(cfg.huawei?.projectIds ? { projectIds: cfg.huawei.projectIds } : {}),
+          network: huaweiNet,
+          projectIds: huaweiProjects,
         }),
     },
     {

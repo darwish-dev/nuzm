@@ -8,7 +8,7 @@ Branch `claude/run-it-dc3d6a`, nothing pushed (D-01). **No live provider, custom
 | 1 R6 closure | viewer + cross-tenant authorization E2E (UI and API, owner control); a real run-cancellation race fixed (`RunService`); full isolated E2E `ar` and `en`; full integration; skipped tests documented with exact prerequisites | `docs/reports/R6-report.md`; E2E 45 passed/2 skipped/0 failed per language; integration api 2128 passed/0 failed |
 | 2 S-AG4 preparation | gated probe wrapper behind D9, D3, D2, D4 (`probe_tool_use`), approvals config `AI_PROBE_APPROVALS` (default none, fail closed), evidence recording from the report, audit start/finish; owner checklist | `capability-evidence.int.spec.ts` 19 passed (scripted client, no network); `docs/ai-intelligence/OWNER-APPROVAL-CHECKLIST.md`, `S-AG4-PROBE-PLAN.md` |
 | 3 S-AG5 offline | 24-task synthetic golden dataset, offline replay engine, scoring, reports, regression detection, rollout gate, 11 PROPOSED thresholds | `packages/domain/src/ai/benchmarks` (spec: 13 tests; 43 passed together with phase 4); `S-AG5-BENCHMARKS.md` |
-| 4 S-AG6 offline | Execution Gateway policy core (closed profile catalogue, fixed argv/env, refusals by name, closed gate), ADR-067 (PROPOSED), requirements map | `packages/domain/src/ai/execution-gateway` spec; `ADR-067-execution-gateway.md`, `S-AG6-REQUIREMENTS.md` |
+| 4 S-AG6 offline | Execution Gateway policy core (closed profile catalogue, fixed argv/env, refusals by name, closed gate), ADR-069 (PROPOSED), requirements map | `packages/domain/src/ai/execution-gateway` spec; `ADR-069-execution-gateway.md`, `S-AG6-REQUIREMENTS.md` |
 
 Not changed: the Claude adapter (contract 1.1, offline-complete; no remaining offline gap found), credential storage (`save_claude_key`), rate-card configuration (`S-AG4-PRICING.md`), residency, audit and metering controls.
 
@@ -37,7 +37,7 @@ Method: the share of each milestone's acceptance prerequisites (`S-AG4-DECISIONS
 ## D. Actual blockers
 1. S-AG4: D2 (agreement and data terms), D4 (dedicated key and vendor cap), D5 (region/ROPA), D6 (rate card), D3 (open the gate), D9 (approve probe execution), D1 for any customer content, OpenAI/Google deferral or cycles.
 2. S-AG5: S-AG4 closing; owner acceptance of the thresholds; named reviewers; benchmark spend budget; security reviewer.
-3. S-AG6: D-21 and HG-10-02 review; a real isolating runtime and the escape suite on it; ADR-067 acceptance; legal review of running customer code; D-42.
+3. S-AG6: D-21 and HG-10-02 review; a real isolating runtime and the escape suite on it; ADR-069 acceptance; legal review of running customer code; D-42.
 4. Skipped E2E: mock compute catalog (opt-in), deploy target (HG-05/06).
 
 ## E. Required owner actions

@@ -83,7 +83,7 @@ export default async function ResellerDashboard({
                   declined: n('declined'),
                 })}
               </p>
-              <a href={`/${locale}/reseller/sub-organizations`}>{t(locale, 'm11.rs.subs.title')}</a>
+              <a href={`/reseller/sub-organizations`}>{t(locale, 'm11.rs.subs.title')}</a>
             </Card>
             <Card aria-label={t(locale, 'm11.rs.stat.rules')}>
               <h2 className="nz-h2">{t(locale, 'm11.rs.stat.rules')}</h2>
@@ -99,12 +99,12 @@ export default async function ResellerDashboard({
               ) : (
                 <p className="nz-muted">{t(locale, 'm11.rs.stat.rulesNone')}</p>
               )}
-              <a href={`/${locale}/reseller/pricing`}>{t(locale, 'm11.pr.title')}</a>
+              <a href={`/reseller/pricing`}>{t(locale, 'm11.pr.title')}</a>
             </Card>
             <Card aria-label={t(locale, 'm11.st.title')}>
               <h2 className="nz-h2">{t(locale, 'm11.st.title')}</h2>
               <p className="nz-muted">{t(locale, 'm11.rs.stat.statements')}</p>
-              <a href={`/${locale}/reseller/statements`}>{t(locale, 'm11.st.title')}</a>
+              <a href={`/reseller/statements`}>{t(locale, 'm11.st.title')}</a>
             </Card>
           </div>
         </>

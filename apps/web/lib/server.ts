@@ -49,7 +49,7 @@ export async function requireSession(locale: Locale, returnTo?: string): Promise
     me = await unwrap(anon.GET('/v1/me', {}));
   } catch (e) {
     if (e instanceof ApiError && e.status === 401)
-      redirect(`/${locale}/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`);
+      redirect(`/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`);
     throw e;
   }
   const org =

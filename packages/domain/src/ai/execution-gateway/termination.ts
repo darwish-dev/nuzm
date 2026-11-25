@@ -1,5 +1,5 @@
 /**
- * S-AG6 (OFFLINE): emergency termination and the execution kill switch (ADR-067 item 8). Two separate switches on top of the existing AI kill switch: `global` (every organization)
+ * S-AG6 (OFFLINE): emergency termination and the execution kill switch (ADR-069 item 8). Two separate switches on top of the existing AI kill switch: `global` (every organization)
  * and per-organization. When engaged, admission refuses and the terminator walks the plan: stop admitting, revoke open approvals, drain the queue, kill every running process
  * group (SIGTERM, then SIGKILL after the grace), destroy the workspaces, audit each step. The terminator is written against ports so the same plan drives the mock now and a
  * real runtime later; a step that fails is recorded and the plan continues (a stuck sandbox must never stop the others from being killed).

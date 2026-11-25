@@ -1,5 +1,6 @@
 import { scaledDecimal } from '@nuzm/domain';
 import type { Db } from '@nuzm/platform';
+import type { PoolClient } from 'pg';
 import { productionPricing, toRatingItem } from '../../../common/pricing';
 import { formatDec, parseDec, rateSegment } from '../../../common/rating';
 import type { PriceBookService } from '../../billing';
@@ -32,6 +33,8 @@ export interface OfferPrice {
 export type PlanPricer = (spec: PlanSpec, count: number) => OfferPrice | null;
 export interface OfferPriceComposer {
   session(orgId: string, now: Date): Promise<PlanPricer>;
+  /** The same pricing with no organization (the public website's plan list): same book, same production refusal of the placeholder book. */
+  publicSession?(now: Date): Promise<PlanPricer>;
 }
 
 /**
@@ -47,10 +50,23 @@ export class PriceBookComposer implements OfferPriceComposer {
   ) {}
 
   async session(orgId: string, now: Date): Promise<PlanPricer> {
+    return this.pricer((c) => this.db.withOrg(orgId, c), now);
+  }
+
+  async publicSession(now: Date): Promise<PlanPricer> {
+    return this.pricer((c) => this.db.withPlatformScope(c), now);
+  }
+
+  private async pricer(
+    scope: (
+      fn: (c: PoolClient) => Promise<Awaited<ReturnType<PriceBookService['resolveForRating']>>>,
+    ) => Promise<Awaited<ReturnType<PriceBookService['resolveForRating']>>>,
+    now: Date,
+  ): Promise<PlanPricer> {
     let version:
       Awaited<ReturnType<PriceBookService['resolveForRating']>>['versions'][number] | undefined;
     try {
-      const book = await this.db.withOrg(orgId, (c) =>
+      const book = await scope((c) =>
         this.prices.resolveForRating(c, this.currency, { production: productionPricing() }),
       );
       version = [...book.versions]

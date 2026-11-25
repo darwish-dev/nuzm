@@ -87,11 +87,34 @@ export default async function Registrars({ params }: { params: Promise<{ locale:
               ),
             },
             {
+              key: 's',
+              header: t(locale, 'dom.admin.reg.enabledCol'),
+              render: (r) => (
+                <Badge tone={r.enabled ? 'success' : 'warn'}>
+                  {r.enabled
+                    ? t(locale, 'dom.admin.reg.enabledYes')
+                    : t(locale, 'dom.admin.reg.enabledNo')}
+                </Badge>
+              ),
+            },
+            {
               key: 'v',
               header: '',
               render: (r) =>
                 s.can('admin:domains:manage') ? (
-                  <VerifyButton locale={locale} id={r.id} mfaFactorId={s.me.mfaFactorId ?? null} />
+                  <span className="nz-row">
+                    <VerifyButton
+                      locale={locale}
+                      id={r.id}
+                      mfaFactorId={s.me.mfaFactorId ?? null}
+                    />
+                    <VerifyButton
+                      locale={locale}
+                      id={r.id}
+                      mfaFactorId={s.me.mfaFactorId ?? null}
+                      enable
+                    />
+                  </span>
                 ) : null,
             },
           ]}
@@ -102,6 +125,9 @@ export default async function Registrars({ params }: { params: Promise<{ locale:
     <>
       <PageTitle>{t(locale, 'dom.admin.reg.title')}</PageTitle>
       <p>
+        <ButtonLink variant="secondary" href={`/${locale}/domains/registrars/dynadot`}>
+          {t(locale, 'dom.dynadot.open')}
+        </ButtonLink>{' '}
         <ButtonLink variant="secondary" href={`/${locale}/domains/registrars/dnet`}>
           {t(locale, 'dom.dnet.open')}
         </ButtonLink>

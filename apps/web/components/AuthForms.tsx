@@ -66,7 +66,7 @@ export function LoginForm({ locale, next }: { locale: Locale; next?: string }) {
     const r = await browserApi().POST('/v1/auth/password/login', {
       body: { email: String(f.get('email')), password: String(f.get('password')) },
     });
-    if (r.response.ok) return window.location.assign(safeNext(next, `/${locale}`));
+    if (r.response.ok) return window.location.assign(safeNext(next, `/console`));
     setBusy(false);
     setErr(
       t(
@@ -124,7 +124,7 @@ export function RegisterForm({ locale }: { locale: Locale }) {
     const r = await browserApi().POST('/v1/auth/register', {
       body: { email, password, locale, ...(name ? { displayName: name } : {}) },
     });
-    if (r.response.ok) return window.location.assign(`/${locale}/orgs/new`);
+    if (r.response.ok) return window.location.assign(`/orgs/new`);
     setBusy(false);
     const code = problemCode(r.error);
     if (code === 'email_in_use') return setErr({ email: t(locale, 'register.exists') });
@@ -237,7 +237,7 @@ export function ResetForm({ locale, token }: { locale: Locale; token: string }) 
     return (
       <div style={form}>
         <p role="status">{t(locale, 'reset.done')}</p>
-        <a className="nz-btn" data-variant="primary" href={`/${locale}/login`}>
+        <a className="nz-btn" data-variant="primary" href={`/login`}>
           {t(locale, 'action.signin')}
         </a>
       </div>
@@ -293,7 +293,7 @@ export function VerifyEmail({ locale, token }: { locale: Locale; token: string }
       {state === 'done' && (
         <>
           <p>{t(locale, 'verify.done')}</p>
-          <a className="nz-btn" data-variant="primary" href={`/${locale}`}>
+          <a className="nz-btn" data-variant="primary" href={`/console`}>
             {t(locale, 'verify.continue')}
           </a>
         </>

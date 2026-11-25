@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
+import { PanelResizer } from './PanelResizer';
 import { Banner, Icon, type IconName } from '@nuzm/ui';
 import { AppBuildingScene } from './AppBuildingScene';
 import { BrandMark } from './BrandLogo';
@@ -85,7 +86,7 @@ export function WorkspaceShell<T extends string>({
   return (
     <div className="bws mws" data-inspector="closed" data-mode={mode}>
       <header className="bws-top">
-        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
+        <a className="bws-logo" href={`/console`} aria-label={t(locale, 'bld.ws.home')}>
           <BrandMark />
         </a>
         <a
@@ -126,7 +127,7 @@ export function WorkspaceShell<T extends string>({
         {primary}
         <a
           className="bws-exit"
-          href={`/${locale}`}
+          href={`/console`}
           aria-label={t(locale, 'bld.ws.exit')}
           title={t(locale, 'bld.ws.exit')}
         >
@@ -135,9 +136,10 @@ export function WorkspaceShell<T extends string>({
       </header>
 
       <div className="bws-body">
-        <section className="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
+        <section className="bws-chat" id="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
           {chat}
         </section>
+        <PanelResizer locale={locale} chatId="bws-chat" />
         <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {banner && <Banner tone="danger">{banner}</Banner>}
           {phase !== 'off' && (

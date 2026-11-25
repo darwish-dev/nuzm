@@ -86,7 +86,7 @@ describe('UI-M10-12 start a mobile app', () => {
     render(<MobileStart locale="en" canRun />);
     fill('Field Tasks', 'An app for field teams');
     fireEvent.click(screen.getByRole('button', { name: t('en', 'mobile.start.go') }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p1'));
     expect(calls.map((c) => c.url)).toEqual([
       '/v1/builder/projects',
       '/v1/ai/sessions',
@@ -411,7 +411,7 @@ describe('UI-M10-16 releases list', () => {
     expect(screen.getByText(t('en', 'mobile.releases.noSubmit'))).toBeTruthy();
     expect(
       screen.getByRole('link', { name: t('en', 'mobile.releases.new') }).getAttribute('href'),
-    ).toBe(`/en/mobile/${P}/releases/new`);
+    ).toBe(`/mobile/${P}/releases/new`);
   });
   it('shows status, store and what a draft still misses; a reader without mobile:release cannot create', () => {
     render(

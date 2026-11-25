@@ -237,7 +237,7 @@ describe('agent run progress (UI-M10-06)', () => {
     expect(await screen.findByText(t('en', 'm10.apr.type.destructive_migration'))).toBeTruthy();
     expect(screen.queryByText(t('en', 'm10.apr.type.production_deploy'))).toBeNull();
     const link = screen.getByRole('link', { name: t('en', 'm10a.run.decide') });
-    expect(link.getAttribute('href')).toBe('/en/approvals');
+    expect(link.getAttribute('href')).toBe('/approvals');
   });
   it('a member who cannot approve is told to ask an owner or admin', async () => {
     const waiting = run({ state: 'waiting_approval' });
@@ -447,7 +447,7 @@ describe('app spec, data, API and access views (UI-M10-02)', () => {
     rerender(<NotAnApp locale="en" projectId="p1" />);
     expect(
       screen.getByRole('link', { name: t('en', 'm10a.notApp.back') }).getAttribute('href'),
-    ).toBe('/en/builder/projects/p1');
+    ).toBe('/builder/projects/p1');
     rerender(<AppVersions locale="en" projectId="p1" versions={[]} />);
     expect(screen.getByText(t('en', 'm10a.ver.empty.title'))).toBeTruthy();
     rerender(
@@ -576,7 +576,7 @@ describe('app deployments (UI-M10-09)', () => {
     expect(screen.getByText(t('en', 'm10.apr.type.production_deploy'))).toBeTruthy();
     expect(
       screen.getByRole('link', { name: t('en', 'm10a.dep.openApprovals') }).getAttribute('href'),
-    ).toBe('/en/approvals');
+    ).toBe('/approvals');
     fireEvent.click(screen.getByRole('button', { name: t('en', 'm10a.dep.retryAfter') }));
     await waitFor(() => expect(n).toBe(2));
     await waitFor(() => expect(screen.queryByText(t('en', 'm10a.dep.approvalNeeded'))).toBeNull());
@@ -733,7 +733,7 @@ describe('start a web app (UI-M10-01)', () => {
       target: { value: '500' },
     });
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t('en', 'bld.start.go')) }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p1'));
     expect(calls.map((c) => c.url)).toEqual([
       '/v1/builder/projects',
       '/v1/ai/sessions',
@@ -767,7 +767,7 @@ describe('start a web app (UI-M10-01)', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(push).not.toHaveBeenCalled();
     go();
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/en/builder/projects/p1'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/builder/projects/p1'));
     expect(calls.filter((c) => c.url === '/v1/builder/projects')).toHaveLength(1);
   });
 });
@@ -794,13 +794,13 @@ describe('project list by type', () => {
     expect(screen.getByText(t('en', 'm10.proj.type.webapp'))).toBeTruthy();
     expect(screen.getByText(t('en', 'm10.proj.type.website'))).toBeTruthy();
     expect(screen.getByRole('link', { name: 'n-a' }).getAttribute('href')).toBe(
-      '/en/builder/projects/a',
+      '/builder/projects/a',
     );
   });
   it('a mobile app opens in the same workspace as every other project (its mobile mode), not on a separate page', () => {
     render(<ProjectCards locale="ar" items={[p('m', 'mobile')]} nextCursor={null} canCreate />);
     expect(screen.getByRole('link', { name: 'n-m' }).getAttribute('href')).toBe(
-      '/ar/builder/projects/m',
+      '/builder/projects/m',
     );
   });
   it('a filter with no match says "none of this type"; the type filter is offered only while the app builder is on', () => {
@@ -813,13 +813,13 @@ describe('project list by type', () => {
     rerender(<ProjectFilterTabs locale="en" current="webapp" appsEnabled />);
     const cur = screen.getByRole('link', { name: t('en', 'm10a.proj.filter.webapp') });
     expect(cur.getAttribute('aria-current')).toBe('page');
-    expect(cur.getAttribute('href')).toBe('/en/builder/projects?type=webapp');
+    expect(cur.getAttribute('href')).toBe('/builder/projects?type=webapp');
     // the mobile tab shows only while the mobile builder is on, with or without the app builder
     expect(screen.queryByRole('link', { name: t('en', 'm10a.proj.filter.mobile') })).toBeNull();
     rerender(<ProjectFilterTabs locale="en" current="mobile" appsEnabled={false} mobileEnabled />);
     const mob = screen.getByRole('link', { name: t('en', 'm10a.proj.filter.mobile') });
     expect(mob.getAttribute('aria-current')).toBe('page');
-    expect(mob.getAttribute('href')).toBe('/en/builder/projects?type=mobile');
+    expect(mob.getAttribute('href')).toBe('/builder/projects?type=mobile');
     expect(screen.queryByRole('link', { name: t('en', 'm10a.proj.filter.webapp') })).toBeNull();
   });
 });

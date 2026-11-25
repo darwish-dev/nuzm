@@ -1,0 +1,4 @@
+{
+  "webOrigin": "https://console.example.invalid",
+  "authOrigins": ["https://id.example.invalid"]
+}

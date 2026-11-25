@@ -255,7 +255,7 @@ export function MobileRunCard({
           })}
         </span>
         <span className="bld-run-actions">
-          <a className="bld-link" href={`/${locale}/builder/runs/${run.id}`}>
+          <a className="bld-link" href={`/builder/runs/${run.id}`}>
             {t(locale, 'bld.run.details')}
           </a>
           {active && canWrite && (

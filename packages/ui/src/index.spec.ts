@@ -26,6 +26,26 @@ describe('ui tokens', () => {
     expect(consoleCss).toContain('--nzc-bg: #0b0b0c;');
     expect(consoleCss).toContain('prefers-reduced-motion');
   });
+  it('defines the second brand colour (orange) once for both themes, with AA text and ink variants', () => {
+    for (const token of [
+      '--nzc-orange:',
+      '--nzc-orange-strong:',
+      '--nzc-orange-soft:',
+      '--nzc-orange-ink:',
+      '--nzc-orange-text:',
+      '--nzc-orange-grad:',
+    ])
+      expect(consoleCss.split(token).length - 1).toBe(2);
+    expect(consoleCss).toContain('--nzc-orange: #e9a16d;');
+    expect(consoleCss).toContain('linear-gradient(165deg, #f2b98c 0%, #e9a16d 100%)');
+  });
+  it('paints the shared primary button orange with dark ink, and draws no coloured side line on cards', () => {
+    expect(consoleCss).toContain(
+      'font-weight: 650; border: 1px solid transparent; background: var(--nzc-orange-grad); color: var(--nzc-orange-ink);',
+    );
+    expect(consoleCss).not.toContain('border-inline-start: 4px solid');
+    expect(consoleCss).not.toMatch(/\.nzc-stat\[[^\]]*\]::before/);
+  });
   it('has no cross-document view transition (it showed the background between pages) and keeps an opaque canvas', () => {
     expect(consoleCss).not.toContain('view-transition');
     expect(consoleCss).toContain('html:has(.nzc) { background: #0b0b0c; }');

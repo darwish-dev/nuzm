@@ -112,6 +112,13 @@ describe('stat tile', () => {
     rerender(<StatTile label="Wallet" value="SAR 10.00" href="/w" sub="since" />);
     expect(screen.getByRole('link').getAttribute('href')).toBe('/w');
   });
+  it('can carry the orange accent as decoration only, off by default', () => {
+    const { container, rerender } = render(<StatTile label="Wallet" value="SAR 10.00" />);
+    expect(container.querySelector('.nzc-stat')?.getAttribute('data-accent')).toBeNull();
+    rerender(<StatTile label="Wallet" value="SAR 10.00" accent="orange" />);
+    expect(container.querySelector('.nzc-stat')?.getAttribute('data-accent')).toBe('orange');
+    expect(container.querySelector('.nzc-stat')?.textContent).toBe('WalletSAR 10.00');
+  });
 });
 
 describe('icons', () => {

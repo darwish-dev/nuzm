@@ -1,6 +1,6 @@
 # ADR-020: CloudPanel automation path (decision D-20; named ADR-017 in the M06 prompt)
 
-- Status: **Proposed** (not binding until the owner accepts it; the agent may not accept it)
+- Status: **SUPERSEDED by [ADR-067](ADR-067-hestiacp-hosting-panel.md)** (2026-11-24: HestiaCP replaces CloudPanel; kept for history only)
 - Related decision: D-20 (`docs/07-open-decisions-and-blockers.md`), HG-06-01
 - Numbering note: the M06 prompt names this record ADR-017, but `ADR-017` is already taken by *billing scheduler runs in the API process* (SI-M06-5). It is filed as ADR-020 here; renumbering is a mechanical rename at merge (M05/M07/M08 sessions may also add ADRs).
 - Evidence: `docs/reports/evidence/M06/cloudpanel-spike-findings.md` (26 capability rows, each cited with URL, read date 2026-11-18, changelog head CloudPanel 2.5.4)

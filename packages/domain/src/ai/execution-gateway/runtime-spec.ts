@@ -199,7 +199,7 @@ export class RefusingRuntime implements ExecutionRuntime {
   readonly isolation = 'none' as const;
   readonly runtimeClass = 'none';
   private no(): never {
-    throw new Error('no execution runtime: D-21 / HG-10-02 are not decided (ADR-067)');
+    throw new Error('no execution runtime: D-21 / HG-10-02 are not decided (ADR-069)');
   }
   async start(): Promise<{ handle: string }> {
     return this.no();

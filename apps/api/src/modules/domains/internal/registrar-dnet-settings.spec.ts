@@ -6,8 +6,7 @@ import type { RegistrarAccount } from './registrar-access.service';
 
 const ADMIN = '22222222-2222-4222-8222-222222222222';
 const KEY = 'dnet-test-key-1234567890';
-// assembled at run time: the secret scanner must not see a literal (the test still uses the same fake value)
-const SECRET = ['dnet', 'test', 'secret', 'abcdefgh'].join('-');
+const API_SECRET_VALUE = 'dnet-test-secret-abcdefgh';
 
 /** A recording stand-in for the database and the account reads: the saved DNet account is kept in memory. */
 function setup() {
@@ -102,14 +101,17 @@ describe('DNet settings (admin)', () => {
     const { svc, secrets, queries, events } = setup();
     const r = await svc.saveDnetSettings(ADMIN, {
       ...base,
-      credentials: { apiKey: KEY, apiSecret: SECRET },
+      credentials: { apiKey: KEY, apiSecret: API_SECRET_VALUE },
     });
     expect(r.credentialStored).toBe(true);
     expect(r.vaultRef).toMatch(/^vault:\/\/mem\/domains-dnet-/);
-    expect(JSON.parse(await secrets.get(r.vaultRef))).toEqual({ apiKey: KEY, apiSecret: SECRET });
+    expect(JSON.parse(await secrets.get(r.vaultRef))).toEqual({
+      apiKey: KEY,
+      apiSecret: API_SECRET_VALUE,
+    });
     const everything = JSON.stringify([queries, events, r]);
     expect(everything).not.toContain(KEY);
-    expect(everything).not.toContain(SECRET);
+    expect(everything).not.toContain(API_SECRET_VALUE);
     expect(events[0]).toMatchObject({ action: 'registrar.dnet.settings_saved' });
   });
 

@@ -10,7 +10,7 @@ export function BillingTabs({
   current: string;
   can: (permission: string) => boolean;
 }) {
-  const base = `/${locale}/billing`;
+  const base = `/billing`;
   const tabs = [
     { key: 'overview', href: base, perm: 'billing:read' },
     { key: 'plans', href: `${base}/plans`, perm: 'org:read' },

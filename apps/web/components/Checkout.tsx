@@ -75,7 +75,7 @@ export function Checkout(p: {
         title={t(locale, 'checkout.empty.title')}
         body={t(locale, 'checkout.empty.body')}
         action={
-          <ButtonLink href={`/${locale}/hosting/plans`}>
+          <ButtonLink href={`/hosting/plans`}>
             {t(locale, 'checkout.empty.action')}
           </ButtonLink>
         }
@@ -105,7 +105,7 @@ export function Checkout(p: {
                     </div>
                     <div className="nzc-co-foot">
                       <ButtonLink
-                        href={`/${locale}/domains/checkout?name=${encodeURIComponent(l.domain)}&years=${l.years}&cart=${l.id}`}
+                        href={`/domains/checkout?name=${encodeURIComponent(l.domain)}&years=${l.years}&cart=${l.id}`}
                       >
                         {t(locale, 'checkout.domains.continue')}
                       </ButtonLink>
@@ -145,7 +145,7 @@ export function Checkout(p: {
                     </div>
                     <div className="nzc-co-foot">
                       <ButtonLink
-                        href={`/${locale}/compute/instances/new?offerId=${l.offerId}&image=${l.imageId}&cart=${l.id}`}
+                        href={`/compute/instances/new?offerId=${l.offerId}&image=${l.imageId}&cart=${l.id}`}
                       >
                         {t(locale, 'checkout.servers.continue')}
                       </ButtonLink>
@@ -400,7 +400,7 @@ function HostingFlow(p: {
           <p className="nz-muted">{t(locale, 'checkout.done.retry')}</p>
         )}
         <div className="nzc-co-foot">
-          <ButtonLink href={`/${locale}/hosting/sites`}>{t(locale, 'checkout.done.go')}</ButtonLink>
+          <ButtonLink href={`/hosting/sites`}>{t(locale, 'checkout.done.go')}</ButtonLink>
         </div>
       </section>
     );
@@ -569,7 +569,7 @@ function HostingFlow(p: {
             <div className="nzc-co-foot">
               <ButtonLink
                 variant="secondary"
-                href={`/${locale}/billing/payment-methods/add?next=${encodeURIComponent(`/${locale}/checkout`)}`}
+                href={`/billing/payment-methods/add?next=${encodeURIComponent(`/checkout`)}`}
               >
                 <Icon name="plus" size={16} /> {t(locale, 'checkout.payment.add')}
               </ButtonLink>

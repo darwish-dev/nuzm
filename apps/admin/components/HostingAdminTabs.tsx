@@ -7,7 +7,6 @@ export function HostingAdminTabs({ locale, current }: { locale: Locale; current:
     { key: 'nodes', href: `${base}/nodes` },
     { key: 'sites', href: `${base}/sites` },
     { key: 'abuse', href: `${base}/abuse` },
-    { key: 'agents', href: `${base}/agents` },
   ] as const;
   return (
     <nav aria-label={t(locale, 'nav.admin.hosting')} className="nz-row nz-subnav">

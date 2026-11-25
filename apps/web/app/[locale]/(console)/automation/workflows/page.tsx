@@ -77,7 +77,7 @@ export default async function Workflows({
           body={t(locale, 'm11.wf.emptyBody')}
           action={
             s.can('automation:write') ? (
-              <ButtonLink href={`/${locale}/automation/workflows/new`}>
+              <ButtonLink href={`/automation/workflows/new`}>
                 {t(locale, 'm11.wf.new')}
               </ButtonLink>
             ) : undefined
@@ -94,7 +94,7 @@ export default async function Workflows({
                 key: 'n',
                 header: t(locale, 'field.name'),
                 render: (w) => (
-                  <a href={`/${locale}/automation/workflows/${w.id}/edit`}>
+                  <a href={`/automation/workflows/${w.id}/edit`}>
                     <bdi dir="auto">{w.name}</bdi>
                   </a>
                 ),
@@ -145,7 +145,7 @@ export default async function Workflows({
                       {e && (
                         <>
                           {' '}
-                          <a href={`/${locale}/automation/executions/${e.id}`}>
+                          <a href={`/automation/executions/${e.id}`}>
                             <Badge tone={executionTone(e.status)}>
                               {tDynamic(locale, `m11.exec.status.${e.status}`, e.status)}
                             </Badge>
@@ -162,7 +162,7 @@ export default async function Workflows({
                 key: 'x',
                 header: t(locale, 'field.action'),
                 render: (w) => (
-                  <a href={`/${locale}/automation/workflows/${w.id}/edit`}>
+                  <a href={`/automation/workflows/${w.id}/edit`}>
                     {t(locale, s.can('automation:write') ? 'm11.wf.open.edit' : 'm11.wf.open.view')}
                   </a>
                 ),
@@ -172,7 +172,7 @@ export default async function Workflows({
           {next && (
             <p>
               <a
-                href={`/${locale}/automation/workflows?${new URLSearchParams({ ...(status ? { status } : {}), cursor: next })}`}
+                href={`/automation/workflows?${new URLSearchParams({ ...(status ? { status } : {}), cursor: next })}`}
               >
                 {t(locale, 'm11.c.next')}
               </a>
@@ -201,7 +201,7 @@ export default async function Workflows({
           <Button type="submit">{t(locale, 'action.search')}</Button>
         </form>
         {s.can('automation:write') && (
-          <ButtonLink href={`/${locale}/automation/workflows/new`}>
+          <ButtonLink href={`/automation/workflows/new`}>
             {t(locale, 'm11.wf.new')}
           </ButtonLink>
         )}

@@ -3,7 +3,7 @@ import type { ExecContext, ExecDecision, ExecRequest } from './policy';
 
 /**
  * S-AG6 (OFFLINE PREPARATION): the `ExecutionPort` of SHARED-CONTRACTS section 2 (version 0.1). Session 05 (builder tools) builds against it; the real runtime port is
- * SECURITY-BLOCKED (D-21, HG-10-02, ADR-067), so the only implementation in this repository is `MockExecutionPort`, which NEVER executes anything.
+ * SECURITY-BLOCKED (D-21, HG-10-02, ADR-069), so the only implementation in this repository is `MockExecutionPort`, which NEVER executes anything.
  *
  * The port is split in two on purpose, mirroring the gateway: `request` is the policy decision (a profile name and typed parameters become a fixed argv, fixed environment,
  * fixed limits and a network class, or a refusal with reasons); `run` carries a decision that was ALLOWED. A port never accepts an argv from a caller: `run` takes only the

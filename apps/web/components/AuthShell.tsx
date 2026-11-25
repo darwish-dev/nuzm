@@ -32,7 +32,7 @@ export function AuthShell({
       <aside className="nzc-split-panel" aria-label={t(locale, 'auth.panel.label')}>
         <span className="nzc-split-glow" aria-hidden="true" />
         <div className="nzc-split-content">
-          <a className="nzc-split-logo" href={`/${locale}`} aria-label="Nuzm">
+          <a className="nzc-split-logo" href={`/console`} aria-label="Nuzm">
             <BrandWordmark />
           </a>
           <p className="nzc-split-headline">
@@ -80,6 +80,9 @@ export function AuthShell({
           {sub && <p className="nzc-split-card-sub">{sub}</p>}
           {children}
         </div>
+        <a className="nzc-split-back" href="/">
+          <span aria-hidden="true">{locale === 'ar' ? '→' : '←'}</span> {t(locale, 'auth.backToSite')}
+        </a>
       </main>
     </div>
   );

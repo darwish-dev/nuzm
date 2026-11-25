@@ -7,6 +7,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { t, type Locale } from '@nuzm/i18n';
+import { PanelResizer } from './PanelResizer';
 import { Banner, Icon, type IconName } from '@nuzm/ui';
 import {
   emptyHistory,
@@ -243,12 +244,12 @@ export function Workspace({
   return (
     <div className="bws" data-inspector={inspectorOpen && !panel ? 'open' : 'closed'}>
       <header className="bws-top">
-        <a className="bws-logo" href={`/${locale}`} aria-label={t(locale, 'bld.ws.home')}>
+        <a className="bws-logo" href={`/console`} aria-label={t(locale, 'bld.ws.home')}>
           <BrandMark />
         </a>
         <a
           className="bws-back"
-          href={`/${locale}/builder/projects`}
+          href={`/builder/projects`}
           aria-label={t(locale, 'bld.ws.back')}
           title={t(locale, 'bld.ws.back')}
         >
@@ -375,7 +376,7 @@ export function Workspace({
                   locale={locale}
                   variant="menu"
                   project={{ id: detail.id, name: detail.name }}
-                  redirectTo={`/${locale}/builder/projects`}
+                  redirectTo={`/builder/projects`}
                 />
               </li>
             )}
@@ -388,7 +389,7 @@ export function Workspace({
         )}
         <a
           className="bws-exit"
-          href={`/${locale}`}
+          href={`/console`}
           aria-label={t(locale, 'bld.ws.exit')}
           title={t(locale, 'bld.ws.exit')}
         >
@@ -397,7 +398,7 @@ export function Workspace({
       </header>
 
       <div className="bws-body">
-        <section className="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
+        <section className="bws-chat" id="bws-chat" aria-label={t(locale, 'bld.ws.chat')}>
           <Chat
             locale={locale}
             projectId={detail.id}
@@ -426,6 +427,7 @@ export function Workspace({
           />
         </section>
 
+        <PanelResizer locale={locale} chatId="bws-chat" />
         <section className="bws-canvas" aria-label={t(locale, 'bld.ws.canvas')}>
           {reloadError && <Banner tone="danger">{t(locale, 'bld.ws.reloadFailed')}</Banner>}
           {!panel && view === 'preview' && scene !== 'off' && (

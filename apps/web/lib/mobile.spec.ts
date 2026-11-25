@@ -357,11 +357,11 @@ describe('mobile workspace routing', () => {
     expect(workspaceTab(undefined)).toBe('preview');
   });
   it('the former pages map to the workspace route (the old routes redirect there)', () => {
-    expect(workspaceHref('en', 'p1', 'builds')).toBe('/en/builder/projects/p1?tab=builds');
+    expect(workspaceHref('en', 'p1', 'builds')).toBe('/builder/projects/p1?tab=builds');
     expect(workspaceHref('ar', 'p1', 'releases', { new: '1' })).toBe(
-      '/ar/builder/projects/p1?tab=releases&new=1',
+      '/builder/projects/p1?tab=releases&new=1',
     );
-    expect(workspaceHref('en', 'p1')).toBe('/en/builder/projects/p1');
+    expect(workspaceHref('en', 'p1')).toBe('/builder/projects/p1');
   });
   it('lists only the tabs the member may open (signing needs mobile:signing, builds mobile:build, releases mobile:release)', () => {
     expect(tabsFor(() => true)).toEqual([

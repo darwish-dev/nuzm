@@ -32,7 +32,7 @@ export interface PlanOption {
   versionId: string;
 }
 const key = () => crypto.randomUUID();
-const returnUrl = (locale: Locale) => `${window.location.origin}/${locale}/billing/payment-return`;
+const returnUrl = (locale: Locale) => `${window.location.origin}/billing/payment-return`;
 const REMEMBER = 'nuzm.lastPayment';
 
 // ---- UI-M03-01: payment methods ------------------------------------------------------------------------------------------
@@ -170,7 +170,7 @@ export function AddMethodForm(p: {
         }),
       () => {
         a.setNotice({ tone: 'ok', text: t(p.locale, 'pay.add.saved') });
-        router.push(p.next ?? `/${p.locale}/billing/payments#methods`);
+        router.push(p.next ?? `/billing/payments#methods`);
         router.refresh();
       },
       { 409: t(p.locale, 'pay.add.duplicate'), 422: t(p.locale, 'pay.add.refused') },
@@ -313,7 +313,7 @@ export function PayInvoiceForm(p: {
     return (
       <p>
         {t(p.locale, 'inv.pay.noMethod')}{' '}
-        <a href={`/${p.locale}/billing/payment-methods/add`}>{t(p.locale, 'pay.methods.add')}</a>
+        <a href={`/billing/payment-methods/add`}>{t(p.locale, 'pay.methods.add')}</a>
       </p>
     );
   function submit(e: FormEvent) {
@@ -468,7 +468,7 @@ export function SubscribeForm(p: {
     return (
       <p>
         {t(p.locale, 'sub.needMethod')}{' '}
-        <a href={`/${p.locale}/billing/payment-methods/add`}>{t(p.locale, 'pay.methods.add')}</a>
+        <a href={`/billing/payment-methods/add`}>{t(p.locale, 'pay.methods.add')}</a>
       </p>
     );
   function submit(e: FormEvent) {
@@ -481,7 +481,7 @@ export function SubscribeForm(p: {
         }),
       (s) => {
         a.setNotice({ tone: 'ok', text: t(p.locale, 'sub.created') });
-        router.push(`/${p.locale}/billing/subscriptions/${(s as { id: string }).id}`);
+        router.push(`/billing/subscriptions/${(s as { id: string }).id}`);
         router.refresh();
       },
       { 409: t(p.locale, 'sub.exists'), 422: t(p.locale, 'sub.noPrice') },
@@ -894,12 +894,12 @@ export function PaymentReturn(p: { locale: Locale; paymentId: string | null }) {
           </ButtonLink>
         )}
         {pay.invoiceId && (
-          <ButtonLink variant="secondary" href={`/${p.locale}/billing/invoices/${pay.invoiceId}`}>
+          <ButtonLink variant="secondary" href={`/billing/invoices/${pay.invoiceId}`}>
             {t(p.locale, 'ret.invoice')}
           </ButtonLink>
         )}
         {pay.walletTopupId && (
-          <ButtonLink variant="secondary" href={`/${p.locale}/billing/payments#wallet`}>
+          <ButtonLink variant="secondary" href={`/billing/payments#wallet`}>
             {t(p.locale, 'ret.wallet')}
           </ButtonLink>
         )}

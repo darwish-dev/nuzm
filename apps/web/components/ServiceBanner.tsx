@@ -35,7 +35,7 @@ export function ServiceBanner({
         </p>
         {canCreate && (
           <ButtonLink
-            href={`/${locale}/${hosting ? 'hosting/sites/new' : 'compute/instances/new'}`}
+            href={`/${hosting ? 'hosting/sites/new' : 'compute/instances/new'}`}
           >
             <Icon name="plus" size={18} />
             {ar

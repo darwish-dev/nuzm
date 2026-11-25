@@ -48,6 +48,8 @@ export interface CreateInput {
   name: string;
   plan: PlanShape;
   sshPublicKeys: string[];
+  /** S04: the order carries a panel install (the details are in `compute.panel_installs`, written in the same transaction as the instance). */
+  panel?: { kind: 'hestia' };
   providerPrice: { amountMinor: string; currency: string; period: string } | null;
   priceBookVersionId: string | null;
 }
@@ -91,6 +93,22 @@ const samePrice = (a: CreateInput['providerPrice'], b: CreateInput['providerPric
     a.currency === b.currency &&
     a.period === b.period);
 
+/** What the provisioning workflow needs from the Hestia install (S04). Set by the module; absent = Hestia orders are refused. */
+export interface PanelHooks {
+  userDataFor(orgId: string, instanceId: string, sshPublicKeys: string[]): Promise<string>;
+  stillValid(orgId: string, instanceId: string): Promise<boolean>;
+  markServerCreated(
+    c: PoolClient,
+    instanceId: string,
+    providerRef: string,
+    addresses: string[],
+    at: Date,
+  ): Promise<void>;
+  markHeld(orgId: string, instanceId: string): Promise<void>;
+  holdRetryMinutes(): number;
+  onDeleted(orgId: string, instanceId: string): Promise<void>;
+}
+
 export interface AccountAccess {
   adapter: ComputeAdapter;
   ctx: AccountContext;
@@ -107,6 +125,8 @@ export interface AccountAccess {
 export class ProvisioningService {
   /** Run operations in the background right after the API accepted them. Tests switch this off to drive each step themselves. */
   autoKick = true;
+  /** S04 hooks (Hestia VPS). */
+  panel: PanelHooks | null = null;
 
   constructor(
     private readonly db: Db,
@@ -337,6 +357,19 @@ export class ProvisioningService {
         );
     }
 
+    if (input.panel && from === 'start') {
+      const ok = await this.panel?.stillValid(orgId, input.instanceId).catch(() => false);
+      if (!ok)
+        return this.compensateCreate(
+          orgId,
+          op,
+          worker,
+          input,
+          'panel_not_offered',
+          'HestiaCP is no longer offered for this image or region; nothing was charged',
+          'operation_failed',
+        );
+    }
     const fresh = await this.ops.get(orgId, op.id);
     if (fresh?.cancel_requested)
       return this.compensateCreate(
@@ -373,6 +406,22 @@ export class ProvisioningService {
       // succeeded with data:null after a DEFINITIVE failure: nothing exists, the retry is safe
     }
     if (!providerRef) {
+      let userData: string | undefined;
+      if (input.panel) {
+        try {
+          userData = await this.panel!.userDataFor(orgId, input.instanceId, input.sshPublicKeys);
+        } catch {
+          return this.compensateCreate(
+            orgId,
+            op,
+            worker,
+            input,
+            'panel_unavailable',
+            'the panel bootstrap could not be prepared; nothing was created',
+            'operation_failed',
+          );
+        }
+      }
       const r = await acc.adapter.provision(acc.ctx, {
         providerRegionId: input.providerRegionId,
         planRef: input.planRef,
@@ -380,6 +429,7 @@ export class ProvisioningService {
         name: input.name,
         diskGb: input.plan.diskGb,
         sshPublicKeys: input.sshPublicKeys,
+        ...(userData !== undefined ? { userData } : {}),
         tags: { 'nuzm-org': orgTag(orgId), 'nuzm-instance': input.instanceId },
         idempotencyToken: token,
       });
@@ -393,6 +443,9 @@ export class ProvisioningService {
           true,
         );
       if (r.status === 'failed') {
+        // S04: no capacity in the sold region. The order is HELD there with a clear reason and retried later in the SAME region; it is never moved to another one.
+        if (input.panel && r.error?.category === 'capacity')
+          return this.holdCreate(orgId, op, worker, input);
         if (r.error?.retryable) {
           await this.db.withOrg(orgId, (c) =>
             recordStep(c, orgId, op.id, 'provision', 'failed', {
@@ -494,9 +547,17 @@ export class ProvisioningService {
         observed: { status: state.status, planRef: state.planRef, at: now.toISOString() },
       });
       await c.query(
-        `UPDATE compute.instances SET status = 'running', public_ips = $2, updated_at = now(), version = version + 1 WHERE id = $1`,
+        `UPDATE compute.instances SET status = 'running', hold_reason = NULL, held_at = NULL, public_ips = $2, updated_at = now(), version = version + 1 WHERE id = $1`,
         [input.instanceId, JSON.stringify(state.publicIps ?? [])],
       );
+      if (input.panel && this.panel)
+        await this.panel.markServerCreated(
+          c,
+          input.instanceId,
+          providerRef,
+          state.publicIps ?? [],
+          now,
+        );
       await c.query(
         `INSERT INTO compute.instance_intervals (id, org_id, instance_id, resource_id, started_at, vcpu, memory_mb, disk_gb, data_region)
          SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9 WHERE NOT EXISTS (SELECT 1 FROM compute.instance_intervals WHERE instance_id = $3 AND ended_at IS NULL)`,
@@ -532,6 +593,69 @@ export class ProvisioningService {
     });
     await this.ops.succeed(orgId, op.id, worker, { instanceId: input.instanceId });
     await this.db.withOrg(orgId, (c) => recordStep(c, orgId, op.id, 'finalize', 'succeeded'));
+  }
+
+  /** No capacity at the provider: instance `held`, operation deferred (same token, same region) — the cost authorization stays in place until the order is served or cancelled. */
+  async holdCreate(
+    orgId: string,
+    op: Operation,
+    worker: string,
+    input: CreateInput,
+  ): Promise<void> {
+    const minutes = this.panel?.holdRetryMinutes() ?? 30;
+    await this.db.withOrg(orgId, async (c) => {
+      await c.query(
+        `UPDATE compute.instances SET status = 'held', hold_reason = 'provider_capacity_unavailable', held_at = COALESCE(held_at, now()), updated_at = now(), version = version + 1 WHERE id = $1`,
+        [input.instanceId],
+      );
+      await recordStep(c, orgId, op.id, 'provision', 'failed', {
+        held: 'provider_capacity_unavailable',
+        regionFixed: true,
+      });
+      await this.audit.record({
+        action: 'instance.create.held',
+        orgId,
+        actorType: 'system',
+        resource: { type: 'compute_instance', id: input.instanceId },
+        outcome: 'failure',
+        detail: {
+          operationId: op.id,
+          reason: 'provider_capacity_unavailable',
+          retryMinutes: minutes,
+        },
+      });
+    });
+    await this.panel?.markHeld(orgId, input.instanceId);
+    await this.ops.defer(orgId, op.id, worker, new Date(Date.now() + minutes * 60_000));
+  }
+
+  /** The customer cancels a held order: nothing exists at the provider, so the hold is released and the order fails (no charge). */
+  async cancelHeld(orgId: string, instanceId: string): Promise<void> {
+    const row = await this.db.withOrg(
+      orgId,
+      async (c) =>
+        (
+          await c.query(
+            `SELECT i.operation_id, i.status FROM compute.instances i WHERE i.id = $1`,
+            [instanceId],
+          )
+        ).rows[0] as Row | undefined,
+    );
+    if (!row || row.status !== 'held') return;
+    const op = await this.ops.get(orgId, row.operation_id as string);
+    if (!op || op.kind !== OP_CREATE) return;
+    const r = await this.ops.requestCancel(orgId, op.id);
+    if (r.accepted !== 'cancelled') return; // a worker holds it right now: it sees cancel_requested at its next step and compensates itself
+    await this.compensateCreate(
+      orgId,
+      op,
+      'customer',
+      op.input as CreateInput,
+      'operation_cancelled',
+      'the order was cancelled while it waited for capacity',
+      'operation_cancelled',
+      true,
+    );
   }
 
   /** Outcome uncertain: resource UNKNOWN (when the provider call may have created something), operation `needs_reconcile`. */
@@ -721,6 +845,7 @@ export class ProvisioningService {
       });
     });
     await this.ops.succeed(orgId, op.id, worker, { instanceId: input.instanceId });
+    await this.panel?.onDeleted(orgId, input.instanceId).catch(() => undefined);
   }
 
   private async revertDelete(

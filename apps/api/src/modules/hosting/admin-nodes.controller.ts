@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Platform, RequirePlatformPermission, type PlatformContext } from '../../common/access';
 import { ProblemException } from '../../common/errors';
@@ -29,7 +29,7 @@ export class AdminNodesController {
     return this.nodes.list(q).then((items) => ({ items }));
   }
 
-  /** Creating a node replays safely: the same computeInstanceId returns the existing node (200) without a second enrolment token. */
+  /** Creating a node replays safely: the same computeInstanceId returns the existing node (200). The panel connection is set afterwards (PUT …/panel). */
   @RequirePlatformPermission('admin:hosting:read')
   @StepUp()
   @Post()
@@ -44,7 +44,7 @@ export class AdminNodesController {
     const r = await this.nodes.create(who.userId, body ?? {});
     void reply.status(r.created ? 201 : 200);
     if (r.created) void reply.header('etag', etag(r.node.version));
-    return { node: r.node, enrolmentToken: r.enrolmentToken };
+    return { node: r.node };
   }
 
   @RequirePlatformPermission('admin:hosting:read')
@@ -86,7 +86,7 @@ export class AdminNodesController {
     return this.nodes.capacity(id);
   }
 
-  /** Runs the inventory job for one node now (the agent must be enrolled). */
+  /** Runs the inventory job for one node now (the panel connection must be set): it is also the connection test. */
   @RequirePlatformPermission('admin:hosting:read')
   @StepUp()
   @Post(':id/inventory')
@@ -95,22 +95,19 @@ export class AdminNodesController {
     return this.nodes.runInventory(id);
   }
 
+  /**
+   * How the node's HestiaCP panel is reached: host (fixed FQDN), port, optional pinned TLS fingerprint, and the access key (typed once, write-only; or a vault reference).
+   * Any change clears the node's health: run the inventory again before activating it.
+   */
   @RequirePlatformPermission('admin:hosting:read')
   @StepUp()
-  @Post(':id/enrolment-tokens')
-  async enrolmentToken(
+  @Put(':id/panel')
+  async setPanel(
     @Platform() who: PlatformContext,
     @Param('id') id: string,
-    @Req() req: FastifyRequest,
+    @Body() body: Record<string, unknown> | undefined,
   ) {
     need(who, 'admin:hosting:manage');
-    idemKey(req);
-    return this.nodes.issueEnrolmentToken(who.userId, id);
-  }
-
-  @RequirePlatformPermission('admin:hosting:read')
-  @Get(':id/command-log')
-  async commandLog(@Param('id') id: string, @Query('limit') limit?: string) {
-    return { items: await this.nodes.commandLog(id, limit ? Number(limit) : 100) };
+    return this.nodes.setPanel(who.userId, id, body ?? {});
   }
 }

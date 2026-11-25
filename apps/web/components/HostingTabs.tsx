@@ -10,7 +10,7 @@ export function HostingTabs({
   siteId: string;
   current: string;
 }) {
-  const base = `/${locale}/hosting/sites/${siteId}`;
+  const base = `/hosting/sites/${siteId}`;
   const tabs = [
     { key: 'overview', href: base },
     { key: 'domains', href: `${base}/domains` },

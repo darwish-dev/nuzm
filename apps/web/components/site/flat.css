@@ -1,0 +1,79 @@
+/*
+ * Flat surfaces: the public website (landing page, services, documentation — everything inside `.landing`) draws no outlines. Cards, tiles, chips, pills,
+ * fields and dividers keep their size (the border is made transparent, not removed, so nothing shifts) and are told apart by their fill and shadow alone.
+ * Loaded after every other stylesheet, so it wins; the few borders that ARE the artwork are put back below.
+ */
+.landing,
+.landing *,
+.landing *::before,
+.landing *::after {
+  border-color: transparent !important;
+}
+.landing hr {
+  border: 0 !important;
+}
+
+/* items whose only visual was a line get a quiet fill instead */
+.landing .button-outline,
+.landing .button-white {
+  background-color: #ffffff12;
+}
+.landing[data-mode='light'] .button-outline {
+  background-color: #22262d0d;
+}
+.landing .button-white {
+  background-color: #f6f5f1;
+}
+.landing .prompt-suggestions button,
+.landing .announcement,
+.landing .orbit-note,
+.landing .text-button {
+  background-color: #ffffff0f;
+}
+.landing[data-mode='light'] .prompt-suggestions button,
+.landing[data-mode='light'] .announcement {
+  background-color: #22262d0d;
+}
+.landing .cx-label {
+  background: #ffffff12;
+}
+.landing .cx-device.is-on .cx-label {
+  background: #cfe8da26;
+}
+.landing .bn-go {
+  background: #ffffff0f;
+}
+.landing .bn-card:hover {
+  border-color: transparent;
+}
+.landing .cx-frame,
+.landing .cx-device.is-on .cx-frame {
+  box-shadow: 0 2.4em 5em #00000080;
+}
+.landing .svc-visual img {
+  box-shadow: 0 24px 60px #00000055;
+}
+
+/* borders that are part of the artwork */
+.landing .cx-cup .mug::after {
+  border-color: #efe4d7 !important;
+  border-inline-start-color: transparent !important;
+}
+.landing .bn-nodes i {
+  border-block-start-color: color-mix(in srgb, #9fcfbf 55%, transparent) !important;
+}
+.landing .cx-task > i {
+  background: #d6e3de;
+}
+.landing .cx-task.is-done > i {
+  background: #4e7880;
+}
+.landing .cx-slot.cx-teal small {
+  color: #4e7880;
+}
+.landing .cx-slot.cx-peach small {
+  color: #c07a4a;
+}
+.landing .cx-slot.cx-mint small {
+  color: #3f8a78;
+}

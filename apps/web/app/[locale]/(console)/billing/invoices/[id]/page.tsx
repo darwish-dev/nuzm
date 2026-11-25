@@ -156,20 +156,20 @@ export default async function InvoicePage({
               <>
                 <ButtonLink
                   variant="secondary"
-                  href={`/${locale}/billing/invoices/${inv.id}/pdf?lang=ar`}
+                  href={`/billing/invoices/${inv.id}/pdf?lang=ar`}
                 >
                   {t(locale, 'inv.pdfAr')}
                 </ButtonLink>
                 <ButtonLink
                   variant="secondary"
-                  href={`/${locale}/billing/invoices/${inv.id}/pdf?lang=en`}
+                  href={`/billing/invoices/${inv.id}/pdf?lang=en`}
                 >
                   {t(locale, 'inv.pdfEn')}
                 </ButtonLink>
               </>
             )}
             {inv.zatca.state !== 'not_generated' && !held && (
-              <ButtonLink variant="secondary" href={`/${locale}/billing/invoices/${inv.id}/xml`}>
+              <ButtonLink variant="secondary" href={`/billing/invoices/${inv.id}/xml`}>
                 {t(locale, 'inv.xml')}
               </ButtonLink>
             )}

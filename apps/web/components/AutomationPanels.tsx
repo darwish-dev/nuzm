@@ -142,7 +142,7 @@ export function RunWorkflowForm({
       {started && (
         <p role="status">
           {t(locale, started.duplicate ? 'm11.run.duplicate' : 'm11.run.started')}{' '}
-          <a href={`/${locale}/automation/executions/${started.id}`}>{t(locale, 'm11.run.open')}</a>
+          <a href={`/automation/executions/${started.id}`}>{t(locale, 'm11.run.open')}</a>
         </p>
       )}
     </form>

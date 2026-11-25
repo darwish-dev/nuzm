@@ -3,10 +3,11 @@ import { unwrap } from '@nuzm/sdk';
 import { isLocale, t } from '@nuzm/i18n';
 import { Badge, EmptyState, ForbiddenState, Ltr, PageTitle, Table } from '@nuzm/ui';
 import { HostingAdminTabs } from '../../../../../components/HostingAdminTabs';
+import { RegisterNodeForm } from '../../../../../components/HostingNodeForms';
 import { requireStaff } from '../../../../../lib/server';
 import { view } from '../../../../../lib/view';
 
-/** UI-M06-11: nodes, their health and agent state. Changing status / overcommit is done through the API (the dual-approval modal is NOT BUILT yet). */
+/** Hosting servers: each with its panel connection, health and version; register a new one and open it to connect, test and activate. */
 export default async function Nodes({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
@@ -74,14 +75,19 @@ export default async function Nodes({ params }: { params: Promise<{ locale: stri
             {
               key: 'a',
               icon: 'globe',
-              header: t(locale, 'host.col.agent'),
-              render: (n) => n.agentState ?? '—',
+              header: t(locale, 'hnode.col.panel'),
+              render: (n) =>
+                n.panelConfigured ? (
+                  <Ltr>{`${n.panelHost}:${n.panelPort}`}</Ltr>
+                ) : (
+                  <Badge tone="warn">{t(locale, 'hnode.panel.none')}</Badge>
+                ),
             },
             {
               key: 'v',
-              header: t(locale, 'host.col.version'),
+              header: t(locale, 'hnode.col.version'),
               icon: 'code',
-              render: (n) => <Ltr>{n.cloudpanelVersion ?? '—'}</Ltr>,
+              render: (n) => <Ltr>{n.panelVersion ?? '—'}</Ltr>,
             },
           ]}
         />
@@ -92,6 +98,9 @@ export default async function Nodes({ params }: { params: Promise<{ locale: stri
       <PageTitle>{t(locale, 'host.admin.nodes')}</PageTitle>
       <HostingAdminTabs locale={locale} current="nodes" />
       {body}
+      {s.can('admin:hosting:manage') && (
+        <RegisterNodeForm locale={locale} mfaFactorId={s.me.mfaFactorId ?? null} />
+      )}
     </>
   );
 }

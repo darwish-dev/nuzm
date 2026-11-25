@@ -72,7 +72,7 @@ export default async function BillingOverview({ params }: { params: Promise<{ lo
                 </p>
               ))
             )}
-            <ButtonLink variant="secondary" href={`/${locale}/billing/ledger`}>
+            <ButtonLink variant="secondary" href={`/billing/ledger`}>
               {t(locale, 'bill.tab.ledger')}
             </ButtonLink>
           </Card>
@@ -97,7 +97,7 @@ export default async function BillingOverview({ params }: { params: Promise<{ lo
                   .join(' · ')}
               </p>
             )}
-            <ButtonLink variant="secondary" href={`/${locale}/billing/usage`}>
+            <ButtonLink variant="secondary" href={`/billing/usage`}>
               {t(locale, 'bill.tab.usage')}
             </ButtonLink>
           </Card>
@@ -120,7 +120,7 @@ export default async function BillingOverview({ params }: { params: Promise<{ lo
             ) : (
               <p className="nz-muted">{t(locale, 'bill.spend.nocap')}</p>
             )}
-            <ButtonLink variant="secondary" href={`/${locale}/billing/spending-limits`}>
+            <ButtonLink variant="secondary" href={`/billing/spending-limits`}>
               {t(locale, 'bill.tab.limits')}
             </ButtonLink>
           </Card>

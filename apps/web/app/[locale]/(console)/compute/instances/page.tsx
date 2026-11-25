@@ -61,7 +61,7 @@ export default async function Instances({
           title={t(locale, 'cloud.hero.title')}
           body={t(locale, 'cloud.hero.body')}
         >
-          <ButtonLink href={`/${locale}/compute/instances/new`}>
+          <ButtonLink href={`/compute/instances/new`}>
             <Icon name="cloud" size={18} />
             {t(locale, 'cloud.hero.new')}
           </ButtonLink>

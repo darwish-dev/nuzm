@@ -23,7 +23,7 @@ export const REQUIRED_APPROVALS: Record<Track, { id: string; what: string }[]> =
   E: [
     { id: 'D-21', what: 'the sandbox runtime decision' },
     { id: 'HG-10-02', what: 'the human gate for real execution of customer code' },
-    { id: 'ADR-067', what: 'the Execution Gateway accepted' },
+    { id: 'ADR-069', what: 'the Execution Gateway accepted' },
     {
       id: 'ISOLATION-ATTESTATION',
       what: 'the isolation attestation of the target runtime (S04), whose reference the real port requires to start',

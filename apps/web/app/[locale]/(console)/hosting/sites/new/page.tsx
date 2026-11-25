@@ -45,7 +45,7 @@ export default async function NewSite({
   const s = await requireSession(locale);
   const head = (
     <>
-      <a className="nzc-back" href={`/${locale}/hosting/sites`}>
+      <a className="nzc-back" href={`/hosting/sites`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'host.title.sites')}
       </a>
@@ -107,7 +107,7 @@ export default async function NewSite({
               <strong>{t(locale, `host.method.${method.id}` as MessageKey)}</strong>
             </span>
             <a
-              href={`/${locale}/hosting/sites/new${domain ? `?domain=${encodeURIComponent(domain)}` : ''}`}
+              href={`/hosting/sites/new${domain ? `?domain=${encodeURIComponent(domain)}` : ''}`}
             >
               {t(locale, 'host.method.change')}
             </a>

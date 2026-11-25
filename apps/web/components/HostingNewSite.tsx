@@ -93,7 +93,7 @@ export function HostingNewSite({
     });
     setBusy(false);
     if (!r.response.ok || !r.data) return fail(r.response.status, code(r));
-    router.push(`/${locale}/hosting/sites/${r.data.site.id}`);
+    router.push(`/hosting/sites/${r.data.site.id}`);
   }
 
   return (

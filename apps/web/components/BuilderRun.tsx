@@ -179,7 +179,7 @@ export function RunPanel({
           <span className="nz-muted">{tDynamic(locale, `bld.run.step.${run.step}`, run.step)}</span>
         )}
         {compact && (
-          <a href={`/${locale}/builder/runs/${run.id}`}>{t(locale, 'bld.run.details')}</a>
+          <a href={`/builder/runs/${run.id}`}>{t(locale, 'bld.run.details')}</a>
         )}
       </p>
       {run.state === 'budget_exceeded' && (

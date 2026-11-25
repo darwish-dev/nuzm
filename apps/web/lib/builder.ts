@@ -269,6 +269,8 @@ export interface Message {
   runId: string | null;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  /** files (as text) and links sent with the message */
+  attachments?: { kind: string; name?: string; url?: string }[];
   createdAt: string;
 }
 export interface Credits {

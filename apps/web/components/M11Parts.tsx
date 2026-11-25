@@ -121,7 +121,7 @@ export function LinkTabs({
       {tabs.map((x) => (
         <a
           key={x.id}
-          href={`/${locale}${x.href}`}
+          href={x.href}
           aria-current={x.id === current ? 'page' : undefined}
           style={{ fontWeight: x.id === current ? 700 : 400 }}
         >

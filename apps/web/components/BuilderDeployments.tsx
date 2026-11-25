@@ -336,7 +336,7 @@ export function DeploymentsPanel({
           {sites.length === 0 ? (
             <p>
               {t(locale, 'bld.dep.noSites')}{' '}
-              <a href={`/${locale}/hosting/sites`}>{t(locale, 'bld.dep.toHosting')}</a>
+              <a href={`/hosting/sites`}>{t(locale, 'bld.dep.toHosting')}</a>
             </p>
           ) : (
             <>
@@ -365,7 +365,7 @@ export function DeploymentsPanel({
               </Field>
               <p className="nz-muted">
                 {t(locale, 'bld.dep.willPublish', { name: projectName, seq: headSeq ?? 0 })}{' '}
-                <a href={`/${locale}/hosting/sites/${siteId}/domains`}>
+                <a href={`/hosting/sites/${siteId}/domains`}>
                   {t(locale, 'bld.dep.domainHint')}
                 </a>
               </p>

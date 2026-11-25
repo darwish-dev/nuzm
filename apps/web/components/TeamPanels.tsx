@@ -240,7 +240,7 @@ export function AcceptInvitation({
   if (done)
     return (
       <p role="status">
-        {t(locale, 'invite.accept.done')} <a href={`/${locale}`}>{t(locale, 'nav.home')}</a>
+        {t(locale, 'invite.accept.done')} <a href={`/console`}>{t(locale, 'nav.home')}</a>
       </p>
     );
   return (

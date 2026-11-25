@@ -1,0 +1,87 @@
+/* The sliding technology logos under the landing hero. */
+.landing > .hero .tech-strip {
+  position: relative;
+  margin-top: 28px;
+  flex-shrink: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.tech-track {
+  display: flex;
+  inline-size: max-content;
+  animation: tech-slide 46s linear infinite;
+}
+.tech-strip:hover .tech-track {
+  animation-play-state: paused;
+}
+.tech-group {
+  display: flex;
+  flex: none;
+  gap: 54px;
+  margin: 0;
+  padding: 0 27px;
+  list-style: none;
+}
+.tech-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+.tech-logo {
+  display: grid;
+  place-items: center;
+  inline-size: 38px;
+  block-size: 38px;
+  color: #8a9391;
+}
+.tech-logo img,
+.tech-logo svg {
+  display: block;
+  inline-size: 30px;
+  block-size: 30px;
+}
+/* every logo in one flat gray: the coloured artwork is desaturated, and Next.js (a black disc) is inverted first so it reads on the dark page */
+.tech-logo img {
+  filter: grayscale(1) brightness(1.15) contrast(0.85);
+  opacity: 0.8;
+}
+.tech-logo img[src$='nextjs.svg'] {
+  filter: grayscale(1) invert(1) contrast(0.8);
+}
+.tech-logo svg rect {
+  fill: currentColor;
+}
+.tech-logo svg text {
+  fill: #101312;
+}
+.tech-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #8a9391;
+  white-space: nowrap;
+}
+@keyframes tech-slide {
+  to {
+    transform: translateX(-50%);
+  }
+}
+/* The strip slides the same way in both languages: its own flow is left to right, so the loop never leaves an empty gap in Arabic (the logo names are Latin). */
+[dir='rtl'] .tech-strip {
+  direction: ltr;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tech-track {
+    animation: none;
+  }
+}
+
+/* the suggestion card opens over the strip: the hero's content sits above it (the strip's mask makes it a stacking layer of its own) */
+.landing > .hero .hero-content {
+  position: relative;
+  z-index: 2;
+}
+.landing > .hero .tech-strip {
+  z-index: 1;
+}

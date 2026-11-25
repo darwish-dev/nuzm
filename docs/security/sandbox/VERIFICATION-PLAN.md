@@ -2,7 +2,7 @@
 
 Status: PREPARED. Nothing below has been run against a real runtime; there is none. Rows say what the **offline work already proves** (control plane, with the test that proves it) and what **only a real runner can prove** (status `NOT_VERIFIED` until then). A mock cannot prove isolation.
 
-| # | Control (ADR-067 item) | Proven offline (test) | Must be verified on a real runner (evidence the reviewer records) |
+| # | Control (ADR-069 item) | Proven offline (test) | Must be verified on a real runner (evidence the reviewer records) |
 |---|---|---|---|
 | 1 | Profiles, not commands (1) | `exec-policy.spec.ts`, escape EX-ARGV/PROFILE/SCRIPT/DIR | the runner executes exactly the spec's argv: trace of the process tree for each profile |
 | 2 | Fixed environment (2) | `env-guard.spec.ts`, EX-ENV, `execution-port.spec.ts` | `/proc/1/environ` and `printenv` inside the sandbox show only the constant; no inherited variable (XR-ENV-1, CA-R1/R2) |
@@ -24,4 +24,4 @@ Status: PREPARED. Nothing below has been run against a real runtime; there is no
 A runnable non-production runner supplied by the owner (HG-05-04 for KVM where needed); the escape suite in this repository (`escape-suite.ts` 1.1.0, `escape-suite-exec.ts`); the threat model; this plan; the runbook; a named reviewer and the acceptance bar. The assistant records nothing as reviewed or granted.
 
 ## Exit criteria (AC-AG-12, restated)
-Gate open for a named environment **by decision**; escape suite passing on the real runtime with `isolationEvidence: true`; ADR-067 accepted; cost and abuse tests; runbook exercised once; owner sign-off. None exists today: S-AG6 is **0 % complete as a capability**; the offline machinery is complete.
+Gate open for a named environment **by decision**; escape suite passing on the real runtime with `isolationEvidence: true`; ADR-069 accepted; cost and abuse tests; runbook exercised once; owner sign-off. None exists today: S-AG6 is **0 % complete as a capability**; the offline machinery is complete.

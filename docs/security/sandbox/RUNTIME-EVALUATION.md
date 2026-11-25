@@ -2,7 +2,7 @@
 
 Status: **evaluation, not a decision.** General engineering knowledge of these technologies as of the assistant's knowledge; **NOT live-verified** against vendor documentation, benchmarks or any Nuzm node. Every claim marked (V) must be verified on the real runner before the owner relies on it. The control plane already talks only to the `SandboxRuntime` / `ExecutionRuntime` interfaces, so the choice changes one implementation, not the gateway.
 
-## What the runtime must do (from ADR-067 and the threat model)
+## What the runtime must do (from ADR-069 and the threat model)
 Run one fixed argv (from a closed profile catalogue) for one run of one organization, with a constant environment, a read-only root file system, one writable scratch with a disk quota, no secrets, no route to the control plane or to other tenants, only the egress proxy as an exit (and only for `registry-only`), hard CPU / wall / memory / pids / output / disk limits, and complete teardown afterwards. Hostile code is the threat model: the generated or user-edited project and a prompt-injected model.
 
 ## Candidates

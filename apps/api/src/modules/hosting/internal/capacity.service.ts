@@ -50,7 +50,7 @@ export class CapacityService {
         `SELECT n.id, n.runtimes,
                 json_object_agg(cap.dim, json_build_object('sellable', cap.sellable, 'reserved', cap.reserved)) AS dims
            FROM hosting.nodes n JOIN hosting.node_capacity cap ON cap.node_id = n.id
-          WHERE n.status = 'active' AND n.health = 'healthy' AND n.data_region = ANY($1::text[]) AND ($2::uuid IS NULL OR n.id <> $2)
+          WHERE n.status = 'active' AND n.network_class = 'shared' AND n.health = 'healthy' AND n.data_region = ANY($1::text[]) AND ($2::uuid IS NULL OR n.id <> $2)
           GROUP BY n.id`,
         [q.regions, q.excludeNodeId ?? null],
       )

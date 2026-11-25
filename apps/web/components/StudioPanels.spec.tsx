@@ -131,9 +131,9 @@ describe('StudioPanel', () => {
 
 describe('Workspace + section', () => {
   const links = [
-    { key: 'versions', href: '/en/builder/projects/p1?panel=versions', label: 'Versions' },
-    { key: 'seo', href: '/en/builder/projects/p1?panel=seo', label: 'SEO' },
-    { key: 'deployments', href: '/en/builder/projects/p1?panel=deployments', label: 'Publishing' },
+    { key: 'versions', href: '/builder/projects/p1?panel=versions', label: 'Versions' },
+    { key: 'seo', href: '/builder/projects/p1?panel=seo', label: 'SEO' },
+    { key: 'deployments', href: '/builder/projects/p1?panel=deployments', label: 'Publishing' },
   ];
   const ws = (over: Partial<Parameters<typeof Workspace>[0]> = {}) =>
     render(

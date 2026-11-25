@@ -128,7 +128,7 @@ export function NewDatabaseForm({
         }),
       (d) => {
         setCreateKey(newKey());
-        router.push(`/${locale}/databases/${d.id}`);
+        router.push(`/databases/${d.id}`);
         router.refresh();
       },
       (p) => {
@@ -554,7 +554,7 @@ export function BackupsPanel({
               header: t(locale, 'm8.rs.col.target'),
               render: (r) =>
                 r.targetDatabaseId && r.state === 'succeeded' && r.mode === 'new' ? (
-                  <a href={`/${locale}/databases/${r.targetDatabaseId}`}>
+                  <a href={`/databases/${r.targetDatabaseId}`}>
                     {t(locale, 'm8.rs.openTarget')}
                   </a>
                 ) : (
@@ -764,7 +764,7 @@ export function DatabaseSettings({
           params: { path: { id: db.id }, query: { confirmName: typed.trim() } },
         }),
       () => {
-        router.push(`/${locale}/databases`);
+        router.push(`/databases`);
         router.refresh();
       },
     );

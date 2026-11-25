@@ -36,7 +36,7 @@ export default async function PaymentMethods({ params }: { params: Promise<{ loc
       <BillingTabs locale={locale} current="methods" can={s.can} />
       {s.can('billing:manage') && (
         <p>
-          <ButtonLink href={`/${locale}/billing/payment-methods/add`}>
+          <ButtonLink href={`/billing/payment-methods/add`}>
             {t(locale, 'pay.methods.add')}
           </ButtonLink>
         </p>

@@ -29,6 +29,8 @@ export interface SimInstance {
   deleted: boolean;
   keyPair?: string;
   clientToken?: string;
+  /** the Base64 `UserData` exactly as the API received it */
+  userDataB64?: string;
   snapshots: string[];
 }
 
@@ -334,6 +336,7 @@ export class AlibabaSim {
                 OSType: 'linux',
                 OSNameEn: 'Alibaba Cloud Linux 3',
                 Status: 'Available',
+                IsSupportCloudinit: true,
               },
             ],
           },
@@ -450,11 +453,26 @@ export class AlibabaSim {
         'InvalidClientToken.Malformed',
         'ClientToken must be ASCII and at most 64 characters.',
       );
+    if (q.UserData !== undefined) {
+      // documented: Base64, "cannot exceed 32 KB before Base64 encoding" (InvalidUserData.Base64FormatInvalid / InvalidUserData.SizeExceeded)
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(q.UserData) || q.UserData.length % 4 !== 0)
+        return this.err(
+          400,
+          'InvalidUserData.Base64FormatInvalid',
+          'The specified UserData is not Base64 encoded.',
+        );
+      if (Buffer.from(q.UserData, 'base64').length > 32 * 1024)
+        return this.err(
+          400,
+          'InvalidUserData.SizeExceeded',
+          'The specified UserData exceeds the size.',
+        );
+    }
     if (fault === 'timeout_before_side_effect') return { status: 200, hang: true };
     const prior = this.byToken.get(q.ClientToken);
     if (this.dedupe && prior) {
       const p = this.instances.get(prior)!;
-      if (p.type !== q.InstanceType)
+      if (p.type !== q.InstanceType || (p.userDataB64 ?? '') !== (q.UserData ?? ''))
         return this.err(403, 'IdempotentParameterMismatch', 'The specified clientToken is used.');
       return this.ok({ InstanceIdSets: { InstanceIdSet: [prior] }, TradePrice: t.usd });
     }
@@ -474,6 +492,7 @@ export class AlibabaSim {
       clientToken: q.ClientToken,
       snapshots: [],
       ...(q.KeyPairName ? { keyPair: q.KeyPairName } : {}),
+      ...(q.UserData !== undefined ? { userDataB64: q.UserData } : {}),
     };
     this.instances.set(i.id, i);
     this.byToken.set(q.ClientToken, i.id);

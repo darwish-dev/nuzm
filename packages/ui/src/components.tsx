@@ -237,8 +237,9 @@ export function Table<T>({
                 {rowHref && (
                   <td className="nz-manage-col">
                     {href ? (
-                      <a className="nz-btn" data-variant="secondary" href={href}>
+                      <a className="nz-manage-link" href={href}>
                         <ManageText label={manageLabel} />
+                        <Icon name="arrow" size={15} />
                       </a>
                     ) : null}
                   </td>

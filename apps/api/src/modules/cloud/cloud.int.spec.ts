@@ -85,7 +85,7 @@ describe('provider registry (FR-CLD-01)', () => {
     const r = await admin('pa', 'GET', '/v1/admin/providers');
     expect(r.statusCode).toBe(200);
     const by = Object.fromEntries(r.json().items.map((p: Row) => [p.key, p]));
-    expect(Object.keys(by).sort()).toEqual(['alibaba', 'cloudpanel', 'contabo', 'huawei', 'mock']);
+    expect(Object.keys(by).sort()).toEqual(['alibaba', 'contabo', 'hestia', 'huawei', 'mock']);
     expect(by.mock).toMatchObject({
       kind: 'compute',
       adapterId: 'mock-compute',
@@ -94,7 +94,7 @@ describe('provider registry (FR-CLD-01)', () => {
     });
     // M05 S18-S22 registered the real vendor adapters (documentation-built, NOT VERIFIED); hosting still has none
     for (const k of ['alibaba', 'huawei', 'contabo']) expect(by[k].adapterAvailable).toBe(true);
-    expect(by.cloudpanel.adapterAvailable).toBe(false);
+    expect(by.hestia.adapterAvailable).toBe(false);
   });
   it('enforces platform permissions: security may read but not register; compliance officer has no provider access', async () => {
     expect((await admin('sec', 'GET', '/v1/admin/providers')).statusCode).toBe(200);
@@ -422,7 +422,7 @@ describe('verification: capabilities and verified regions come only from the pro
   });
 
   it('a provider without an adapter fails verification honestly (no invented capabilities or regions)', async () => {
-    const a = await newAccount('cloudpanel', 'acct-cloudpanel-noadapter');
+    const a = await newAccount('hestia', 'acct-hestia-noadapter');
     const j = await verify(a.id);
     expect(j.state).toBe('failed');
     expect(j.error.code).toBe('adapter_not_available');

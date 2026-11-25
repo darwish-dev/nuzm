@@ -52,5 +52,5 @@ export async function redirectToStudio(
   } catch {
     return;
   }
-  if (type === 'website') redirect(`/${locale}/builder/projects/${id}?panel=${section}`);
+  if (type === 'website') redirect(`/builder/projects/${id}?panel=${section}`);
 }

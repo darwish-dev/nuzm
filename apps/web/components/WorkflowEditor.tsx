@@ -325,7 +325,7 @@ export function WorkflowEditor({
         (w) => {
           const dto = w as unknown as WorkflowDto;
           if (dto.webhook) return setCreated(dto);
-          router.push(`/${locale}/automation/workflows/${dto.id}/edit`);
+          router.push(`/automation/workflows/${dto.id}/edit`);
         },
       );
       return;
@@ -372,7 +372,7 @@ export function WorkflowEditor({
           onDone={() => {
             const id = created.id;
             setCreated(null);
-            router.push(`/${locale}/automation/workflows/${id}/edit`);
+            router.push(`/automation/workflows/${id}/edit`);
           }}
         />
       </>

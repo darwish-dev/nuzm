@@ -226,14 +226,15 @@ export default async function Search({
       )
     : null;
   return (
-    <>
-      <a className="nzc-back" href={`/${locale}/domains`}>
+    <div className="ds-page" data-state={q ? 'results' : 'landing'}>
+      <a className="nzc-back" href={`/domains`}>
         <Icon name="chevron" size={16} />
         {t(locale, 'dom.tab.list')}
       </a>
-      <PageTitle>{t(locale, 'dom.search.title')}</PageTitle>
+      {/* the page's one heading; the hero's own headline is the visible title, so this one is read aloud only */}
+      <h1 className="nz-sr-only">{t(locale, 'dom.search.title')}</h1>
       {form}
       {results}
-    </>
+    </div>
   );
 }

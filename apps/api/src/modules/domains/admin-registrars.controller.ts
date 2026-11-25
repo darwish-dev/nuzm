@@ -38,6 +38,17 @@ export class AdminRegistrarsController {
     return this.admin.saveDnetSettings(who.userId, body ?? {});
   }
 
+  /** Dynadot connection settings: one account, created on the first save. Same write-only credential handling as DNet. */
+  @RequirePlatformPermission('admin:domains:read')
+  @StepUp()
+  @Put('dynadot')
+  @HttpCode(200)
+  saveDynadot(@Platform() who: PlatformContext, @Body() body: Record<string, unknown> | undefined) {
+    if (!who.permissions.has('admin:domains:manage'))
+      throw new ProblemException('forbidden', 'permission admin:domains:manage is required');
+    return this.admin.saveSettings('dynadot', who.userId, body ?? {});
+  }
+
   @RequirePlatformPermission('admin:domains:read')
   @StepUp()
   @Post(':id/verification')

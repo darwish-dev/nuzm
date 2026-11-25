@@ -42,16 +42,19 @@ export function AppStudioPanel({
   refresh,
   onOpenFile,
   onChanged,
+  initialView = 'instructions',
 }: {
   locale: Locale;
   projectId: string;
   can: AppCan;
+  /** the view to open on (the chat's assistant switcher opens Claude Code) */
+  initialView?: StudioView;
   refresh: number;
   onOpenFile: (path: string) => void;
   /** a change wrote project files (sync, install, pull): the other panels read again */
   onChanged: () => void;
 }) {
-  const [view, setView] = useState<StudioView>('instructions');
+  const [view, setView] = useState<StudioView>(initialView);
   return (
     <div className="wsp-pane" data-pane="studio">
       <h2 className="nz-sr">{t(locale, 'ais.title')}</h2>

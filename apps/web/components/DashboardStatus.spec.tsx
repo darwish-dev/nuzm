@@ -11,11 +11,11 @@ const row = (id: string, name: string, detail: string, tone: 'ok' | 'bad' = 'ok'
   name,
   detail,
   tone,
-  href: `/en/x/${id}`,
+  href: `/x/${id}`,
 });
 const props = {
   locale: 'en' as const,
-  base: '/en',
+  base: '',
   attention: [],
   servers: null,
   domains: null,
@@ -37,13 +37,13 @@ describe('dashboard status column', () => {
             id: 'servers',
             tone: 'bad',
             text: 'Servers that failed: 1',
-            href: '/en/compute/instances',
+            href: '/compute/instances',
           },
           {
             id: 'unread',
             tone: 'warn',
             text: 'Unread notifications: 3',
-            href: '/en/notifications',
+            href: '/notifications',
           },
         ]}
       />,
@@ -54,7 +54,7 @@ describe('dashboard status column', () => {
       within(card)
         .getByRole('link', { name: /Servers that failed: 1/ })
         .getAttribute('href'),
-    ).toBe('/en/compute/instances');
+    ).toBe('/compute/instances');
     expect(card.querySelector('.nzc-status-count')?.textContent).toBe('2');
   });
   it('shows servers, domains and websites with their rows, "view all", and "+N more" past four', () => {
@@ -77,18 +77,18 @@ describe('dashboard status column', () => {
       within(servers)
         .getByRole('link', { name: t('en', 'ds.more', { n: 2 }) })
         .getAttribute('href'),
-    ).toBe('/en/compute/instances');
+    ).toBe('/compute/instances');
     const domains = screen.getByRole('region', { name: t('en', 'ds.domains') });
     expect(
       within(domains)
         .getByRole('link', { name: /nuzm\.sa/ })
         .getAttribute('href'),
-    ).toBe('/en/x/d1');
+    ).toBe('/x/d1');
     expect(
       within(domains)
         .getByRole('link', { name: t('en', 'ds.viewAll') })
         .getAttribute('href'),
-    ).toBe('/en/domains');
+    ).toBe('/domains');
     expect(screen.getByText(t('en', 'ds.empty.sites'))).toBeTruthy();
   });
   it('marks a count as a lower bound when more exist than were loaded', () => {

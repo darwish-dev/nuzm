@@ -27,6 +27,7 @@ import {
   type AppProject,
 } from './WebAppPanels';
 import { AppStudioPanel } from './WebAppAiStudio';
+import type { StudioView } from '../lib/ai-studio';
 import { AppCodePanel } from './WebAppCode';
 import { BuilderLifecycleScreen } from './BuilderLifecycleScreen';
 import { AppDataPane, type DataView } from './WebAppData';
@@ -89,6 +90,8 @@ export function WebAppWorkspace({
 }) {
   const [project, setProject] = useState(initial);
   const [tab, select] = useShellTab<AppTab>(initialTab);
+  // the AI Studio view to open on (the chat's assistant switcher opens it on Claude Code)
+  const [studioView, setStudioView] = useState<StudioView>('instructions');
   const [runId, setRunId] = useState<string | null>(initialRun?.id ?? null);
   const [runActive, setRunActive] = useState(initialRun ? isRunActive(initialRun.state) : false);
   const [chatKey, setChatKey] = useState(0);
@@ -170,7 +173,7 @@ export function WebAppWorkspace({
       )}
       {runId && (
         <li>
-          <a href={`/${locale}/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
+          <a href={`/builder/runs/${runId}`}>{t(locale, 'bld.run.details')}</a>
         </li>
       )}
       {can.write && (
@@ -180,7 +183,7 @@ export function WebAppWorkspace({
             variant="menu"
             project={{ id: project.id, name: project.name }}
             mfaFactorId={mfaFactorId}
-            redirectTo={`/${locale}/builder/projects`}
+            redirectTo={`/builder/projects`}
           />
         </li>
       )}
@@ -192,7 +195,7 @@ export function WebAppWorkspace({
     <WorkspaceShell
       locale={locale}
       mode="webapp"
-      backHref={`/${locale}/builder/projects?type=webapp`}
+      backHref={`/builder/projects?type=webapp`}
       name={project.name}
       tabsLabel={t(locale, 'mws.web.tabs')}
       tabs={tabs.map((x) => ({ id: x, icon: TAB_ICON[x], label: t(locale, TAB_LABEL[x]) }))}
@@ -224,6 +227,14 @@ export function WebAppWorkspace({
           refreshKey={chatKey}
           activeRun={runActive}
           mode="webapp"
+          onClaude={
+            allowedTabs.includes('studio')
+              ? () => {
+                  setStudioView('claude');
+                  select('studio');
+                }
+              : undefined
+          }
           onRun={(run) => {
             setRunId(run.id);
             setRunActive(true);
@@ -276,6 +287,8 @@ export function WebAppWorkspace({
         </div>
       ) : tab === 'studio' ? (
         <AppStudioPanel
+          key={studioView}
+          initialView={studioView}
           locale={locale}
           projectId={project.id}
           can={can}

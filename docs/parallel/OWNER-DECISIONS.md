@@ -18,7 +18,7 @@ Detailed approval rows with references live in `docs/ai-intelligence/OWNER-APPRO
 | BUD | Benchmark spend budget | small fixed cap | none | budget enforcement | the cap | none | the number | S-AG5 | yes |
 | SEC-AG | Agent security review (named reviewer) | schedule after S-AG4 | — | review | reviewer time | high | report | S-AG5 | yes |
 | D-21 / HG-10-02 | Isolation technology and review | gVisor or Firecracker on dedicated nodes (see Session 04 recommendation when delivered) | Kata | runtime | nodes | highest | review report | S-AG6 | yes |
-| ADR-067 | Accept the Execution Gateway design | accept after Session 04 hardening | amend | gateway | none | high | acceptance | S-AG6 | yes |
+| ADR-069 | Accept the Execution Gateway design | accept after Session 04 hardening | amend | gateway | none | high | acceptance | S-AG6 | yes |
 | LEGAL-EXEC | Terms/liability for customer-code execution | legal review | disallow | none | legal | high | sign-off | S-AG6 | yes |
 | D-42 | Production rollout | after all above | — | flags | — | high | sign-off | all | yes |
 | HG-05/06 | Real hosting target for deployment verification | provide a sandbox target | stay simulated | deploy verification | hosting cost | medium | target and credentials by the owner | deployment | yes |

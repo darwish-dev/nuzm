@@ -145,7 +145,7 @@ export function ProjectsPanel(p: {
           {
             key: 'n',
             header: t(p.locale, 'field.name'),
-            render: (r) => <a href={`/${p.locale}/projects/${r.id}/environments`}>{r.name}</a>,
+            render: (r) => <a href={`/projects/${r.id}/environments`}>{r.name}</a>,
           },
           {
             key: 'w',

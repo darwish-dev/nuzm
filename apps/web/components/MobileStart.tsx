@@ -94,7 +94,7 @@ export function MobileStart({ locale, canRun }: { locale: Locale; canRun: boolea
           },
           idempotencyKey: keys.current.run,
         }),
-      () => router.push(`/${locale}/builder/projects/${c.projectId}`),
+      () => router.push(`/builder/projects/${c.projectId}`),
       (p) => {
         // a definitive refusal frees the key; an uncertain network failure (599) keeps it so a retry cannot start a second run
         if (p.status !== 599) keys.current.run = newKey();

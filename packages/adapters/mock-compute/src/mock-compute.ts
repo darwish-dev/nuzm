@@ -78,6 +78,8 @@ export interface MockInstance {
   visibleAt: number;
   deleted: boolean;
   snapshots: number;
+  /** The first-boot configuration the create carried (test surface: lets a spec assert what the bootstrap received). */
+  userData?: string;
 }
 
 export interface MockComputeOptions {
@@ -322,6 +324,14 @@ export class MockComputeAdapter implements ComputeAdapter {
     return [
       { imageRef: 'mock-ubuntu', providerRegionId: region, name: 'Mock Ubuntu', osFamily: 'linux' },
       { imageRef: 'mock-debian', providerRegionId: region, name: 'Mock Debian', osFamily: 'linux' },
+      // a fixture stand-in for a provider's Ubuntu 24.04 public image that states cloud-init support (what a Hestia VPS needs)
+      {
+        imageRef: 'mock-ubuntu-2404',
+        providerRegionId: region,
+        name: 'Ubuntu 24.04 64 bit',
+        osFamily: 'linux',
+        cloudInit: true,
+      },
     ];
   }
   async catalog(ctx: AccountContext): Promise<CatalogSnapshot> {
@@ -411,6 +421,7 @@ export class MockComputeAdapter implements ComputeAdapter {
       visibleAt: this.clock.now() + this.lagMs,
       deleted: false,
       snapshots: 0,
+      ...(req.userData !== undefined ? { userData: req.userData } : {}),
     });
     if (kind === 'timeout_after_side_effect')
       return this.uncertain('provision', 'after side effect');

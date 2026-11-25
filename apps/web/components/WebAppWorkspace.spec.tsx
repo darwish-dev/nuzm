@@ -185,7 +185,7 @@ describe('web-app mode of the builder workspace (same shell as the website and m
     for (const x of APP_TABS) expect(bar.getByRole('button', { name: label(x) })).toBeTruthy();
     expect(bar.getByRole('button', { name: t('en', 'mws.web.deploy') })).toBeTruthy();
     expect(bar.getByRole('link', { name: t('en', 'bld.ws.back') }).getAttribute('href')).toBe(
-      '/en/builder/projects?type=webapp',
+      '/builder/projects?type=webapp',
     );
     expect(bar.getByRole('link', { name: t('en', 'bld.ws.exit') })).toBeTruthy();
     expect(container.querySelector('.bws')!.getAttribute('data-mode')).toBe('webapp');

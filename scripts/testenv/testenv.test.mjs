@@ -35,6 +35,12 @@ beforeEach(() => {
     CI: undefined,
     NUZM_TEST_DB_POLICY: undefined,
     NUZM_LEASE_ID: undefined,
+    // the suite must behave the same inside a leased shell (the regression runs under one): drop every inherited database pointer
+    NUZM_LEASE_PORT: undefined,
+    NUZM_TEST_ADMIN_URL: undefined,
+    DATABASE_URL: undefined,
+    DATABASE_ADMIN_URL: undefined,
+    PGPASSWORD: undefined,
   };
 });
 afterEach(async () => {

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/preview/1",
+  "title": "Phase 3 evidence details: preview",
+  "description": "Track F: real preview (isolated origin, TLS, health)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "previewHost",
+    "isolatedOrigin",
+    "healthStatus",
+    "tls",
+    "servedContentSha256",
+    "artifactSha256"
+  ],
+  "properties": {
+    "track": {
+      "const": "F"
+    },
+    "previewHost": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "isolatedOrigin": {
+      "const": true
+    },
+    "healthStatus": {
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 299
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issuer",
+        "validNotAfter",
+        "verified"
+      ],
+      "properties": {
+        "issuer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "validNotAfter": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+        },
+        "verified": {
+          "const": true
+        }
+      }
+    },
+    "servedContentSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifactSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

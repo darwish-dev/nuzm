@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 /**
- * Session 07 (QA) - static route-security inventory of the whole API (no database, no server): every HTTP handler of every controller under `apps/api/src`.
+ * Session 07 (QA), now a UNIT test (P3-S08: it runs in `pnpm test` and therefore in `pnpm verify`; it never needed a database) - static route-security inventory of the whole API (no database, no server): every HTTP handler of every controller under `apps/api/src`.
  * It is a REGRESSION GATE for the parallel work: a route that another session adds (execution, benchmarks, builder tools, deploy, providers) is scanned automatically and the
  * suite fails until a reviewer has looked at it. Baseline taken 2026-11-24 on `f81872d5` (502 routes in 131 files).
  *

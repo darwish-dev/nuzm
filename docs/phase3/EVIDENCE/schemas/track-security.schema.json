@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/security/1",
+  "title": "Phase 3 evidence details: security",
+  "description": "Security qualification on real components (leak scan, ledger/wallet reconciliation, injection, isolation negatives)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "kind",
+    "surfacesScanned",
+    "findings"
+  ],
+  "properties": {
+    "track": {
+      "const": "Q"
+    },
+    "kind": {
+      "enum": [
+        "credential-leak-scan",
+        "ledger-wallet-reconciliation",
+        "prompt-injection-real-model",
+        "runtime-escape-independent",
+        "egress-ssrf-real-network",
+        "audit-chain-after-real-spend",
+        "tenant-isolation-new-routes",
+        "o9-new-content-routes"
+      ]
+    },
+    "surfacesScanned": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "logs",
+          "database",
+          "artifacts",
+          "responses",
+          "audit-rows",
+          "evidence-files",
+          "screenshots",
+          "process-output"
+        ]
+      }
+    },
+    "findings": {
+      "type": "integer",
+      "maximum": 0,
+      "minimum": 0
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "usageMinor": {
+          "type": "string",
+          "pattern": "^[0-9]{1,18}$"
+        },
+        "ledgerMinor": {
+          "type": "string",
+          "pattern": "^[0-9]{1,18}$"
+        },
+        "walletDeltaMinor": {
+          "type": "string",
+          "pattern": "^[0-9]{1,18}$"
+        },
+        "differenceMinor": {
+          "type": "string",
+          "pattern": "^0$"
+        }
+      },
+      "required": [
+        "usageMinor",
+        "ledgerMinor",
+        "walletDeltaMinor",
+        "differenceMinor"
+      ]
+    }
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/runtime/1",
+  "title": "Phase 3 evidence details: runtime",
+  "description": "Track D: isolating runtime qualification (escape suite on a real node, signed attestation)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "node",
+    "escapeSuite",
+    "attestation",
+    "rebuiltNodeBetweenRuns"
+  ],
+  "properties": {
+    "track": {
+      "const": "D"
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kernel",
+        "sandbox",
+        "sandboxVersion",
+        "imageSha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "kernel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "sandbox": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "sandboxVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "imageSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "escapeSuite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "runs",
+        "isolatingAttempts",
+        "controlPlaneAttempts",
+        "escaped",
+        "notVerified",
+        "canaryRead"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "runs": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "isolatingAttempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "controlPlaneAttempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "escaped": {
+          "const": 0
+        },
+        "notVerified": {
+          "const": 0
+        },
+        "canaryRead": {
+          "const": false
+        }
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "reviewer",
+        "expiresAt"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "expiresAt": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+        }
+      }
+    },
+    "rebuiltNodeBetweenRuns": {
+      "const": true
+    }
+  }
+}

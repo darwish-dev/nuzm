@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nuzm.p3-evidence/track/fullstack/1",
+  "title": "Phase 3 evidence details: fullstack",
+  "description": "T2: real model + real runtime produce a running full-stack app with auth, API and PostgreSQL",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track",
+    "model",
+    "briefId",
+    "usage",
+    "build",
+    "migrations",
+    "tests",
+    "dbIsolationProof",
+    "platformSecretsInAppEnv",
+    "artifactSha256"
+  ],
+  "properties": {
+    "track": {
+      "const": "S"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "briefId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "tokensIn",
+        "tokensOut"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "build": {
+      "enum": [
+        "GREEN"
+      ]
+    },
+    "migrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applied",
+        "databaseKind"
+      ],
+      "properties": {
+        "applied": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "databaseKind": {
+          "enum": [
+            "ephemeral-postgres",
+            "managed-postgres"
+          ]
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signupLoginLogout",
+        "authenticatedCrud",
+        "unauthenticatedRejected",
+        "crossUserIsolation"
+      ],
+      "properties": {
+        "signupLoginLogout": {
+          "enum": [
+            "PASS"
+          ]
+        },
+        "authenticatedCrud": {
+          "enum": [
+            "PASS"
+          ]
+        },
+        "unauthenticatedRejected": {
+          "enum": [
+            "PASS"
+          ]
+        },
+        "crossUserIsolation": {
+          "enum": [
+            "PASS"
+          ]
+        }
+      }
+    },
+    "dbIsolationProof": {
+      "enum": [
+        "PASS"
+      ]
+    },
+    "platformSecretsInAppEnv": {
+      "const": false
+    },
+    "artifactSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

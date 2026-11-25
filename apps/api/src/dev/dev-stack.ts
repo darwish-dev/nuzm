@@ -66,6 +66,8 @@ async function main() {
   });
   // The builder preview needs an address the browser can resolve and an edge that maps it to the preview path: `*.localhost` resolves to this machine in every
   // modern browser, and the rewrite below is the edge. (Production keeps its own domain, https and a real edge.)
+  // R5 (P3-S02): the dev stack runs the builder's git-store and live preview on this machine; the host-exec guard needs the explicit local-development opt-in (dev only: this file refuses production)
+  process.env.NUZM_LOCAL_DEV_EXEC ??= '1';
   process.env.BUILDER_PREVIEW_DOMAIN ??= 'preview.localhost';
   process.env.BUILDER_PREVIEW_SCHEME ??= 'http';
   process.env.BUILDER_PREVIEW_PORT ??= String(process.env.PORT ?? 4000);

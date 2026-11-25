@@ -125,7 +125,11 @@ test('customer console: onboarding, projects, security and team screens', async 
   await audit(page, info, 'resources');
   await go('/audit-logs'); // the old route lands on the organization page's audit section
   await expect(page).toHaveURL(/\/settings\/organization#audit$/);
-  await expect(page.locator('#audit').getByText('tenancy workspace created')).toBeVisible();
+  await expect(
+    page
+      .getByRole('region', { name: T(info, 'audit.title') })
+      .getByText('tenancy workspace created'),
+  ).toBeVisible();
   await audit(page, info, 'audit-logs');
   await page.getByLabel(T(info, 'audit.filter.action')).fill('identity.*');
   await page.getByRole('button', { name: T(info, 'action.search') }).click();

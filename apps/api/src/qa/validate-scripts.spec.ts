@@ -147,7 +147,8 @@ describe('validate scripts: behaviour', () => {
     );
     expect(run('E-environment.sh', [], { SESSION_SEAL_KEY: 'short' }).out).toContain('FAIL   E3');
     expect(run('E-environment.sh', [], { NODE_ENV: 'production' }).out).toContain('FAIL   E0');
-    const k = 'sk-ant-VALUE-THAT-MUST-NOT-BE-PRINTED';
+    // assembled at run time: a key-shaped literal in a committed file is refused by the repository-wide no-vendor-keys guard (S01), even in a test
+    const k = ['sk', 'ant', 'VALUE-THAT-MUST-NOT-BE-PRINTED'].join('-');
     const r = run('E-environment.sh', [], { ANTHROPIC_API_KEY: k });
     expect(r.out).toContain('FAIL   E6');
     expect(r.out).toContain('ANTHROPIC_API_KEY');

@@ -14,11 +14,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
       - run: pnpm audit --prod --audit-level=high
-  # The combined, everything-included check (integration + browser E2E) needs a Postgres cluster and Chrome: `pnpm verify:full`. Not yet run anywhere (D-01).
+  # Integration and browser checks use an explicit, disposable runner-local database.
   full:
     needs: verify
     # pinned: `ubuntu-latest` moved to a release without the postgresql-16 package
     runs-on: ubuntu-24.04
+    env:
+      CI: 'true'
+      NUZM_TEST_DB_POLICY: ci
+      NUZM_PGBIN: /usr/lib/postgresql/16/bin
+      NUZM_PGPORT: '55432'
+      E2E_PG_PORT: '55432'
+      NUZM_TEST_ADMIN_URL: postgres://nuzm_admin@127.0.0.1:55432/postgres
+      DATABASE_ADMIN_URL: postgres://nuzm_admin@127.0.0.1:55432/nuzm_ci
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -26,5 +34,9 @@ jobs:
         with: { node-version-file: .nvmrc, cache: pnpm }
       - run: sudo apt-get update && sudo apt-get install -y postgresql-16 redis-server
       - run: pnpm install --frozen-lockfile
-      - run: NUZM_PGBIN=/usr/lib/postgresql/16/bin pnpm services:start
-      - run: NUZM_PGBIN=/usr/lib/postgresql/16/bin pnpm verify:full
+      - run: pnpm services:start
+      - run: /usr/lib/postgresql/16/bin/createdb -h 127.0.0.1 -p "$NUZM_PGPORT" -U nuzm_admin nuzm_ci
+      - run: pnpm --filter @nuzm/e2e exec playwright install --with-deps chromium
+      - run: pnpm verify:full:isolated
+      - if: always()
+        run: pnpm services:stop

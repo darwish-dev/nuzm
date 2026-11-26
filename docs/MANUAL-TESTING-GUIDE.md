@@ -104,6 +104,8 @@ The start log then says `LIVE model calls are ALLOWED for: claude (billed)`. Wit
 
 **The two unreadable chat messages** are the first messages of two "salon app" sessions of organization **nuzm**, written on 2026-11-20 at 01:21 and 01:42. They are sealed with a field-encryption key (`dev1`) that no vault on this machine holds: all 35 vault folders and the backed-up stray key were tried. The other 43 messages open, including eight written later the same day. The most likely cause is that the process that wrote them used a vault whose field key was later replaced or deleted (the overwrite defect fixed on 2026-11-25 is one way that happened), but this cannot be proven now. They are kept exactly as they are (fingerprints in `.dev-data/backups/nuzm_recovered-20261125/unopenable-messages.*.md5`); they would open only if that old key turns up.
 
+**AI Builder fixes of 2026-11-26** ([report](reports/AI-BUILDER-CUSTOMER-FIXES-2026-11-26.md)): a project description may be 30,000 characters and a chat message 20,000, never cut; with live calls off a run now fails with a clear message ("No AI model provider is enabled for live generation…", code `ai_provider_not_enabled`) and the canvas says the site was not generated instead of showing the starter; a description that matches a published library template starts from that template.
+
 ## 7. Blockers and limits
 | Item | State |
 |---|---|

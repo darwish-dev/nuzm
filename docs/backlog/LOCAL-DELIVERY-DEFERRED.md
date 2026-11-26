@@ -48,6 +48,9 @@ Sources: `claude/m04-compliance-46a3a9` `52cfc31c5809` (also in `integration/m03
 | DL-043 | A failed copy-from-template leaves an empty project | OPEN | The project row is created before the copy; a failure should remove it or mark it failed. |
 | DL-044 | Plan and run responses do not return the run id | OPEN | Clients must poll the plan to find the run. |
 | DL-045 | A failed run's error shows the raw database message to the customer | OPEN | e.g. a constraint name in `ai.runs.error.message`; map to a registry code. |
+| DL-046 | The web-app activity timeline lists a failed run's reason in the server's English words | OPEN, minor | The run card shows the localized reason (2026-11-26); the timeline event still uses the raw message. |
+| DL-047 | Tune the library's automatic-selection coverage (0.4) with real templates | OPEN | Keyword/metadata matching only (semantic search BLOCKED, D-47). First value chosen after a café starter was matched to an agency brief. |
+| DL-048 | Confirm: a website request matched to a library template becomes a code (web-app) project | product decision | The section-based website builder cannot use template source; see `docs/reports/AI-BUILDER-CUSTOMER-FIXES-2026-11-26.md` §2.3. |
 
 ## Known data and test limits (not features)
 - Two chat messages created 2026-11-20 cannot be opened with any field key present on this machine. They are preserved unchanged.

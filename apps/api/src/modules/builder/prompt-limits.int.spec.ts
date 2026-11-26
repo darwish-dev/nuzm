@@ -6,7 +6,7 @@ import { RunService } from '../ai';
 import { setupAiEnv, type AiEnv, type Row } from '../ai/testing/ai-harness';
 
 /**
- * Customer manual testing (2026-11-26): a 2,900-character website description was cut to 600 characters by the start screen and the API, and the preview showed the
+ * Customer manual testing (2026-11-26): a website description longer than 600 characters was cut to 600 characters by the start screen and the API, and the preview showed the
  * starter site titled with the first words of the description. A description of up to 30,000 characters is now accepted, reaches the model WHOLE (as data), one
  * character more is refused (never cut), and the generated site is named after the business, not after the project name taken from the description.
  * Mock model: proves the plumbing, not generation quality.

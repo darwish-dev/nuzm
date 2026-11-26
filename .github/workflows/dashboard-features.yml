@@ -1,0 +1,31 @@
+name: configure-dashboard-features
+on:
+  workflow_dispatch:
+    inputs:
+      organization_slug:
+        description: Organization whose dashboard features should be enabled
+        required: true
+        type: string
+permissions: { contents: read }
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable requested dashboard modules for one organization
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          ORGANIZATION_SLUG: ${{ inputs.organization_slug }}
+        run: |
+          [[ "$ORGANIZATION_SLUG" =~ ^[a-z0-9][a-z0-9-]{1,62}$ ]] || exit 2
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "bash -s -- $ORGANIZATION_SLUG" \
+            < infra/deploy/enable-dashboard-features.sh

@@ -73,7 +73,7 @@ jobs:
           rsync -az --delete -e "$SSH" \
             --link-dest=/srv/nuzm/current \
             --exclude=.git --exclude=node_modules --exclude='.next/cache' --exclude=.claude --exclude=.turbo \
-            --exclude=apps/mobile --exclude=apps/desktop --exclude=docs --exclude=design --exclude=e2e \
+            --exclude=/apps/mobile --exclude=/apps/desktop --exclude=/docs --exclude=/design --exclude=/e2e \
             ./ "$REMOTE:/srv/nuzm/releases/$SHA/"
           echo "SHA=$SHA" >> "$GITHUB_ENV"
       - name: Switch release on the server

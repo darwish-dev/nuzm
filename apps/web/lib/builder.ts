@@ -408,6 +408,10 @@ const PROBLEM_KEYS: Record<string, MessageKey> = {
   network_error: 'bld.err.network',
 };
 
+/** The localized explanation of a failure code, when there is one (a run's error code); null for codes that only have the generic failure note. */
+export const failureReasonKey = (code: string | null | undefined): MessageKey | null =>
+  code && PROBLEM_KEYS[code] ? PROBLEM_KEYS[code]! : null;
+
 /** Localized message for a problem: by code first, then by status. Never the raw server text. */
 export function problemKey(p: BuilderProblem): MessageKey {
   if (p.code && PROBLEM_KEYS[p.code]) return PROBLEM_KEYS[p.code]!;

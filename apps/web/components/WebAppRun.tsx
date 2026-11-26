@@ -11,7 +11,7 @@ import {
   runBudgetMeters,
   type NodeView,
 } from '../lib/appworkspace';
-import { credits, isRunActive, num, type Run } from '../lib/builder';
+import { credits, isRunActive, num, type Run, failureReasonKey } from '../lib/builder';
 import { bapi, useBuilderCall, useRunStream } from '../lib/builder-client';
 import { runFailure } from '../lib/mobile';
 import { useRunSafetyPoll } from '../lib/run-poll';
@@ -238,7 +238,12 @@ export function WebAppRunCard({
                   ))
                 ) : (
                   <li>
-                    <bdi dir="auto">{failure.message}</bdi>
+                    {/* a known code is explained in the person's language; otherwise the server's own words */}
+                    <bdi dir="auto">
+                      {failureReasonKey(failure.code)
+                        ? t(locale, failureReasonKey(failure.code)!)
+                        : failure.message}
+                    </bdi>
                   </li>
                 )}
               </ul>

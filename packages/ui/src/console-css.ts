@@ -1999,8 +1999,8 @@ button.bws-publish { border: 0; font: inherit; font-size: 13px; font-weight: 650
 .wsp-act-count { padding: 0 7px; border-radius: 999px; background: var(--nzc-card-hi); font-size: 11px; font-variant-numeric: tabular-nums; }
 .wsp-act-count:empty { display: none; }
 .wsp-ev { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; position: relative; max-block-size: 340px; overflow: auto; }
-.wsp-ev li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; padding: 6px 0; font-size: 12.5px; position: relative; }
-.wsp-ev li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: 10px; inset-block: 28px -6px; inline-size: 1px; background: var(--nzc-border); }
+.wsp-ev > li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; padding: 6px 0; font-size: 12.5px; position: relative; }
+.wsp-ev > li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: 10px; inset-block: 28px -6px; inline-size: 1px; background: var(--nzc-border); }
 .wsp-ev-ico { display: grid; place-items: center; inline-size: 22px; block-size: 22px; border-radius: 50%; background: var(--nzc-card-hi); color: var(--nzc-muted); }
 .wsp-ev li[data-tone='ok'] .wsp-ev-ico { background: var(--nzc-success-soft); color: var(--nzc-success); }
 .wsp-ev li[data-tone='warn'] .wsp-ev-ico, .wsp-ev li[data-tone='wait'] .wsp-ev-ico { background: var(--nzc-warn-soft); color: var(--nzc-warn); }

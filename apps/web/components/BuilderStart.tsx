@@ -38,6 +38,8 @@ export const startTypes = (appsEnabled: boolean, mobileEnabled = false) =>
   }));
 
 const MAX_PROMPT = PROJECT_PROMPT_MAX;
+/** the share of a description's term groups a Knowledge Library template must match before a project starts from it automatically */
+export const LIBRARY_MIN_COVERAGE = 0.4;
 /** A project name (1..100 characters) from the first words of the description: the person never has to name anything to start. */
 export function nameFromPrompt(prompt: string): string {
   const words = prompt
@@ -314,7 +316,17 @@ export function BuilderStart({
     if (!c.libraryChecked) {
       const rec = await bapi.post<{ selected?: { resourceId: string; versionId: string } | null }>(
         '/v1/builder/template-recommendations',
-        { body: { text, platform: 'WEB', mode: 'ADAPTIVE', limit: 3 } },
+        // a template must match the words of the request, not only its structure: at least 40% of the requirement's term groups (the server drops a weaker pick
+        // and records why); below that the project is generated from scratch in the type the person chose
+        {
+          body: {
+            text,
+            platform: 'WEB',
+            mode: 'ADAPTIVE',
+            limit: 3,
+            minFunctionalCoverage: LIBRARY_MIN_COVERAGE,
+          },
+        },
       );
       c.libraryChecked = true;
       // the library is off for this organization (404), or it found nothing suitable: generate from scratch as before

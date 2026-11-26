@@ -16648,6 +16648,8 @@ export interface components {
         };
         BuilderTemplateRecommendationRequest: {
             text?: string;
+            /** @description Optional. The share of the requirement term groups the selected template must match (the functional dimension). A weaker selection is dropped: the decision becomes GENERATE_FROM_SCRATCH with the note below_functional_coverage. The console sets 0.4 when a project starts from a description. */
+            minFunctionalCoverage?: number;
             /** @enum {string} */
             platform?: "WEB" | "MOBILE" | "BACKEND" | "FULL_STACK" | "CROSS_PLATFORM";
             frameworks?: string[];

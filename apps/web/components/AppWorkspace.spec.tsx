@@ -743,7 +743,11 @@ describe('start a web app (UI-M10-01)', () => {
       '/v1/ai/sessions',
       '/v1/ai/runs',
     ]);
-    expect(calls[0]!.body).toMatchObject({ text: 'A CRM for my sales team', platform: 'WEB' });
+    expect(calls[0]!.body).toMatchObject({
+      text: 'A CRM for my sales team',
+      platform: 'WEB',
+      minFunctionalCoverage: 0.4, // a template must match the words, not only the structure
+    });
     expect(calls[1]!.body).toMatchObject({ type: 'webapp', locale: ['ar', 'en'] });
     expect(calls[1]!.body).not.toHaveProperty('templateId');
     expect(calls[3]!.body).toMatchObject({

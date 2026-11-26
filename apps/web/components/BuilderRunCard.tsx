@@ -181,11 +181,8 @@ export function RunCard({
       </ol>
       {run.state === 'failed' && (
         <Banner tone="danger">
-          {/* the reason in the person's language first (by error code), then the code for support */}
-          {errCode && errCode in FAILURE_REASON_CODES
-            ? `${t(locale, problemKey({ status: 0, code: errCode, issues: [] }))} `
-            : ''}
-          {t(locale, 'bld.run.failedNote', { code: errCode ?? '—' })}
+          {/* one text: the reason in the person's language first (by error code), then the code for support */}
+          {`${errCode && errCode in FAILURE_REASON_CODES ? `${t(locale, problemKey({ status: 0, code: errCode, issues: [] }))} ` : ''}${t(locale, 'bld.run.failedNote', { code: errCode ?? '—' })}`}
         </Banner>
       )}
       {run.state === 'budget_exceeded' && (

@@ -253,10 +253,37 @@ export class CustomerTemplateService {
   // ---- recommendation --------------------------------------------------------------------------------------------------------------
   /** The engine of S-K5, answered for a customer: only what the customer may see (no exclusion list, no document text, no paths, nothing about unpublished resources). */
   async recommend(orgId: string, body: Row, actor?: string) {
+    // `minFunctionalCoverage` (0..1, optional): the share of the requirement's term groups the selected template must match. The automatic first-prompt path sets it so
+    // a template is never chosen for its structure alone (a marketing-agency brief must not become a café starter because the café is the only eligible template).
+    const minCoverage = body.minFunctionalCoverage;
+    if (
+      minCoverage !== undefined &&
+      (typeof minCoverage !== 'number' || !(minCoverage >= 0 && minCoverage <= 1))
+    )
+      throw new ProblemException(
+        'validation_failed',
+        'minFunctionalCoverage must be a number from 0 to 1',
+      );
     const r = (await this.retrieval.recommend({
       ...body,
+      minFunctionalCoverage: undefined,
       requiresAiProcessing: undefined,
     })) as unknown as Row;
+    if (typeof minCoverage === 'number' && r.selected) {
+      const fn = ((r.selected as Row).dimensions as Row[] | undefined)?.find(
+        (d) => d.dimension === 'functional',
+      );
+      const coverage = typeof fn?.score === 'number' ? fn.score : 0;
+      if (coverage < minCoverage) {
+        r.selected = null;
+        r.decision = {
+          ...(r.decision as Row),
+          strategy: 'GENERATE_FROM_SCRATCH',
+          selectedResourceId: null,
+          notes: [...(((r.decision as Row).notes as string[]) ?? []), 'below_functional_coverage'],
+        };
+      }
+    }
     const strip = (c: Row) => ({
       resourceId: c.resourceId,
       versionId: c.versionId,

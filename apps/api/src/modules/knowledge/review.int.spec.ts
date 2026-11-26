@@ -2206,6 +2206,40 @@ describe('customer templates (S-K7)', () => {
     expect(Array.isArray(rec!.reasons)).toBe(true);
     expect((rec!.considered as Row[]).length).toBeGreaterThan(0);
     expect(JSON.stringify(rec)).not.toContain('لوحة');
+    // the automatic first-prompt path asks for a real text match: a pick carried by structure alone is dropped, with the reason recorded
+    const strict = ok<Row>(
+      await call('alice', 'POST', '/v1/builder/template-recommendations', {
+        text: 'لوحة تحكم',
+        platform: 'WEB',
+        minFunctionalCoverage: 1,
+      }),
+    );
+    const fn = (strict.ranked as Row[])[0]?.dimensions as Row[] | undefined;
+    const coverage = (fn?.find((d) => d.dimension === 'functional')?.score as number) ?? 0;
+    if (coverage < 1) {
+      expect(strict.selected).toBeNull();
+      expect(strict.decision).toMatchObject({
+        strategy: 'GENERATE_FROM_SCRATCH',
+        selectedResourceId: null,
+      });
+      expect((strict.decision as Row).notes).toContain('below_functional_coverage');
+    }
+    const none = ok<Row>(
+      await call('alice', 'POST', '/v1/builder/template-recommendations', {
+        text: 'unrelated words zqxw vbnm',
+        platform: 'WEB',
+        minFunctionalCoverage: 0.4,
+      }),
+    );
+    expect(none.selected).toBeNull();
+    expect(
+      (
+        await call('alice', 'POST', '/v1/builder/template-recommendations', {
+          text: 'x',
+          minFunctionalCoverage: 2,
+        })
+      ).statusCode,
+    ).toBe(422);
   });
 
   it("a user's choice: an eligible one is honoured; one the customer may not see is 'not found'; an unusable but visible one is explained; nothing is substituted", async () => {

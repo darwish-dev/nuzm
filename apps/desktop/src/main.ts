@@ -35,6 +35,11 @@ import { loadSettings, saveSettings, type Settings } from './settings';
 import { s } from './strings';
 
 const PARTITION = 'persist:nuzm';
+const APP_NAME = 'Nuzm AI';
+const appIcon = join(__dirname, '..', 'resources', 'icon.png');
+
+// the name in the macOS menu bar, the Dock and the About box, also when run unpackaged (`pnpm start`), where Electron would show its own name
+app.setName(APP_NAME);
 const offlinePage = join(__dirname, '..', 'static', 'offline.html');
 
 let config: ShellConfig;
@@ -144,9 +149,9 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: s(locale, 'appName'),
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#0b0b0c',
     show: false,
-    icon: join(__dirname, '..', 'resources', 'icon.png'),
+    icon: appIcon,
     webPreferences: {
       partition: PARTITION,
       preload: join(__dirname, 'preload.js'),
@@ -214,7 +219,16 @@ function start() {
     void e.sender.loadURL(target);
   });
 
+  // a packaged app carries its icon in the bundle; an unpackaged run would show Electron's, so set it on the Dock
+  if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(appIcon);
   hardenSession();
+  // Persist sign-in/sign-out changes promptly without extending the API's cookie or session expiry.
+  const jar = session.fromPartition(PARTITION).cookies;
+  jar.on('changed', (_event, cookie) => {
+    if (cookie.name === 'nuzm_session' || cookie.name === 'nuzm_csrf')
+      void jar.flushStore().catch(() => undefined);
+  });
+  app.on('before-quit', () => void jar.flushStore().catch(() => undefined));
   refreshMenu();
   createWindow();
 }

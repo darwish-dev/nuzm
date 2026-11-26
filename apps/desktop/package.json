@@ -1,9 +1,9 @@
 {
   "name": "@nuzm/desktop",
-  "productName": "Nuzm",
+  "productName": "Nuzm AI",
   "private": true,
   "version": "0.1.0",
-  "description": "Nuzm desktop app for Windows and macOS (customer console)",
+  "description": "Nuzm AI desktop app for Windows and macOS (customer console)",
   "author": "Nuzm",
   "license": "UNLICENSED",
   "type": "commonjs",

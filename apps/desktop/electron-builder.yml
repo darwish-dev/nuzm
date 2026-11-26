@@ -1,7 +1,7 @@
 # Packaging for Windows and macOS (docs: apps/desktop/README.md).
 # Builds are UNSIGNED: code signing / notarization needs production certificates (CLAUDE.md §5, human gate).
-appId: com.nuzm.desktop
-productName: Nuzm
+appId: com.nuzm.ai.desktop
+productName: Nuzm AI
 copyright: Copyright © Nuzm
 directories:
   output: release
@@ -28,7 +28,7 @@ mac:
   hardenedRuntime: true
   identity: null
 dmg:
-  title: Nuzm
+  title: Nuzm AI
 win:
   target:
     - target: nsis
@@ -40,6 +40,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Nuzm
+  shortcutName: Nuzm AI
   installerLanguages: [ar_SA, en_US]
   multiLanguageInstaller: true

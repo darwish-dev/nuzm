@@ -3,14 +3,14 @@
 (function () {
   var text = {
     ar: {
-      title: 'تعذّر الوصول إلى نُظم',
+      title: 'تعذّر الوصول إلى نُظم AI',
       body: 'تحقّق من اتصالك بالإنترنت ثم أعد المحاولة. لم يُفقد شيء من عملك على الخادم.',
       retry: 'إعادة المحاولة',
       other: 'English',
       trying: 'جارٍ إعادة المحاولة…',
     },
     en: {
-      title: 'Can’t reach Nuzm',
+      title: 'Can’t reach Nuzm AI',
       body: 'Check your internet connection and try again. Nothing you saved on the server is lost.',
       retry: 'Try again',
       other: 'العربية',

@@ -17,8 +17,16 @@ import { BrandMark, BrandWordmark } from '../../../components/BrandLogo';
 import { VerifyEmailPill } from '../../../components/AuthForms';
 import { ActiveOrgCookie, OrgSwitcher } from '../../../components/ConsoleChrome';
 import { ConsoleFrame, ProfileMenu, SupportToggle } from '../../../components/ConsoleShell';
-import { SupportPanel, type SupportTopic } from '../../../components/SupportPanel';
+import {
+  SupportPanel,
+  type SupportDocs,
+  type SupportTopic,
+} from '../../../components/SupportPanel';
 import { StudioTransition } from '../../../components/StudioTransition';
+import { GUIDES } from '../../../lib/docs-content';
+import { REF } from '../../../lib/api-docs';
+import { pick } from '../../../lib/site-content';
+import { guideIcon } from '../../../lib/docs-icons';
 import { FloatingCart } from '../../../components/FloatingCart';
 import { NotificationsMenu } from '../../../components/NotificationsMenu';
 import {
@@ -146,6 +154,22 @@ export default async function ConsoleLayout({
       href: c.home === '/' ? '/console' : c.home,
       icon: c.icon,
     }));
+  // the support panel's Documentation tab: the website documentation's guides and API areas, opening their copy inside the console
+  const supportDocs: SupportDocs = {
+    home: '/documentation',
+    guides: GUIDES.map((g) => ({
+      href: `/documentation/guides/${g.slug}`,
+      title: pick(g.title, locale),
+      summary: pick(g.summary, locale),
+      icon: guideIcon(g.slug),
+    })),
+    reference: REF.tags.map((x) => ({
+      href: `/documentation/reference/${x.name}`,
+      title: x.title,
+    })),
+    referenceHome: '/documentation/reference',
+    endpoints: REF.counts.operations,
+  };
   const imp = s.me.impersonation;
   const brand = (
     <a className="nzc-brandlink" href="/console" aria-label="Nuzm">
@@ -163,7 +187,7 @@ export default async function ConsoleLayout({
         brand={brand}
         support={{
           label: t(locale, 'sup.title'),
-          content: <SupportPanel locale={locale} topics={topics} />,
+          content: <SupportPanel locale={locale} topics={topics} docs={supportDocs} />,
         }}
         rail={<PrimaryRail label={t(locale, 'nc.nav.rail')} items={railItems} />}
         tabs={<SectionTabs label={t(locale, 'nc.nav.side')} groups={groups} />}

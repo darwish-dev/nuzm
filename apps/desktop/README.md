@@ -1,4 +1,4 @@
-# @nuzm/desktop — Nuzm for Windows and macOS
+# @nuzm/desktop — Nuzm AI for Windows and macOS
 
 An Electron app around the customer console (`apps/web`). It **opens on the console's login page**. After sign-in,
 everything in the customer console runs inside the app window: hosting, domains, email, databases, compute, storage,
@@ -48,8 +48,8 @@ Where the console lives, highest precedence first:
 ```bash
 pnpm --filter @nuzm/desktop start        # build and open the app against the local console (start apps/web first)
 pnpm --filter @nuzm/desktop test         # policy, settings and string tests
-pnpm --filter @nuzm/desktop dist:mac     # release/Nuzm-<v>-{arm64,x64}.dmg + .zip
-pnpm --filter @nuzm/desktop dist:win     # release/Nuzm Setup <v>.exe (NSIS, x64 + arm64; builds on macOS too)
+pnpm --filter @nuzm/desktop dist:mac     # release/Nuzm AI-<v>-{arm64,x64}.dmg + .zip
+pnpm --filter @nuzm/desktop dist:win     # release/Nuzm AI Setup <v>.exe (NSIS, x64 + arm64; builds on macOS too)
 ```
 
 ## Status

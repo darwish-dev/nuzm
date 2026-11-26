@@ -30,6 +30,13 @@ const PATHS: Record<string, ReactNode> = {
       <path d="M8.6 12h.01M12 12h.01M15.4 12h.01" strokeWidth="2.4" />
     </>
   ),
+  book: (
+    <>
+      <path d="M4.5 5.5A2 2 0 0 1 6.5 3.5H19.5v14H6.5a2 2 0 0 0-2 2Z" />
+      <path d="M4.5 19.5a2 2 0 0 0 2 2h13v-4" />
+      <path d="M9 8h6.5M9 11.5h4.5" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="4" y="5.5" width="16" height="14" rx="2.2" />

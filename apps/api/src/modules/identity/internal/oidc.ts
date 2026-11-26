@@ -27,6 +27,11 @@ export class OidcClient {
   constructor(private readonly cfg: IdentityConfig) {}
 
   private async meta(): Promise<Discovery> {
+    if (!this.cfg.issuer)
+      throw new ProblemException(
+        'service_unavailable',
+        'single sign-on is not configured; use email and password',
+      );
     if (this.discovery && Date.now() - this.discovery.at < 600_000) return this.discovery.value;
     try {
       const res = await fetch(

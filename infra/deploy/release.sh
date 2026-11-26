@@ -28,7 +28,7 @@ ok=1
 check() { for _ in $(seq 1 30); do curl -fsS -o /dev/null "$1" && return 0; sleep 2; done; return 1; }
 check http://127.0.0.1:3000/ || ok=0
 check http://127.0.0.1:3001/ || ok=0
-[ "$API" = "1" ] && { check http://127.0.0.1:4000/health || ok=0; }
+[ "$API" = "1" ] && { check http://127.0.0.1:4000/healthz || ok=0; }
 
 if [ "$ok" != "1" ]; then
   echo "health check failed" >&2

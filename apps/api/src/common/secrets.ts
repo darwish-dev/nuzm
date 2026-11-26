@@ -1,6 +1,14 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+  renameSync,
+} from 'node:fs';
+import { isAbsolute, join } from 'node:path';
 
 /**
  * The store holds nothing under this reference. This is the ONLY failure that means "absent": every other failure (an entry that does not open, a file that cannot be
@@ -32,8 +40,8 @@ export class SecretExistsError extends Error {
 }
 
 /**
- * Secret storage port. Production vault + KMS is BLOCKED on D-12; until then only vault REFERENCES
- * (vault://…) are persisted in the database and these dev-only implementations stand in.
+ * Secret storage port. Only references (vault://…) are persisted in the database.
+ * A separately provisioned encrypted-file store supports a single server; managed vault/KMS integration remains D-12.
  */
 export abstract class SecretStore {
   /** Stores or replaces a value. An existing entry is replaced only when this store can open it. */
@@ -71,19 +79,20 @@ export class MemorySecretStore extends SecretStore {
 
 const isCode = (e: unknown, code: string) => (e as NodeJS.ErrnoException | null)?.code === code;
 
-/** DEV ONLY: AES-256-GCM files under .dev-vault/. Refuses to run in production. */
-export class FileDevSecretStore extends SecretStore {
+/** Shared encrypted-file format; keys are supplied separately from the stored ciphertext. */
+class EncryptedFileSecretStore extends SecretStore {
   constructor(
     private readonly key: Uint8Array,
-    private readonly dir = join(process.cwd(), '.dev-vault'),
+    private readonly dir: string,
+    private readonly prefix: string,
   ) {
     super();
-    if (process.env.NODE_ENV === 'production')
-      throw new Error('FileDevSecretStore must not be used in production (D-12)');
+    if (key.length !== 32) throw new Error('secret-store key must be 32 bytes');
     mkdirSync(this.dir, { recursive: true, mode: 0o700 });
   }
   private path(ref: string) {
-    const id = ref.replace('vault://dev/', '');
+    if (!ref.startsWith(this.prefix)) throw new SecretNotFoundError('invalid secret ref');
+    const id = ref.slice(this.prefix.length);
     // a reference this store did not mint names nothing here
     if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new SecretNotFoundError('invalid secret ref');
     return join(this.dir, id);
@@ -112,13 +121,20 @@ export class FileDevSecretStore extends SecretStore {
     }
   }
   async put(id: string, value: string) {
-    const ref = `vault://dev/${id}`;
+    const ref = `${this.prefix}${id}`;
     if (this.open(ref) === null) return this.create(id, value); // `open` throws for an entry this key cannot read: it is never overwritten
-    writeFileSync(this.path(ref), this.seal(value), { mode: 0o600 });
+    const target = this.path(ref);
+    const temp = `${target}.${randomBytes(12).toString('hex')}.tmp`;
+    try {
+      writeFileSync(temp, this.seal(value), { mode: 0o600, flag: 'wx' });
+      renameSync(temp, target);
+    } finally {
+      rmSync(temp, { force: true });
+    }
     return ref;
   }
   async create(id: string, value: string) {
-    const ref = `vault://dev/${id}`;
+    const ref = `${this.prefix}${id}`;
     try {
       writeFileSync(this.path(ref), this.seal(value), { mode: 0o600, flag: 'wx' });
     } catch (e) {
@@ -136,6 +152,46 @@ export class FileDevSecretStore extends SecretStore {
     if (this.open(ref) === null) return;
     rmSync(this.path(ref), { force: true });
   }
+}
+
+/** DEV ONLY: retains its production refusal and existing reference format. */
+export class FileDevSecretStore extends EncryptedFileSecretStore {
+  constructor(key: Uint8Array, dir = join(process.cwd(), '.dev-vault')) {
+    if (process.env.NODE_ENV === 'production')
+      throw new Error('FileDevSecretStore must not be used in production (D-12)');
+    super(key, dir, 'vault://dev/');
+  }
+}
+
+/** Single-server encrypted store. Provision a private persistent directory and a separate backed-up key file. */
+export class ProductionFileSecretStore extends EncryptedFileSecretStore {
+  constructor(dir: string, keyFile: string) {
+    if (!isAbsolute(dir) || !isAbsolute(keyFile))
+      throw new Error('production secret paths must be absolute');
+    if (keyFile.startsWith(`${dir}/`))
+      throw new Error('the secret-store key must be outside the ciphertext directory');
+    const directory = lstatSync(dir);
+    const keyStat = lstatSync(keyFile);
+    if (!directory.isDirectory() || directory.isSymbolicLink() || directory.mode & 0o077)
+      throw new Error('production secret directory must be a private directory (0700)');
+    if (
+      !keyStat.isFile() ||
+      keyStat.isSymbolicLink() ||
+      keyStat.mode & 0o007 ||
+      keyStat.mode & 0o022
+    )
+      throw new Error('production secret key must be a protected regular file (0600 or 0640)');
+    const key = Buffer.from(readFileSync(keyFile, 'utf8').trim(), 'base64');
+    super(key, dir, 'vault://production/');
+  }
+}
+
+export function configuredSecretStore(env: NodeJS.ProcessEnv = process.env): SecretStore {
+  if (env.NODE_ENV !== 'production')
+    return new FileDevSecretStore(Buffer.from(env.SESSION_SEAL_KEY ?? '', 'base64'));
+  if (!env.SECRET_STORE_DIR || !env.SECRET_STORE_KEY_FILE)
+    throw new Error('SECRET_STORE_DIR and SECRET_STORE_KEY_FILE are required in production');
+  return new ProductionFileSecretStore(env.SECRET_STORE_DIR, env.SECRET_STORE_KEY_FILE);
 }
 
 const SEAL_KEY_FILE = 'dev-seal-key';

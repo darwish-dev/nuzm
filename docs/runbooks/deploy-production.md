@@ -1,6 +1,6 @@
 # Runbook: GitHub → production deploy (www.nuzm.dev, 89.116.29.136)
 
-Status: **built, NOT VERIFIED** — no deploy has run yet. Workflow: `.github/workflows/deploy.yml`; server side: `infra/deploy/`.
+Web/admin deployment was verified on 2026-11-26. Workflow: `.github/workflows/deploy.yml`; server side: `infra/deploy/`. Production API setup is described in [production-password-auth.md](production-password-auth.md).
 
 ## How it works
 
@@ -21,7 +21,7 @@ Next.js bakes `ADMIN_ORIGIN`/`API_ORIGIN` into its routes at build time, so they
 | `nuzm-api`     | 4000             | never (web proxies it)       | only if variable `DEPLOY_API=true`                            |
 | `nuzm-worker`  | —                | never                        | only if `DEPLOY_API=true`                                     |
 
-**API/worker are off by default.** At the time of writing `apps/api/src/main.ts` is empty and the dev stack refuses `NODE_ENV=production`; a production API also needs a production vault, IdP, PSP and Postgres/Redis (D-42, D-15, HG items). Do not set `DEPLOY_API=true` before those exist. The `/health` path used by the API check is unverified.
+**API/worker are off by default.** The API entrypoint now supports production password authentication using a dedicated database and an explicitly provisioned encrypted secret store. Follow [production-password-auth.md](production-password-auth.md) before setting `DEPLOY_API=true`. Its startup health path is `/healthz`. External OIDC, outbound email and cloud/payment/AI capabilities require their own integrations; development stand-ins are not enabled by this setup. Redis is not needed for the current PostgreSQL-backed queues.
 
 ## Fast path (what was actually done on 2026-11-25)
 

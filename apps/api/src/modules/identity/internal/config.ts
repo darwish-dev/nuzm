@@ -33,10 +33,10 @@ export function loadIdentityConfig(env: NodeJS.ProcessEnv = process.env): Identi
   const key = Buffer.from(need('SESSION_SEAL_KEY'), 'base64');
   if (key.length !== 32) throw new Error('SESSION_SEAL_KEY must be 32 bytes, base64-encoded');
   return {
-    issuer: need('OIDC_ISSUER'),
-    clientId: need('OIDC_CLIENT_ID'),
-    clientSecret: need('OIDC_CLIENT_SECRET'), // dev only via env; production = vault ref (D-12)
-    redirectUri: need('OIDC_REDIRECT_URI'),
+    issuer: env.AUTH_OIDC_ENABLED === 'false' ? '' : need('OIDC_ISSUER'),
+    clientId: env.AUTH_OIDC_ENABLED === 'false' ? '' : need('OIDC_CLIENT_ID'),
+    clientSecret: env.AUTH_OIDC_ENABLED === 'false' ? '' : need('OIDC_CLIENT_SECRET'),
+    redirectUri: env.AUTH_OIDC_ENABLED === 'false' ? '' : need('OIDC_REDIRECT_URI'),
     returnToOrigins: (env.RETURN_TO_ORIGINS ?? '')
       .split(',')
       .map((s) => s.trim())

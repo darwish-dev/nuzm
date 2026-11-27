@@ -27,7 +27,7 @@ schemas:
   tenancy:
     owner_module: tenancy
     created_by: M01
-    extended_by: [ M11 ]
+    extended_by: [ M11, ADM-INT ]
     tables: [ environments, invitations, memberships, organizations, permissions, platform_roles, projects, role_permissions, roles, workspaces ]
   audit:
     owner_module: audit
@@ -412,6 +412,7 @@ migration_ranges:
   S06-DEPLOY2: "2180-2199" # Phase 2 block of session 06 (see docs/parallel/PHASE-2-PLAN.md)
   P3-S02: "2310-2319" # Phase 3 session 02 (real runtime): durable execution stores
   P3-S09: "2380-2389" # Phase 3 session 09: production version store (builder.vcs_*), migrations 2380-2382
+  ADM-INT: "2390-2399" # admin console tools (create customers and organizations, owner request 2026-11-27): above every applied ordinal, because the runner is forward-only
 # Data classification (M04 S13a, D-14 proposal classes). EVERY column of every table is classified; the CI check `compliance:classification-coverage`
 # (pnpm compliance:classification-coverage) fails on an unclassified or stale column, an unknown class, and on a column whose name looks personal,
 # financial or credential-bearing but is marked internal/public. A new column needs a line here in the same pull request.

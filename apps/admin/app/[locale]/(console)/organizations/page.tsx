@@ -3,6 +3,7 @@ import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, isLocale, t, tDynamic } from '@nuzm/i18n';
 import { Badge, Button, EmptyState, Field, Input, Ltr, PageTitle, Table } from '@nuzm/ui';
 import { OrgStatusAction } from '../../../../components/AdminActions';
+import { AddCreditAction, CreateOrgForm } from '../../../../components/AdminTools';
 import { requireStaff } from '../../../../lib/server';
 import { view } from '../../../../lib/view';
 
@@ -78,23 +79,35 @@ export default async function Organizations({
               header: t(locale, 'field.action'),
               icon: 'code',
               render: (r) =>
-                s.can('admin:org:manage') ? (
-                  <OrgStatusAction
-                    locale={locale}
-                    mfaFactorId={s.me.mfaFactorId ?? null}
-                    orgId={r.id}
-                    orgName={r.name}
-                    status={r.status}
-                    labels={{
-                      suspend: t(locale, 'action.suspend'),
-                      reinstate: t(locale, 'action.reinstate'),
-                      confirm: t(locale, 'admin.suspend.confirm', { org: r.name }),
-                      reason: t(locale, 'admin.suspend.reason'),
-                      cancel: t(locale, 'action.cancel'),
-                      stepUp: t(locale, 'admin.stepup'),
-                      error: t(locale, 'state.error.title'),
-                    }}
-                  />
+                s.can('admin:org:manage') || s.can('admin:billing:manage') ? (
+                  <div className="nz-admin-actions">
+                    {s.can('admin:billing:manage') && (
+                      <AddCreditAction
+                        locale={locale}
+                        mfaFactorId={s.me.mfaFactorId ?? null}
+                        orgId={r.id}
+                        orgName={r.name}
+                      />
+                    )}
+                    {s.can('admin:org:manage') && (
+                      <OrgStatusAction
+                        locale={locale}
+                        mfaFactorId={s.me.mfaFactorId ?? null}
+                        orgId={r.id}
+                        orgName={r.name}
+                        status={r.status}
+                        labels={{
+                          suspend: t(locale, 'action.suspend'),
+                          reinstate: t(locale, 'action.reinstate'),
+                          confirm: t(locale, 'admin.suspend.confirm', { org: r.name }),
+                          reason: t(locale, 'admin.suspend.reason'),
+                          cancel: t(locale, 'action.cancel'),
+                          stepUp: t(locale, 'admin.stepup'),
+                          error: t(locale, 'state.error.title'),
+                        }}
+                      />
+                    )}
+                  </div>
                 ) : (
                   '—'
                 ),
@@ -106,7 +119,10 @@ export default async function Organizations({
   return (
     <>
       <PageTitle>{t(locale, 'admin.orgs.title')}</PageTitle>
-      <form method="get" className="nz-row" role="search">
+      {s.can('admin:org:manage') && (
+        <CreateOrgForm locale={locale} mfaFactorId={s.me.mfaFactorId ?? null} />
+      )}
+      <form method="get" className="nz-row nz-admin-search" role="search">
         <Field id="q" label={t(locale, 'field.search')}>
           {(a) => <Input name="q" defaultValue={q} {...a} />}
         </Field>

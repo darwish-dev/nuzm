@@ -516,7 +516,17 @@ a.nzc-navcard:hover { border-color: color-mix(in srgb, var(--nzc-accent) 45%, va
 .nzc .nz-table-wrap[data-view="cards"] .nz-table caption { display: block; padding: 8px 100px 14px 2px; text-align: start; }
 [dir="rtl"] .nzc .nz-table-wrap[data-view="cards"] .nz-table caption { padding: 8px 2px 14px 100px; }
 .nzc .nz-table-wrap[data-view="cards"] thead { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.nzc .nz-table-wrap[data-view="cards"] tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+.nzc .nz-table-wrap[data-view="cards"] tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+.nzc .nz-table-wrap[data-view="cards"] tbody:has(> tr:only-child) { grid-template-columns: minmax(0, 640px); }
+.nzc .nz-admin-tool { display: grid; gap: 12px; padding: 22px 24px; margin-block: 4px 24px; border-radius: 18px; }
+.nzc .nz-admin-tool > h2 { margin: 0; font-size: 17px; font-weight: 650; }
+.nzc .nz-admin-tool > .nz-muted { margin: 0 0 4px; }
+.nzc .nz-admin-search { align-items: flex-end; gap: 12px; margin-block: 0 18px; }
+.nzc .nz-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.nzc .nz-admin-credit { display: grid; gap: 10px; min-inline-size: 240px; max-inline-size: 340px; }
+.nzc .nz-admin-search .nz-field { min-inline-size: min(100%, 320px); }
+.nzc .nz-admin-secret { padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--nzc-accent) 45%, var(--nzc-border)); background: color-mix(in srgb, var(--nzc-accent) 8%, transparent); overflow-wrap: anywhere; }
+.nzc .nz-admin-secret code { font-size: 14px; font-weight: 600; user-select: all; }
 .nzc .nz-table-wrap[data-view="cards"] tbody tr { display: flex; flex-direction: column; gap: 2px; padding: 18px 18px 16px; border-radius: 18px; border: 1px solid var(--nzc-border); background: var(--nzc-card); transition: border-color 120ms ease, transform 120ms ease; }
 .nzc .nz-table-wrap[data-view="cards"] tbody tr:hover { border-color: color-mix(in srgb, var(--nzc-accent) 40%, var(--nzc-border)); transform: translateY(-1px); }
 .nzc .nz-table-wrap[data-view="cards"] tbody tr:hover td { background: transparent; }

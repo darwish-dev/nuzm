@@ -57,6 +57,20 @@ export class AdminReadService {
     );
   }
 
+  /** One account by email (case-insensitive), for the admin "create organization" owner lookup. */
+  async userByEmail(email: string) {
+    return this.db.withPlatformScope(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT id, email, status, is_platform_user FROM identity.users WHERE lower(email) = lower($1) ORDER BY created_at LIMIT 1`,
+            [email],
+          )
+        ).rows[0] as
+          { id: string; email: string; status: string; is_platform_user: boolean } | undefined,
+    );
+  }
+
   /** Owners of an organization (recipients for security notices). */
   async owners(orgId: string): Promise<string[]> {
     return this.db.withPlatformScope(async (c) =>

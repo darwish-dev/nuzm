@@ -12,6 +12,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Platform, RequirePlatformPermission, type PlatformContext } from '../../common/access';
 import { AuditSink } from '../../common/audit';
@@ -28,6 +29,7 @@ import {
 } from '../identity';
 import { NotificationService } from '../notifications';
 import { OrgService } from '../tenancy';
+import { CredentialsService } from '../identity';
 import { AdminReadService } from './internal/admin-read.service';
 import { FeatureFlagService } from './internal/feature-flag.service';
 import { ImpersonationService, type ImpersonationInput } from './internal/impersonation.service';
@@ -50,6 +52,7 @@ export class AdminController {
     private readonly audits: AuditQueryService,
     private readonly audit: AuditSink,
     private readonly notifications: NotificationService,
+    private readonly credentials: CredentialsService,
     @Inject(IDENTITY_CONFIG) private readonly cfg: IdentityConfigLike,
   ) {}
 
@@ -101,6 +104,110 @@ export class AdminController {
         });
     }
     return { id, status, name: org.name };
+  }
+
+  /**
+   * Create an organization for an EXISTING customer, who becomes its first owner (the same path as a customer creating it: OrgService.create,
+   * one transaction with the membership, the outbox event and the tenancy audit row). Platform users cannot own organizations.
+   */
+  @RequirePlatformPermission('admin:org:manage')
+  @StepUp()
+  @Post('organizations')
+  @HttpCode(201)
+  async createOrganization(
+    @Platform() who: PlatformContext,
+    @Body()
+    body:
+      | {
+          name?: unknown;
+          ownerEmail?: unknown;
+          type?: unknown;
+          country?: unknown;
+          defaultLocale?: unknown;
+          slug?: unknown;
+        }
+      | undefined,
+    @Req() req: FastifyRequest,
+  ) {
+    const ownerEmail = typeof body?.ownerEmail === 'string' ? body.ownerEmail.trim() : '';
+    if (!ownerEmail || ownerEmail.length > 254)
+      throw new ProblemException('validation_failed', 'ownerEmail is required', [
+        { field: 'ownerEmail', message: 'ownerEmail is required' },
+      ]);
+    const owner = await this.read.userByEmail(ownerEmail);
+    if (!owner) throw new ProblemException('not_found', 'no account with this email');
+    if (owner.is_platform_user)
+      throw new ProblemException(
+        'forbidden',
+        'a platform staff account cannot own an organization',
+      );
+    if (owner.status !== 'active')
+      throw new ProblemException('conflict', 'this account is not active');
+    const org = await this.orgs.create(owner.id, {
+      name: body?.name,
+      type: body?.type,
+      country: body?.country,
+      defaultLocale: body?.defaultLocale,
+      slug: body?.slug,
+    } as Parameters<OrgService['create']>[1]);
+    await this.audit.record({
+      action: 'admin.organization.created',
+      actorUserId: who.userId,
+      actorType: 'user',
+      orgId: org.id,
+      resource: { type: 'organization', id: org.id },
+      outcome: 'success',
+      traceId: req.traceId,
+      after: { name: org.name, ownerUserId: owner.id },
+    });
+    return org;
+  }
+
+  /**
+   * Create a customer (web realm) account with a password, never a platform user. Without a password a temporary one is generated and returned
+   * once; it is never logged or audited. Registration rules (email format, password policy, SSO enforcement, duplicate email) are the customer's own.
+   */
+  @RequirePlatformPermission('admin:user:manage')
+  @StepUp()
+  @Post('users')
+  @HttpCode(201)
+  async createUser(
+    @Platform() who: PlatformContext,
+    @Body()
+    body:
+      { email?: unknown; displayName?: unknown; locale?: unknown; password?: unknown } | undefined,
+    @Req() req: FastifyRequest,
+  ) {
+    const displayName = typeof body?.displayName === 'string' ? body.displayName.trim() : '';
+    if (displayName.length > 120)
+      throw new ProblemException('validation_failed', 'displayName is too long', [
+        { field: 'displayName', message: 'displayName is too long' },
+      ]);
+    const locale = body?.locale === 'en' ? 'en' : body?.locale === 'ar' ? 'ar' : undefined;
+    const given =
+      typeof body?.password === 'string' && body.password.length > 0 ? body.password : null;
+    // 18 random bytes, URL-safe: 24 characters that pass the password policy
+    const password = given ?? randomBytes(18).toString('base64url');
+    const user = await this.credentials.register(
+      { email: typeof body?.email === 'string' ? body.email : '', password, displayName, locale },
+      { ip: req.ip, traceId: req.traceId },
+    );
+    await this.audit.record({
+      action: 'admin.user.created',
+      actorUserId: who.userId,
+      actorType: 'user',
+      resource: { type: 'user', id: user.id },
+      outcome: 'success',
+      traceId: req.traceId,
+      detail: { generatedPassword: given === null },
+    });
+    return {
+      id: user.id,
+      email: user.email,
+      displayName: user.display_name ?? null,
+      locale: user.locale,
+      ...(given === null ? { temporaryPassword: password } : {}),
+    };
   }
 
   @RequirePlatformPermission('admin:user:read')

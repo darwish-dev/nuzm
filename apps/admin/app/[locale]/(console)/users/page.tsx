@@ -3,6 +3,7 @@ import { unwrap } from '@nuzm/sdk';
 import { formatDateTime, isLocale, t } from '@nuzm/i18n';
 import { Badge, Button, EmptyState, Field, Input, Ltr, PageTitle, Table } from '@nuzm/ui';
 import { ImpersonateAction } from '../../../../components/AdminActions';
+import { CreateUserForm } from '../../../../components/AdminTools';
 import { requireStaff } from '../../../../lib/server';
 import { view } from '../../../../lib/view';
 
@@ -97,7 +98,10 @@ export default async function Users({
   return (
     <>
       <PageTitle>{t(locale, 'admin.users.title')}</PageTitle>
-      <form method="get" className="nz-row" role="search">
+      {s.can('admin:user:manage') && (
+        <CreateUserForm locale={locale} mfaFactorId={s.me.mfaFactorId ?? null} />
+      )}
+      <form method="get" className="nz-row nz-admin-search" role="search">
         <Field id="q" label={t(locale, 'field.search')}>
           {(a) => <Input name="q" defaultValue={q} {...a} />}
         </Field>

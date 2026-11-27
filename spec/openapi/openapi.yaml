@@ -1507,7 +1507,7 @@ paths:
       operationId: adminListOrganizations
       tags: [admin]
       summary: List organizations (all tenants)
-      description: 'Search organizations across tenants. Creating organizations on behalf of a customer (docs/04 POST) is NOT implemented: owner semantics are undecided. Platform permission `admin:org:read`; admin-realm session with MFA.'
+      description: 'Search organizations across tenants (creating one for a customer: POST below). Platform permission `admin:org:read`; admin-realm session with MFA.'
       x-nuzm-platform-permission: admin:org:read
       x-nuzm-realm: admin
       security: [{ sessionCookie: [], csrfHeader: [] }]
@@ -1524,6 +1524,30 @@ paths:
               schema: { $ref: '#/components/schemas/AdminOrganizationPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminCreateOrganization
+      tags: [admin]
+      summary: Create an organization for an existing customer
+      description: 'Body {name, ownerEmail, type?, country?, defaultLocale?, slug?}. The owner is an EXISTING customer account (not a platform user), found by email; it becomes the first owner, exactly as when the customer creates the organization themselves. A repeated request with the same slug answers 409 conflict (no Idempotency-Key: admin routes carry no organization scope; the slug is the natural key). Audited (`tenancy.organization.created` and `admin.organization.created`). Platform permission `admin:org:manage`; admin-realm session with MFA and step-up.'
+      x-nuzm-platform-permission: admin:org:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminCreateOrganization' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Generic' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
   /v1/admin/organizations/{id}:
     patch:
@@ -1578,6 +1602,29 @@ paths:
               schema: { $ref: '#/components/schemas/AdminUserPage' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: adminCreateUser
+      tags: [admin]
+      summary: Create a customer account
+      description: 'Body {email, displayName?, locale?, password?}. Creates a customer (web realm) account with email and password, never a platform user. Without a password a temporary one is generated and returned ONCE in `temporaryPassword` (it is not stored in clear and not logged); give it to the person, who should change it after signing in. A repeated request answers 409 `email_in_use` (no Idempotency-Key: admin routes carry no organization scope; the email is the natural key). Audited (`admin.user.created`). Platform permission `admin:user:manage`; admin-realm session with MFA and step-up.'
+      x-nuzm-platform-permission: admin:user:manage
+      x-nuzm-realm: admin
+      security: [{ sessionCookie: [], csrfHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminCreateUser' }
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCreatedUser' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
   /v1/admin/users/{id}/impersonation:
     post:
@@ -19311,6 +19358,41 @@ components:
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/AdminUser' } }
         nextCursor: { type: [string, 'null'] }
+    AdminCreateUser:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, maxLength: 254 }
+        displayName: { type: string, maxLength: 120 }
+        locale: { type: string, enum: [ar, en] }
+        password:
+          {
+            type: string,
+            description: 'Optional; must meet the password policy. Omit it to get a generated temporary password.',
+          }
+    AdminCreatedUser:
+      type: object
+      required: [id, email]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: [string, 'null'] }
+        locale: { type: string }
+        temporaryPassword:
+          {
+            type: string,
+            description: 'Present only when the request had no password. Shown once.',
+          }
+    AdminCreateOrganization:
+      type: object
+      required: [name, ownerEmail]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        ownerEmail: { type: string, maxLength: 254 }
+        type: { type: string, enum: [customer, agency, reseller], default: customer }
+        country: { type: string, pattern: '^[A-Za-z]{2}$', default: SA }
+        defaultLocale: { type: string, enum: [ar, en], default: ar }
+        slug: { type: string }
     Generic:
       type: object
       description: Resource or page. Concrete shapes are tightened per resource as clients are generated.

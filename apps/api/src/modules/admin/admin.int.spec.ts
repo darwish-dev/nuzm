@@ -464,6 +464,136 @@ describe('impersonation', () => {
   });
 });
 
+describe('create customers and organizations (admin tools)', () => {
+  it('creates a customer account with a generated temporary password that signs in; a given password is used as is; never a platform user', async () => {
+    await h.elevate(adm.root!);
+    const r = await admin('root', 'POST', '/v1/admin/users', {
+      email: 'new.customer@example.test',
+      displayName: 'New Customer',
+      locale: 'en',
+    });
+    expect(r.statusCode).toBe(201);
+    const body = r.json();
+    expect(body).toMatchObject({
+      email: 'new.customer@example.test',
+      displayName: 'New Customer',
+      locale: 'en',
+    });
+    expect(body.temporaryPassword).toMatch(/^[A-Za-z0-9_-]{24}$/);
+    const [u] = await h.env.sql(`SELECT is_platform_user FROM identity.users WHERE id = $1`, [
+      body.id,
+    ]);
+    expect(u!.is_platform_user).toBe(false);
+    const login = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/password/login',
+      payload: { email: 'new.customer@example.test', password: body.temporaryPassword },
+    });
+    expect(login.statusCode).toBe(200);
+
+    const given = await admin('root', 'POST', '/v1/admin/users', {
+      email: 'given.password@example.test',
+      password: 'a-long-enough-passphrase-1',
+    });
+    expect(given.statusCode).toBe(201);
+    expect(given.json().temporaryPassword).toBeUndefined();
+
+    // the generated password is never written to the audit trail
+    const rows = await auditRows(`action = 'admin.user.created'`);
+    expect(rows).toHaveLength(2);
+    expect(JSON.stringify(rows)).not.toContain(body.temporaryPassword);
+    expect(rows[0]!.actor_user_id).toBe(ids.root);
+  });
+
+  it('refuses a duplicate email (409), a bad email or weak password (422), missing permission (403) and a stale step-up', async () => {
+    await h.elevate(adm.root!);
+    const dup = await admin('root', 'POST', '/v1/admin/users', {
+      email: 'new.customer@example.test',
+    });
+    expect(dup.statusCode).toBe(409);
+    expect(dup.json().code).toBe('email_in_use');
+    expect(
+      (await admin('root', 'POST', '/v1/admin/users', { email: 'not-an-email' })).statusCode,
+    ).toBe(422);
+    expect(
+      (
+        await admin('root', 'POST', '/v1/admin/users', {
+          email: 'weak@example.test',
+          password: 'short',
+        })
+      ).statusCode,
+    ).toBe(422);
+    await h.elevate(adm.support!);
+    expect(
+      (await admin('support', 'POST', '/v1/admin/users', { email: 'x@example.test' })).statusCode,
+    ).toBe(403);
+    await h.env.sql(
+      `UPDATE identity.sessions SET mfa_verified_at = now() - interval '10 minutes' WHERE token_hash = encode(sha256($1::bytea),'hex')`,
+      [adm.root!.nuzm_admin_session],
+    );
+    const stale = await admin('root', 'POST', '/v1/admin/users', { email: 'stale@example.test' });
+    expect(stale.json().code).toBe('step_up_required');
+  });
+
+  it('creates an organization owned by an existing customer, audited twice; refuses unknown owners, staff owners, duplicates and missing permission', async () => {
+    await h.elevate(adm.root!);
+    const r = await admin('root', 'POST', '/v1/admin/organizations', {
+      name: 'Created By Staff',
+      ownerEmail: 'NEW.customer@example.test',
+      type: 'agency',
+      defaultLocale: 'en',
+    });
+    expect(r.statusCode).toBe(201);
+    const org = r.json();
+    expect(org).toMatchObject({ name: 'Created By Staff', type: 'agency' });
+    const [m] = await h.env.sql(
+      `SELECT m.role FROM tenancy.memberships m JOIN identity.users u ON u.id = m.user_id WHERE m.org_id = $1 AND u.email = 'new.customer@example.test'`,
+      [org.id],
+    );
+    expect(m!.role).toBe('owner');
+    expect(
+      await auditRows(`action = 'admin.organization.created' AND org_id = $1`, [org.id]),
+    ).toHaveLength(1);
+
+    const dup = await admin('root', 'POST', '/v1/admin/organizations', {
+      name: 'Created By Staff',
+      ownerEmail: 'new.customer@example.test',
+    });
+    expect(dup.statusCode).toBe(409);
+    expect(
+      (
+        await admin('root', 'POST', '/v1/admin/organizations', {
+          name: 'Nobody',
+          ownerEmail: 'nobody@example.test',
+        })
+      ).statusCode,
+    ).toBe(404);
+    const [staffUser] = await h.env.sql(`SELECT email FROM identity.users WHERE id = $1`, [
+      ids.support,
+    ]);
+    expect(
+      (
+        await admin('root', 'POST', '/v1/admin/organizations', {
+          name: 'Staff Org',
+          ownerEmail: staffUser!.email,
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (await admin('root', 'POST', '/v1/admin/organizations', { name: 'No Owner' })).statusCode,
+    ).toBe(422);
+    await h.elevate(adm.fin!);
+    expect(
+      (
+        await admin('fin', 'POST', '/v1/admin/organizations', {
+          name: 'Fin Org',
+          ownerEmail: 'new.customer@example.test',
+        })
+      ).statusCode,
+    ).toBe(403);
+  });
+});
+
 describe('feature flags', () => {
   it('sets and lists global and org flags, audits before/after, and exposes them through /v1/me', async () => {
     const g = await admin('root', 'PUT', '/v1/admin/feature-flags', {

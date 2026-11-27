@@ -941,11 +941,15 @@ export interface paths {
         };
         /**
          * List organizations (all tenants)
-         * @description Search organizations across tenants. Creating organizations on behalf of a customer (docs/04 POST) is NOT implemented: owner semantics are undecided. Platform permission `admin:org:read`; admin-realm session with MFA.
+         * @description Search organizations across tenants (creating one for a customer: POST below). Platform permission `admin:org:read`; admin-realm session with MFA.
          */
         get: operations["adminListOrganizations"];
         put?: never;
-        post?: never;
+        /**
+         * Create an organization for an existing customer
+         * @description Body {name, ownerEmail, type?, country?, defaultLocale?, slug?}. The owner is an EXISTING customer account (not a platform user), found by email; it becomes the first owner, exactly as when the customer creates the organization themselves. A repeated request with the same slug answers 409 conflict (no Idempotency-Key: admin routes carry no organization scope; the slug is the natural key). Audited (`tenancy.organization.created` and `admin.organization.created`). Platform permission `admin:org:manage`; admin-realm session with MFA and step-up.
+         */
+        post: operations["adminCreateOrganization"];
         delete?: never;
         options?: never;
         head?: never;
@@ -985,7 +989,11 @@ export interface paths {
          */
         get: operations["adminListUsers"];
         put?: never;
-        post?: never;
+        /**
+         * Create a customer account
+         * @description Body {email, displayName?, locale?, password?}. Creates a customer (web realm) account with email and password, never a platform user. Without a password a temporary one is generated and returned ONCE in `temporaryPassword` (it is not stored in clear and not logged); give it to the person, who should change it after signing in. A repeated request answers 409 `email_in_use` (no Idempotency-Key: admin routes carry no organization scope; the email is the natural key). Audited (`admin.user.created`). Platform permission `admin:user:manage`; admin-realm session with MFA and step-up.
+         */
+        post: operations["adminCreateUser"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11469,6 +11477,40 @@ export interface components {
             items: components["schemas"]["AdminUser"][];
             nextCursor: string | null;
         };
+        AdminCreateUser: {
+            email: string;
+            displayName?: string;
+            /** @enum {string} */
+            locale?: "ar" | "en";
+            /** @description Optional; must meet the password policy. Omit it to get a generated temporary password. */
+            password?: string;
+        };
+        AdminCreatedUser: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            displayName?: string | null;
+            locale?: string;
+            /** @description Present only when the request had no password. Shown once. */
+            temporaryPassword?: string;
+        };
+        AdminCreateOrganization: {
+            name: string;
+            ownerEmail: string;
+            /**
+             * @default customer
+             * @enum {string}
+             */
+            type?: "customer" | "agency" | "reseller";
+            /** @default SA */
+            country?: string;
+            /**
+             * @default ar
+             * @enum {string}
+             */
+            defaultLocale?: "ar" | "en";
+            slug?: string;
+        };
         /** @description Resource or page. Concrete shapes are tightened per resource as clients are generated. */
         Generic: {
             [key: string]: unknown;
@@ -18675,6 +18717,35 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
+    adminCreateOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCreateOrganization"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Generic"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
     adminSetOrganizationStatus: {
         parameters: {
             query?: never;
@@ -18732,6 +18803,34 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    adminCreateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCreateUser"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCreatedUser"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

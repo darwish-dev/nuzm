@@ -114,7 +114,8 @@ export default async function ConsoleLayout({
           body={t(locale, 'state.forbidden.body')}
         />
       ) : (
-        children
+        // Staff work through long lists (organizations, users, ledgers): data tables open as tables here; the Cards switch still offers cards
+        <div data-table-default="table">{children}</div>
       )}
     </ConsoleFrame>
   );

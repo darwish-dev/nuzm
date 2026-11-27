@@ -63,6 +63,7 @@ import { SessionAuthenticator } from './session.guard';
   exports: [
     SessionAuthenticator,
     SessionService,
+    CredentialsService,
     UserService,
     MfaService,
     ApiKeyService,

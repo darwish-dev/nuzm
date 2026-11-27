@@ -15,6 +15,7 @@ import {
   decodeCursor,
   encodeTimeCursor,
   decodeTimeCursor,
+  cursorTimeSql,
   pageOf,
   type Page,
 } from '../../../common/pagination';
@@ -791,7 +792,7 @@ export class MessageService {
       async (c) =>
         (
           await c.query(
-            `SELECT * FROM email.email_events WHERE org_id = $1 AND ($2::text IS NULL OR type = $2) AND ($3::uuid IS NULL OR message_id = $3)
+            `SELECT *, ${cursorTimeSql('occurred_at')} AS cursor_t FROM email.email_events WHERE org_id = $1 AND ($2::text IS NULL OR type = $2) AND ($3::uuid IS NULL OR message_id = $3)
               AND ($4::timestamptz IS NULL OR (occurred_at, id) < ($4, $5::uuid)) ORDER BY occurred_at DESC, id DESC LIMIT $6`,
             [
               orgId,
@@ -815,7 +816,7 @@ export class MessageService {
       items,
       nextCursor:
         rows.length > q.limit && last
-          ? encodeTimeCursor(last.occurred_at as Date, last.id as string)
+          ? encodeTimeCursor(last.cursor_t as string, last.id as string)
           : null,
     };
   }

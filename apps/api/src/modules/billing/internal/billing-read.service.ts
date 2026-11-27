@@ -1,5 +1,10 @@
 import type { Db } from '@nuzm/platform';
-import { decodeCursor, decodeTimeCursor, encodeTimeCursor } from '../../../common/pagination';
+import {
+  cursorTimeSql,
+  decodeCursor,
+  decodeTimeCursor,
+  encodeTimeCursor,
+} from '../../../common/pagination';
 
 export interface StatementFilter {
   limit: number;
@@ -25,7 +30,7 @@ export class BillingReadService {
         (
           await c.query(
             `SELECT * FROM (
-               SELECT p.id, p.transaction_id, p.created_at, t.kind, t.description, t.source_event_id, p.direction,
+               SELECT p.id, p.transaction_id, p.created_at, ${cursorTimeSql('p.created_at')} AS cursor_t, t.kind, t.description, t.source_event_id, p.direction,
                       p.amount_minor::text AS amount_minor, p.currency,
                       (sum(CASE p.direction WHEN 'credit' THEN p.amount_minor ELSE -p.amount_minor END)
                          OVER (PARTITION BY p.currency ORDER BY p.created_at, p.id))::text AS balance_minor
@@ -64,7 +69,7 @@ export class BillingReadService {
     const last = rows.length > f.limit ? rows[f.limit - 1] : undefined;
     return {
       items,
-      nextCursor: last ? encodeTimeCursor(last.created_at as Date, last.id as string) : null,
+      nextCursor: last ? encodeTimeCursor(last.cursor_t as string, last.id as string) : null,
     };
   }
 
@@ -135,7 +140,7 @@ export class BillingReadService {
       async (c) =>
         (
           await c.query(
-            `SELECT t.id, t.org_id, t.kind, t.description, t.idempotency_key, t.reverses_id, t.occurred_at,
+            `SELECT t.id, t.org_id, t.kind, t.description, t.idempotency_key, t.reverses_id, t.occurred_at, ${cursorTimeSql('t.occurred_at')} AS cursor_t,
                     (SELECT json_agg(json_build_object('accountCode', a.code, 'direction', p.direction,
                               'amountMinor', p.amount_minor::text, 'currency', p.currency, 'dimensions', p.dimensions)
                              ORDER BY p.created_at, p.id)
@@ -162,7 +167,7 @@ export class BillingReadService {
     const last = rows.length > o.limit ? rows[o.limit - 1] : undefined;
     return {
       items,
-      nextCursor: last ? encodeTimeCursor(last.occurred_at as Date, last.id as string) : null,
+      nextCursor: last ? encodeTimeCursor(last.cursor_t as string, last.id as string) : null,
     };
   }
 }

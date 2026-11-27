@@ -1,3 +1,4 @@
+import { cursorTimeSql, decodeTimeCursor, encodeTimeCursor } from '../../../common/pagination';
 import type { Db } from '@nuzm/platform';
 
 export const BILLING_DOMAINS = ['billing', 'invoicing', 'payments', 'finrec', 'metering'] as const;
@@ -43,6 +44,8 @@ export interface AuditItem {
 interface AuditRow {
   id: string;
   occurred_at: Date;
+  /** occurred_at to the microsecond (cursorTimeSql), for the page cursor */
+  cursor_t: string;
   action: string;
   outcome: string;
   org_id: string | null;
@@ -58,14 +61,6 @@ interface AuditRow {
   detail: unknown;
   chain_seq: string;
   hash: string;
-}
-
-const cursorOf = (t: Date, id: string) =>
-  Buffer.from(`${t.toISOString()}|${id}`).toString('base64url');
-function parseCursor(raw: string | null | undefined): { t: string; id: string } | null {
-  if (!raw) return null;
-  const [t, id] = Buffer.from(raw, 'base64url').toString('utf8').split('|');
-  return t && id && !Number.isNaN(Date.parse(t)) && /^[0-9a-f-]{36}$/i.test(id) ? { t, id } : null;
 }
 
 /** Read side of the audit store. RLS does the tenant isolation; filters only narrow within scope. */
@@ -92,13 +87,13 @@ export class AuditQueryService {
       else add('action = ?', f.action);
     }
     if (f.billingOnly) add(`split_part(action, '.', 1) = ANY(?::text[])`, [...BILLING_DOMAINS]);
-    const cur = parseCursor(f.cursor);
+    const cur = decodeTimeCursor(f.cursor);
     if (cur) {
       p.push(cur.t, cur.id);
       where.push(`(occurred_at, id) < ($${p.length - 1}::timestamptz, $${p.length}::uuid)`);
     }
     p.push(f.limit + 1);
-    const sql = `SELECT id, occurred_at, action, outcome, org_id, actor_type, actor_user_id, actor_api_key_id,
+    const sql = `SELECT id, occurred_at, ${cursorTimeSql('occurred_at')} AS cursor_t, action, outcome, org_id, actor_type, actor_user_id, actor_api_key_id,
         impersonator_user_id, resource_type, resource_id, trace_id, before, after, detail, chain_seq, hash
       FROM audit.audit_logs ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY occurred_at DESC, id DESC LIMIT $${p.length}`;
@@ -127,7 +122,7 @@ export class AuditQueryService {
       hash: r.hash,
     }));
     const last = rows.length > limit ? rows[limit - 1] : undefined;
-    return { items, nextCursor: last ? cursorOf(last.occurred_at, last.id) : null };
+    return { items, nextCursor: last ? encodeTimeCursor(last.cursor_t, last.id) : null };
   }
 
   /** The caller's own organization only (RLS: app.org_id). */

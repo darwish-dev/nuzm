@@ -25,11 +25,24 @@ export function pageOf<T extends { id: string }>(rows: T[], limit: number): Page
   };
 }
 
-/** Keyset cursor for time-ordered lists: base64url of `<ISO time>|<uuid>`. */
-export const encodeTimeCursor = (t: Date, id: string) =>
-  Buffer.from(`${t.toISOString()}|${id}`).toString('base64url');
+/**
+ * SQL for a timestamptz column as UTC text with FULL microsecond precision (`2026-11-27T10:00:00.123456Z`), for keyset cursors. A JavaScript
+ * `Date` keeps only milliseconds while Postgres stores microseconds: a cursor built from a `Date` rounds the page boundary down, so a row in the
+ * same millisecond just after the boundary (`.598300` after `.598700`) fails `(t, id) < (cursor)` and is never listed. Select this alongside
+ * the row (`${cursorTimeSql('s.created_at')} AS cursor_t`) and pass it to `encodeTimeCursor`.
+ */
+export const cursorTimeSql = (column: string) =>
+  `to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+/** `2026-11-27T10:00:00Z`, with up to 6 fractional digits (older cursors carry 3). */
+const CURSOR_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$/;
+
+/** Keyset cursor for time-ordered lists: base64url of `<UTC time, microseconds>|<uuid>`. `t` must come from {@link cursorTimeSql}. */
+export const encodeTimeCursor = (t: string, id: string) =>
+  Buffer.from(`${t}|${id}`).toString('base64url');
 export function decodeTimeCursor(raw: unknown): { t: string; id: string } | null {
   if (typeof raw !== 'string' || raw === '') return null;
   const [t, id] = Buffer.from(raw, 'base64url').toString('utf8').split('|');
-  return t && id && !Number.isNaN(Date.parse(t)) && UUID.test(id) ? { t, id } : null;
+  return t && id && CURSOR_TIME.test(t) && !Number.isNaN(Date.parse(t)) && UUID.test(id)
+    ? { t, id }
+    : null;
 }

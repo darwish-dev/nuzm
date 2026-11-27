@@ -11,6 +11,7 @@
 //       dashboard (me, orgs), domains (search, list), AI (session, chat run, poll), builder (project, files, preview,
 //       change preview). Prints p50/p95/p99 and error rate per operation per stage, samples server CPU/RSS and DB
 //       connections, and stops early when a stage breaches --max-error-rate or --max-p95-ms.
+/* global fetch, performance, AbortSignal, setTimeout, setInterval, clearInterval -- Node 22 built-ins */
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -18,7 +19,8 @@ import { join } from 'node:path';
 
 const args = Object.fromEntries(
   process.argv.slice(3).reduce((acc, a, i, all) => {
-    if (a.startsWith('--')) acc.push([a.slice(2), all[i + 1]?.startsWith('--') ? 'true' : all[i + 1] ?? 'true']);
+    if (a.startsWith('--'))
+      acc.push([a.slice(2), all[i + 1]?.startsWith('--') ? 'true' : (all[i + 1] ?? 'true')]);
     return acc;
   }, []),
 );
@@ -55,7 +57,7 @@ class Client {
     if (method === 'POST') headers['idempotency-key'] = randomUUID();
     if (body !== undefined) headers['content-type'] = 'application/json';
     const t0 = performance.now();
-    let status = 0;
+    let status;
     let json;
     try {
       const res = await fetch(BASE + path, {
@@ -91,7 +93,8 @@ class Stats {
     s.lat.push(r.ms);
     s.codes[r.status] = (s.codes[r.status] ?? 0) + 1;
     const good = (r.status >= 200 && r.status < 400) || expected.includes(r.status);
-    good ? s.ok++ : s.err++;
+    if (good) s.ok++;
+    else s.err++;
     return good;
   }
   static pct(sorted, p) {
@@ -140,7 +143,9 @@ async function seed() {
   const conc = Number(args.concurrency ?? 32);
   const run = args.tag ?? Date.now().toString(36);
   const file = join(OUT, 'users.jsonl');
-  const have = existsSync(file) ? readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).length : 0;
+  const have = existsSync(file)
+    ? readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).length
+    : 0;
   const stats = new Stats();
   let next = have;
   let done = 0;
@@ -152,37 +157,66 @@ async function seed() {
       const i = next++;
       const c = new Client();
       const email = `loadtest+${run}-${i}@example.test`;
-      let r1 = await c.req('POST', '/v1/auth/register', { email, password, displayName: `Load ${i}`, locale: 'en' });
+      let r1 = await c.req('POST', '/v1/auth/register', {
+        email,
+        password,
+        displayName: `Load ${i}`,
+        locale: 'en',
+      });
       // the API's per-IP signup limit (a quarter of LOGIN_RATE_PER_MINUTE): back off and retry the same account
       for (let tries = 0; r1.status === 429 && tries < 60; tries++) {
         stats.add('seed.register.throttled', r1, [429]);
         await sleep(2000 + Math.random() * 3000);
-        r1 = await c.req('POST', '/v1/auth/register', { email, password, displayName: `Load ${i}`, locale: 'en' });
+        r1 = await c.req('POST', '/v1/auth/register', {
+          email,
+          password,
+          displayName: `Load ${i}`,
+          locale: 'en',
+        });
       }
       if (!stats.add('seed.register', r1)) {
-        if (stats.ops.get('seed.register').err <= 5) console.error('register failed', r1.status, JSON.stringify(r1.json));
+        if (stats.ops.get('seed.register').err <= 5)
+          console.error('register failed', r1.status, JSON.stringify(r1.json));
         continue;
       }
-      const r2 = await c.req('POST', '/v1/organizations', { name: `Load Org ${run}-${i}`, country: 'SA', defaultLocale: 'en' });
+      const r2 = await c.req('POST', '/v1/organizations', {
+        name: `Load Org ${run}-${i}`,
+        country: 'SA',
+        defaultLocale: 'en',
+      });
       if (!stats.add('seed.createOrg', r2)) {
-        if (stats.ops.get('seed.createOrg').err <= 5) console.error('org failed', r2.status, JSON.stringify(r2.json));
+        if (stats.ops.get('seed.createOrg').err <= 5)
+          console.error('org failed', r2.status, JSON.stringify(r2.json));
         continue;
       }
       appendFileSync(file, JSON.stringify({ email, password, orgId: idOf(r2.json) }) + '\n');
-      if (++done % 500 === 0) console.log(`  ${have + done}/${n}  ${((done * 1000) / (Date.now() - t0)).toFixed(1)} users/s`);
+      if (++done % 500 === 0)
+        console.log(
+          `  ${have + done}/${n}  ${((done * 1000) / (Date.now() - t0)).toFixed(1)} users/s`,
+        );
     }
   }
   await Promise.all(Array.from({ length: conc }, worker));
   const s = stats.summary();
   console.table(s.rows.map(({ codes, ...r }) => ({ ...r, codes: JSON.stringify(codes) })));
-  console.log(`seeded ${done} in ${((Date.now() - t0) / 1000).toFixed(0)} s (${((done * 1000) / (Date.now() - t0)).toFixed(1)} users/s)`);
-  writeFileSync(join(OUT, `seed-${run}.json`), JSON.stringify({ done, secs: (Date.now() - t0) / 1000, ...s }, null, 2));
+  console.log(
+    `seeded ${done} in ${((Date.now() - t0) / 1000).toFixed(0)} s (${((done * 1000) / (Date.now() - t0)).toFixed(1)} users/s)`,
+  );
+  writeFileSync(
+    join(OUT, `seed-${run}.json`),
+    JSON.stringify({ done, secs: (Date.now() - t0) / 1000, ...s }, null, 2),
+  );
 }
 
 // ---------- server sampling ----------
 function pidsOnPort(port) {
   try {
-    return execFileSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+    return execFileSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], {
+      encoding: 'utf8',
+    })
+      .trim()
+      .split('\n')
+      .filter(Boolean);
   } catch {
     return [];
   }
@@ -193,7 +227,9 @@ function sampleServers(ports) {
     const pids = pidsOnPort(port);
     if (!pids.length) continue;
     try {
-      const ps = execFileSync('ps', ['-o', '%cpu=,rss=', '-p', pids.join(',')], { encoding: 'utf8' });
+      const ps = execFileSync('ps', ['-o', '%cpu=,rss=', '-p', pids.join(',')], {
+        encoding: 'utf8',
+      });
       let cpu = 0;
       let rss = 0;
       for (const line of ps.trim().split('\n')) {
@@ -209,7 +245,11 @@ function sampleServers(ports) {
   if (args['pg-url']) {
     try {
       out.pgConnections = Number(
-        execFileSync(args.psql ?? 'psql', [args['pg-url'], '-Atc', 'select count(*) from pg_stat_activity'], { encoding: 'utf8' }).trim(),
+        execFileSync(
+          args.psql ?? 'psql',
+          [args['pg-url'], '-Atc', 'select count(*) from pg_stat_activity'],
+          { encoding: 'utf8' },
+        ).trim(),
       );
     } catch {
       /* ignore */
@@ -219,18 +259,35 @@ function sampleServers(ports) {
 }
 
 // ---------- scenarios ----------
-const LABELS = ['nuzm', 'souq', 'falcon', 'riyadh', 'najm', 'baytak', 'qamar', 'sahra', 'nakhla', 'majlis'];
+const LABELS = [
+  'nuzm',
+  'souq',
+  'falcon',
+  'riyadh',
+  'najm',
+  'baytak',
+  'qamar',
+  'sahra',
+  'nakhla',
+  'majlis',
+];
 // Signed-in clients are kept across stages (one per user), like real users who stay signed in.
 const sessions = new Map();
 async function signIn(user, stats) {
   let s = sessions.get(user.email);
   if (s) return s;
   const c = new Client();
-  let r = await c.req('POST', '/v1/auth/password/login', { email: user.email, password: user.password });
+  let r = await c.req('POST', '/v1/auth/password/login', {
+    email: user.email,
+    password: user.password,
+  });
   for (let tries = 0; r.status === 429 && tries < 30; tries++) {
     stats.add('auth.login.throttled', r, [429]);
     await sleep(2000 + Math.random() * 3000);
-    r = await c.req('POST', '/v1/auth/password/login', { email: user.email, password: user.password });
+    r = await c.req('POST', '/v1/auth/password/login', {
+      email: user.email,
+      password: user.password,
+    });
   }
   if (!stats.add('auth.login', r)) return undefined;
   c.orgId = user.orgId;
@@ -249,7 +306,11 @@ async function vuLoop(user, stats, stopAt, think) {
       stats.add('dash.orgs', await c.req('GET', '/v1/organizations'));
     } else if (roll < 0.6) {
       const q = `${pick(LABELS)}${Math.floor(Math.random() * 100000)}`;
-      stats.add('domains.search', await c.req('GET', `/v1/domains/search?q=${q}&tlds=com,net`), [429]);
+      stats.add(
+        'domains.search',
+        await c.req('GET', `/v1/domains/search?q=${q}&tlds=com,net`),
+        [429],
+      );
       stats.add('domains.list', await c.req('GET', '/v1/domains'));
     } else if (roll < 0.8) {
       if (!st.sessionId) {
@@ -259,7 +320,10 @@ async function vuLoop(user, stats, stopAt, think) {
         const run = await c.req('POST', '/v1/ai/runs', {
           sessionId: st.sessionId,
           kind: 'chat',
-          input: { description: 'A landing page for a coffee shop in Riyadh with a menu and opening hours.' },
+          input: {
+            description:
+              'A landing page for a coffee shop in Riyadh with a menu and opening hours.',
+          },
         });
         // 409 run_active / 429 too many active runs / 402 credits are the platform's own limits, reported but expected under load
         if (stats.add('ai.run.create', run, [402, 409, 429])) st.runId = idOf(run.json);
@@ -267,33 +331,69 @@ async function vuLoop(user, stats, stopAt, think) {
         const g = await c.req('GET', `/v1/ai/runs/${st.runId}`);
         stats.add('ai.run.poll', g);
         const state = g.json?.state ?? g.json?.status;
-        if (!g.json || ['succeeded', 'failed', 'cancelled', 'completed', 'unsupported_capability', 'waiting_approval'].includes(state)) st.runId = undefined;
+        if (
+          !g.json ||
+          [
+            'succeeded',
+            'failed',
+            'cancelled',
+            'completed',
+            'unsupported_capability',
+            'waiting_approval',
+          ].includes(state)
+        )
+          st.runId = undefined;
       }
     } else {
       if (!st.projectId) {
         // half the VUs build websites (site previews), half build web apps (change previews, live previews)
         st.type = Math.random() < 0.5 ? 'website' : 'webapp';
-        const p = await c.req('POST', '/v1/builder/projects', { type: st.type, name: `Load ${st.type} ${randomUUID().slice(0, 8)}`, locale: ['en'] });
+        const p = await c.req('POST', '/v1/builder/projects', {
+          type: st.type,
+          name: `Load ${st.type} ${randomUUID().slice(0, 8)}`,
+          locale: ['en'],
+        });
         if (stats.add(`builder.project.${st.type}`, p, [429])) {
           st.projectId = idOf(p.json);
           st.head = p.json?.headVersionId;
         }
       } else {
         const sub = Math.random();
-        if (sub < 0.35) stats.add('builder.files', await c.req('GET', `/v1/builder/projects/${st.projectId}/files`));
+        if (sub < 0.35)
+          stats.add(
+            'builder.files',
+            await c.req('GET', `/v1/builder/projects/${st.projectId}/files`),
+          );
         else if (st.type === 'website')
-          stats.add('builder.preview', await c.req('POST', `/v1/builder/projects/${st.projectId}/previews`, { viewport: pick(['mobile', 'tablet', 'desktop']) }), [409, 429]);
+          stats.add(
+            'builder.preview',
+            await c.req('POST', `/v1/builder/projects/${st.projectId}/previews`, {
+              viewport: pick(['mobile', 'tablet', 'desktop']),
+            }),
+            [409, 429],
+          );
         else if (sub < 0.85)
           stats.add(
             'builder.changePreview',
             await c.req('POST', `/v1/builder/projects/${st.projectId}/change-previews`, {
               baseVersion: st.head ?? null,
-              patches: [{ op: 'add', path: `src/load-${Math.floor(Math.random() * 1e6)}.ts`, content: 'export const loadTest = true;\n' }],
+              patches: [
+                {
+                  op: 'add',
+                  path: `src/load-${Math.floor(Math.random() * 1e6)}.ts`,
+                  content: 'export const loadTest = true;\n',
+                },
+              ],
             }),
             [409],
           );
         // live preview: spawns a child process; 404 until the app was built, 429 = the platform's 2-per-org cap
-        else stats.add('builder.livePreview', await c.req('POST', `/v1/builder/projects/${st.projectId}/live-preview`, {}), [404, 409, 429]);
+        else
+          stats.add(
+            'builder.livePreview',
+            await c.req('POST', `/v1/builder/projects/${st.projectId}/live-preview`, {}),
+            [404, 409, 429],
+          );
       }
     }
     if (think) await sleep(think * (0.5 + Math.random()));
@@ -301,7 +401,10 @@ async function vuLoop(user, stats, stopAt, think) {
 }
 
 async function runTest() {
-  const users = readFileSync(join(OUT, 'users.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  const users = readFileSync(join(OUT, 'users.jsonl'), 'utf8')
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l));
   const stages = (args.stages ?? '50:60,200:60,500:90,1000:90').split(',').map((s) => {
     const [vus, secs] = s.split(':').map(Number);
     return { vus, secs };
@@ -310,25 +413,50 @@ async function runTest() {
   const maxErr = Number(args['max-error-rate'] ?? 10);
   const maxP95 = Number(args['max-p95-ms'] ?? 10_000);
   const ports = JSON.parse(args.ports ?? '{}');
-  const report = { base: BASE, think, startedAt: new Date().toISOString(), seededUsers: users.length, stages: [] };
-  console.log(`${users.length} seeded users; stages ${JSON.stringify(stages)}; think ${think} ms; stop at >${maxErr}% errors or p95 >${maxP95} ms`);
+  const report = {
+    base: BASE,
+    think,
+    startedAt: new Date().toISOString(),
+    seededUsers: users.length,
+    stages: [],
+  };
+  console.log(
+    `${users.length} seeded users; stages ${JSON.stringify(stages)}; think ${think} ms; stop at >${maxErr}% errors or p95 >${maxP95} ms`,
+  );
   // sign-in warm-up: every user the largest stage needs signs in first (password hashing is CPU-heavy), measured on its own
   const need = Math.max(...stages.map((s) => s.vus));
-  if (need > users.length) throw new Error(`the largest stage wants ${need} VUs but only ${users.length} users are seeded`);
+  if (need > users.length)
+    throw new Error(
+      `the largest stage wants ${need} VUs but only ${users.length} users are seeded`,
+    );
   {
     const stats = new Stats();
     const t0 = Date.now();
     let next = 0;
     const conc = Number(args['login-concurrency'] ?? 16);
-    await Promise.all(Array.from({ length: conc }, async () => { while (next < need) await signIn(users[next++], stats); }));
+    await Promise.all(
+      Array.from({ length: conc }, async () => {
+        while (next < need) await signIn(users[next++], stats);
+      }),
+    );
     const s = stats.summary();
     const secs = (Date.now() - t0) / 1000;
-    report.signIn = { users: need, secs: +secs.toFixed(1), perSec: +(need / secs).toFixed(1), ...s };
-    console.log(`\n=== sign-in warm-up: ${need} users in ${secs.toFixed(0)} s (${(need / secs).toFixed(1)}/s), p50 ${s.p50} ms, p95 ${s.p95} ms, errors ${s.errPct}%`);
+    report.signIn = {
+      users: need,
+      secs: +secs.toFixed(1),
+      perSec: +(need / secs).toFixed(1),
+      ...s,
+    };
+    console.log(
+      `\n=== sign-in warm-up: ${need} users in ${secs.toFixed(0)} s (${(need / secs).toFixed(1)}/s), p50 ${s.p50} ms, p95 ${s.p95} ms, errors ${s.errPct}%`,
+    );
     console.table(s.rows.map(({ codes, ...r }) => ({ ...r, codes: JSON.stringify(codes) })));
   }
   for (const [si, stage] of stages.entries()) {
-    if (stage.vus > users.length) throw new Error(`stage ${si} wants ${stage.vus} VUs but only ${users.length} users are seeded`);
+    if (stage.vus > users.length)
+      throw new Error(
+        `stage ${si} wants ${stage.vus} VUs but only ${users.length} users are seeded`,
+      );
     const stats = new Stats();
     const samples = [];
     const stopAt = Date.now() + stage.secs * 1000;
@@ -346,16 +474,29 @@ async function runTest() {
     const s = stats.summary();
     const secs = (Date.now() - t0) / 1000;
     const peak = (k, f) => Math.max(0, ...samples.map((x) => x[k]?.[f] ?? 0));
-    const server = Object.fromEntries(Object.keys(ports).map((k) => [k, { peakCpu: peak(k, 'cpu'), peakRssMb: peak(k, 'rssMb') }]));
+    const server = Object.fromEntries(
+      Object.keys(ports).map((k) => [k, { peakCpu: peak(k, 'cpu'), peakRssMb: peak(k, 'rssMb') }]),
+    );
     const pg = Math.max(0, ...samples.map((x) => x.pgConnections ?? 0));
-    const entry = { ...stage, secs: +secs.toFixed(1), rps: +(s.total / secs).toFixed(1), ...s, server, peakPgConnections: pg };
+    const entry = {
+      ...stage,
+      secs: +secs.toFixed(1),
+      rps: +(s.total / secs).toFixed(1),
+      ...s,
+      server,
+      peakPgConnections: pg,
+    };
     report.stages.push(entry);
-    console.log(`\n=== stage ${si + 1}: ${stage.vus} VUs, ${entry.rps} req/s, errors ${s.errPct}%, p50 ${s.p50} ms, p95 ${s.p95} ms, p99 ${s.p99} ms`);
+    console.log(
+      `\n=== stage ${si + 1}: ${stage.vus} VUs, ${entry.rps} req/s, errors ${s.errPct}%, p50 ${s.p50} ms, p95 ${s.p95} ms, p99 ${s.p99} ms`,
+    );
     console.log('server peaks', JSON.stringify(server), 'pg connections', pg);
     console.table(s.rows.map(({ codes, ...r }) => ({ ...r, codes: JSON.stringify(codes) })));
     writeFileSync(join(OUT, 'report.json'), JSON.stringify(report, null, 2));
     if (s.errPct > maxErr || s.p95 > maxP95) {
-      console.log(`STOP: stage ${si + 1} breached the limits (errors ${s.errPct}% > ${maxErr}% or p95 ${s.p95} > ${maxP95} ms)`);
+      console.log(
+        `STOP: stage ${si + 1} breached the limits (errors ${s.errPct}% > ${maxErr}% or p95 ${s.p95} > ${maxP95} ms)`,
+      );
       report.stoppedAtStage = si + 1;
       break;
     }

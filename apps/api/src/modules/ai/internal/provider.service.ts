@@ -12,7 +12,7 @@ import {
 } from '@nuzm/adapter-model';
 import type { Db } from '@nuzm/platform';
 import type { AuditSink } from '../../../common/audit';
-import type { SecretStore } from '../../../common/secrets';
+import { ProductionFileSecretStore, type SecretStore } from '../../../common/secrets';
 import { ProblemException } from '../../../common/errors';
 import { AI_KILLSWITCH, isUuid, type AiConfig, type Row } from './model';
 import type { ModelAdapterRegistry } from './registry';
@@ -121,6 +121,18 @@ export class ModelProviderService {
     /** Asks the provider whether it accepts a key (a LIVE call). Absent where no probe is wired: the test then says it is unavailable. */
     private readonly probe?: ConnectionProbe,
   ) {}
+
+  /**
+   * Whether a typed key may be sealed here. Outside production: whenever a store is wired. In production: ONLY the provisioned encrypted store
+   * (`ProductionFileSecretStore`: private ciphertext directory + separate key file, set up by infra/deploy/setup-production-api.sh and documented in
+   * docs/runbooks/production-password-auth.md). Any other store in production (in-memory, dev file vault) is refused, so a key is never kept where a
+   * restart would lose it or where the dev seal key opens it. A managed vault/KMS (D-12) remains the later replacement.
+   */
+  private vaultReady(): boolean {
+    return (
+      process.env.NODE_ENV !== 'production' || this.secrets instanceof ProductionFileSecretStore
+    );
+  }
 
   private dto(r: Row): ProviderDto {
     return {
@@ -585,13 +597,13 @@ export class ModelProviderService {
   /**
    * Stores a provider's API key (typed by an administrator in the console) in the SEALED secret store and points the provider at its `vault://` reference.
    * The key is never written to the database, a log, an audit event or any response: only the reference is kept. A new credential is a configuration change,
-   * so the provider is disabled and goes through the attest / request / enable steps again. Not available in production: the production vault is BLOCKED (D-12).
+   * so the provider is disabled and goes through the attest / request / enable steps again. In production only with the provisioned encrypted store (see vaultReady).
    */
   async setCredential(actor: string, id: string, apiKey: unknown): Promise<ProviderDto> {
-    if (!this.secrets || process.env.NODE_ENV === 'production')
+    if (!this.secrets || !this.vaultReady())
       throw new ProblemException(
         'unsupported_capability',
-        'storing a key here is not available in this profile: the production vault is not decided yet (D-12); use a vault reference',
+        'storing a key here is not available in this profile: no sealed secret store is configured for this profile; use a vault reference',
       );
     const key = typeof apiKey === 'string' ? apiKey.trim() : '';
     if (!API_KEY.test(key))
@@ -627,10 +639,10 @@ export class ModelProviderService {
    * be enabled until its data terms are attested and an adapter for it is registered; saving a key never changes that.
    */
   async saveClaudeKey(actor: string, apiKey: unknown): Promise<ProviderDto> {
-    if (!this.secrets || process.env.NODE_ENV === 'production')
+    if (!this.secrets || !this.vaultReady())
       throw new ProblemException(
         'unsupported_capability',
-        'storing a key here is not available in this profile: the production vault is not decided yet (D-12); use a vault reference',
+        'storing a key here is not available in this profile: no sealed secret store is configured for this profile; use a vault reference',
       );
     if (typeof apiKey !== 'string' || !API_KEY.test(apiKey.trim()))
       throw new ProblemException(
@@ -944,16 +956,16 @@ export class ModelProviderService {
   /**
    * LIVE connection test of the stored key (Claude only for now). Read-only on the provider's side (a model listing: no prompt, no customer data, nothing billed)
    * and read-only here: it changes nothing in the database. The key is read from the sealed store inside this method and never returned, logged or audited:
-   * the audit event carries only the outcome and the HTTP status. Dev profile only, like storing the key (D-12).
+   * the audit event carries only the outcome and the HTTP status. Same store rule as storing the key (vaultReady).
    */
   async testConnection(
     actor: string,
     id: string,
   ): Promise<ProbeResult & { checkedAt: string; live: true }> {
-    if (!this.secrets || !this.probe || process.env.NODE_ENV === 'production')
+    if (!this.secrets || !this.vaultReady() || !this.probe)
       throw new ProblemException(
         'unsupported_capability',
-        'testing the connection is not available in this profile: the production vault is not decided yet (D-12)',
+        'testing the connection is not available in this profile: no sealed secret store is configured for this profile',
       );
     const r = await this.load(id);
     if (r.adapter !== 'anthropic')
@@ -992,7 +1004,7 @@ export class ModelProviderService {
    * KEY ROTATION (P3-S01). The new key is typed into the admin console like the first one (write-only, never echoed). It is sealed under a STAGING name first and tested with the
    * provider (a read-only model listing: nothing billed, behind the same live gate as any call); only when the provider accepts it does it replace the current key. A key that is
    * refused leaves the current key untouched and the staging copy deleted. The provider stays enabled (it never runs without a working key), the audit event carries only the vault
-   * REFERENCE and the outcome, never a key. Dev profile only until the production vault is decided (D-12). Rotating does not revoke the OLD key at the vendor: that is a human step
+   * REFERENCE and the outcome, never a key. Same store rule as storing the key (vaultReady). Rotating does not revoke the OLD key at the vendor: that is a human step
    * in the vendor console, which this platform cannot and does not perform (the result says so).
    */
   async rotateCredential(
@@ -1000,10 +1012,10 @@ export class ModelProviderService {
     id: string,
     apiKey: unknown,
   ): Promise<{ provider: ProviderDto; rotatedAt: string; vendorSteps: string[] }> {
-    if (!this.secrets || !this.probe || process.env.NODE_ENV === 'production')
+    if (!this.secrets || !this.vaultReady() || !this.probe)
       throw new ProblemException(
         'unsupported_capability',
-        'rotating a key here is not available in this profile: the production vault is not decided yet (D-12)',
+        'rotating a key here is not available in this profile: no sealed secret store is configured for this profile',
       );
     const key = typeof apiKey === 'string' ? apiKey.trim() : '';
     if (!API_KEY.test(key))

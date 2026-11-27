@@ -95,13 +95,12 @@ export function loadAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     maxConcurrentRuns: Math.max(1, Math.floor(n('AI_MAX_CONCURRENT_RUNS', 5, 1))),
     approvalTtlHours: n('AI_APPROVAL_TTL_HOURS', 24, 0.0001),
     probeApprovals: parseProbeApprovals(env),
-    liveProviders:
-      env.NODE_ENV === 'production'
-        ? []
-        : (env.AI_LIVE_PROVIDERS ?? '')
-            .split(',')
-            .map((x) => x.trim())
-            .filter((x) => /^[a-z][a-z0-9-]{0,62}$/.test(x)),
+    // Read in production too: the owner turns a provider on by writing AI_LIVE_PROVIDERS into the root-owned /etc/nuzm/api.env on the server (an explicit
+    // human action outside the app). Default none. The provider still needs a stored key, attested terms, a rate card and a second person's approval.
+    liveProviders: (env.AI_LIVE_PROVIDERS ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => /^[a-z][a-z0-9-]{0,62}$/.test(x)),
   };
 }
 

@@ -18,9 +18,15 @@ cd /srv/nuzm/current
 node <<'JS'
 const { Client } = require('./packages/platform/node_modules/pg');
 const { randomUUID } = require('node:crypto');
+// Deliberately NOT here: builder_lifecycle.real_path (real builds with no approved sandbox, D-21/HG-10-02) and enterprise.sso/scim (no IdP).
+// app_builder.live_preview only shows the control: the API still refuses to start a preview in production until a sandbox exists.
 const flags = [
   'cloud.provisioning', 'domains.enabled', 'hosting.enabled', 'ai.enabled', 'app_builder.enabled',
   'mobile_builder.enabled', 'automation.enabled', 'webhooks.enabled', 'marketplace.enabled', 'agency.enabled', 'reseller.enabled',
+  // AI builder, AI studio and the knowledge library (templates the admin uploads, customer templates, generation from them)
+  'builder_tools.enabled', 'builder_lifecycle.enabled', 'builder_lifecycle.model_generation', 'ai_studio.enabled',
+  'knowledge.library', 'knowledge.customer_templates', 'knowledge.generation', 'knowledge.agentic_generation',
+  'app_builder.live_preview', 'ai.benchmarks',
 ];
 const all = process.env.TARGET === '--all-organizations';
 (async () => {

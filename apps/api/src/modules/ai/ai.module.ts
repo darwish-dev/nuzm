@@ -72,30 +72,32 @@ import { ModelAdapterRegistry, StaticModelAdapterRegistry } from './internal/reg
             'mock-model',
             new MockModelAdapter({ id: 'mock-model', handler: (req) => mockModelHandler(req) }),
           );
-        // Claude: registered only OUTSIDE production. A key can be stored only there (the production vault is not decided, D-12), and the adapter is not
-        // enough to serve a request: the provider still needs a rate card, a human attestation, a second person's approval and a residency assessment.
-        if (process.env.NODE_ENV !== 'production')
-          r.register(
-            CLAUDE_PROVIDER_ID,
-            new AnthropicModelAdapter({
-              // closed unless the owner listed `claude` in AI_LIVE_PROVIDERS: nothing leaves the process before that, whatever the provider row says
-              liveEnabled: () => cfg.liveProviders.includes(CLAUDE_PROVIDER_ID),
-              // implements contract 1.1 as a CANDIDATE: the gateway counts a tool-calling capability only from recorded, verified evidence (D8), so nothing is declared yet
-              contract: '1.1',
-              getApiKey: async () => {
-                const row = await db.withPlatformScope(
-                  async (c) =>
-                    (
-                      await c.query(`SELECT vault_ref FROM ai.model_providers WHERE code=$1`, [
-                        CLAUDE_PROVIDER_ID,
-                      ])
-                    ).rows[0] as { vault_ref: string | null } | undefined,
-                );
-                const ref = row?.vault_ref ?? null;
-                return ref && /^vault:\/\/(dev|mem)\/ai-/.test(ref) ? secrets.get(ref) : null;
-              },
-            }),
-          );
+        // Claude: registered in every profile. Registration alone sends nothing: live calls stay closed until the owner lists `claude` in
+        // AI_LIVE_PROVIDERS, and the provider still needs a stored key, a rate card, a human attestation, a second person's approval and a residency assessment.
+        r.register(
+          CLAUDE_PROVIDER_ID,
+          new AnthropicModelAdapter({
+            // closed unless the owner listed `claude` in AI_LIVE_PROVIDERS: nothing leaves the process before that, whatever the provider row says
+            liveEnabled: () => cfg.liveProviders.includes(CLAUDE_PROVIDER_ID),
+            // implements contract 1.1 as a CANDIDATE: the gateway counts a tool-calling capability only from recorded, verified evidence (D8), so nothing is declared yet
+            contract: '1.1',
+            getApiKey: async () => {
+              const row = await db.withPlatformScope(
+                async (c) =>
+                  (
+                    await c.query(`SELECT vault_ref FROM ai.model_providers WHERE code=$1`, [
+                      CLAUDE_PROVIDER_ID,
+                    ])
+                  ).rows[0] as { vault_ref: string | null } | undefined,
+              );
+              const ref = row?.vault_ref ?? null;
+              // only a reference to a key typed into this platform's own sealed store (dev, in-memory tests, or the production encrypted store)
+              return ref && /^vault:\/\/(dev|mem|production)\/ai-/.test(ref)
+                ? secrets.get(ref)
+                : null;
+            },
+          }),
+        );
         return r;
       },
       inject: [AI_CONFIG, DB, SecretStore],

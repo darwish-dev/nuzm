@@ -1,9 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MemorySecretStore } from '../../../common/secrets';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import {
+  MemorySecretStore,
+  ProductionFileSecretStore,
+  type SecretStore,
+} from '../../../common/secrets';
 import { ModelProviderService } from './provider.service';
 
 /** A recording stand-in for the database: one provider row, updated in place by the two credential statements. */
-function setup(env = 'test') {
+function setup(env = 'test', store?: SecretStore) {
   const row: Record<string, unknown> = {
     id: '11111111-1111-4111-8111-111111111111',
     code: 'acme-ai',
@@ -38,7 +46,7 @@ function setup(env = 'test') {
       }),
   };
   const audit = { record: (e: unknown) => void events.push(e) };
-  const secrets = new MemorySecretStore();
+  const secrets: SecretStore = store ?? new MemorySecretStore();
   const svc = new ModelProviderService(
     db as never,
     audit as never,
@@ -85,7 +93,7 @@ describe('API key of a model provider', () => {
       );
     }
   });
-  it('is not available in production (the production vault is not decided) or without a secret store', async () => {
+  it('is refused in production with any store other than the provisioned encrypted one, and without a secret store', async () => {
     const prod = setup();
     const was = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
@@ -99,6 +107,23 @@ describe('API key of a model provider', () => {
     await expect(
       setup('none').svc.setCredential('a', '11111111-1111-4111-8111-111111111111', KEY),
     ).rejects.toMatchObject({ code: 'unsupported_capability' });
+  });
+  it('in production, seals the key in the provisioned encrypted store (private directory + separate key file)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'nuzm-prod-vault-'));
+    const dir = mkdtempSync(join(root, 'secrets-'));
+    const keyFile = join(root, 'secret-store.key');
+    writeFileSync(keyFile, randomBytes(32).toString('base64'), { mode: 0o600 });
+    const prod = setup('test', new ProductionFileSecretStore(dir, keyFile));
+    const was = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const out = await prod.svc.setCredential('a', '11111111-1111-4111-8111-111111111111', KEY);
+      expect(out.vaultRef).toBe('vault://production/ai-acme-ai');
+      expect(await prod.secrets.get(out.vaultRef!)).toBe(KEY);
+      expect(JSON.stringify(prod.events) + JSON.stringify(prod.queries)).not.toContain(KEY);
+    } finally {
+      process.env.NODE_ENV = was;
+    }
   });
   it('removing it deletes the stored key, clears the reference and records who did it', async () => {
     const { svc, events, secrets } = setup();

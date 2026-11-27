@@ -21,10 +21,11 @@ describe('live provider gate configuration (S-AG4)', () => {
       loadAiConfig({ AI_LIVE_PROVIDERS: ' claude , acme-ai ,,BAD CODE,../x,' }).liveProviders,
     ).toEqual(['claude', 'acme-ai']);
   });
-  it('production never approves a live provider through this setting (the production vault is not decided, D-12)', () => {
+  it('production approves a live provider only when the owner lists it on the server (default none)', () => {
+    expect(loadAiConfig({ NODE_ENV: 'production' }).liveProviders).toEqual([]);
     expect(
       loadAiConfig({ NODE_ENV: 'production', AI_LIVE_PROVIDERS: 'claude' }).liveProviders,
-    ).toEqual([]);
+    ).toEqual(['claude']);
   });
 
   it('spending limits: no output ceiling and two repairs by default; set values are read exactly', () => {

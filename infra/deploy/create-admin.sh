@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Owner-run bootstrap. Prints a newly generated password only in the owner's terminal.
-# Existing staff accounts and customer credentials are never modified.
+# Customer credentials are never modified. Existing owner passwords are preserved.
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo 'Run this from the root VPS terminal'; exit 1; }
 export NUZM_NEW_ADMIN_EMAIL="${1:?staff email required}"
@@ -21,18 +21,27 @@ const { hashPassword } = require('./apps/api/dist/modules/identity');
     await db.query('BEGIN');
     // Serialize this bootstrap, including simultaneous attempts for the same address.
     await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['nuzm-staff-bootstrap:' + email]);
-    const existing = await db.query('SELECT id FROM identity.users WHERE lower(email)=$1 AND (is_platform_user OR issuer=$2)', [email, 'nuzm:staff']);
-    if (existing.rowCount) throw new Error('A staff account already exists for this email. No account or password was changed.');
+    const existing = await db.query('SELECT id,issuer FROM identity.users WHERE lower(email)=$1 AND (is_platform_user OR issuer=$2)', [email, 'nuzm:staff']);
+    if (existing.rowCount) {
+      if (existing.rowCount !== 1 || existing.rows[0].issuer !== 'nuzm:staff')
+        throw new Error('An existing platform identity needs review; nothing was changed.');
+      const ownerRole = await db.query("SELECT 1 FROM tenancy.platform_roles WHERE user_id=$1 AND role='platform_admin'", [existing.rows[0].id]);
+      if (ownerRole.rowCount !== 1) throw new Error('Existing account has a different role; nothing was changed.');
+      await db.query("UPDATE identity.users SET display_name='System owner' WHERE id=$1", [existing.rows[0].id]);
+      await db.query('COMMIT');
+      console.log('System owner confirmed: ' + email + ' (platform_admin). Password unchanged; MFA remains required.');
+      return;
+    }
     const role = await db.query("SELECT 1 FROM tenancy.roles WHERE name='platform_admin' AND scope='platform'");
     if (role.rowCount !== 1) throw new Error('Platform admin role is missing; complete migrations first');
     const password = randomBytes(24).toString('base64url');
     const hash = await hashPassword(password, { logN: 17, r: 8, p: 1 });
     const id = randomUUID();
-    await db.query("INSERT INTO identity.users (id,issuer,subject,email,display_name,locale,is_platform_user) VALUES ($1,'nuzm:staff',$2,$2,'Platform administrator','ar',true)", [id,email]);
+    await db.query("INSERT INTO identity.users (id,issuer,subject,email,display_name,locale,is_platform_user) VALUES ($1,'nuzm:staff',$2,$2,'System owner','ar',true)", [id,email]);
     await db.query('INSERT INTO identity.credentials (user_id,password_hash) VALUES ($1,$2)', [id,hash]);
     await db.query("INSERT INTO tenancy.platform_roles (user_id,role) VALUES ($1,'platform_admin')", [id]);
     await db.query('COMMIT');
-    console.log('Admin account created. Customer accounts were not changed.');
+    console.log('System owner account created with platform_admin, the highest normal platform role. Customer accounts were not changed.');
     console.log('URL: https://admin.nuzm.dev/ar/login');
     console.log('Email: ' + email);
     console.log('Password (save privately; do not paste in chat): ' + password);

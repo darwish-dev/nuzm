@@ -270,7 +270,7 @@ export const messages = {
     'nc.grp.control': 'الضبط والمتابعة',
     'nc.grp.team': 'الفريق',
     'nc.grp.organization': 'المؤسسة',
-    'nc.grp.privacy': 'الخصوصية والبيانات',
+    'nc.grp.privacy': 'الخصوصية وموقع البيانات',
     'nc.grp.portals': 'البوابات',
     'nc.grp.account': 'حسابك',
     'nc.item.overview': 'نظرة عامة',
@@ -1507,6 +1507,17 @@ export const messages = {
     'pv.exp.quota': 'هناك خمس عمليات تصدير قيد التنفيذ؛ انتظر اكتمال إحداها.',
     'pv.exp.download': 'تنزيل',
     'pv.exp.empty': 'لا توجد عمليات تصدير.',
+    'pv.ai.title': 'ميزات الذكاء الاصطناعي',
+    'pv.ai.on':
+      'مفعّلة: يمكن معالجة محتوى مشاريعكم في الولايات المتحدة حيث يعمل نموذج الذكاء الاصطناعي.',
+    'pv.ai.off':
+      'غير مفعّلة: يبقى محتواكم داخل المملكة، لذلك لا يعمل منشئ المشاريع بالذكاء الاصطناعي.',
+    'pv.ai.note':
+      'يعمل نموذج الذكاء الاصطناعي في الولايات المتحدة. التفعيل يسمح بإرسال محتوى المشاريع فقط إليه؛ تبقى بياناتكم الأخرى كما هي.',
+    'pv.ai.turnOn': 'تفعيل ميزات الذكاء الاصطناعي',
+    'pv.ai.turnOff': 'إيقاف ميزات الذكاء الاصطناعي',
+    'pv.ai.onDone': 'فُعّلت ميزات الذكاء الاصطناعي. ارجعوا إلى المنشئ وابدؤوا.',
+    'pv.ai.offDone': 'أُوقفت ميزات الذكاء الاصطناعي.',
     'pv.res.title': 'موقع البيانات',
     'pv.res.help':
       'الوضع الافتراضي يبقي البيانات داخل المملكة. يمكنك التشديد فقط، ولا يمكنك تجاوز الحد الأدنى الذي تفرضه المنصة.',
@@ -5371,7 +5382,10 @@ export const messages = {
     'bld.lang.en': 'الإنجليزية',
     'bld.err.insufficient_credits':
       'رصيدكم من أرصدة الذكاء الاصطناعي لا يكفي لهذا الطلب. اشحنوا المحفظة ثم أعيدوا المحاولة.',
-    'bld.err.residency_denied': 'سياسة موقع البيانات لديكم لا تسمح بهذه المنطقة لهذا المحتوى.',
+    'bld.err.residency_denied':
+      'ميزات الذكاء الاصطناعي غير مفعّلة لمنظمتكم: سياسة موقع البيانات تُبقي المحتوى داخل المملكة ونموذج الذكاء الاصطناعي يعمل خارجها.',
+    'bld.fix.residency': 'تفعيل ميزات الذكاء الاصطناعي',
+    'bld.fix.credits': 'اشحن المحفظة',
     'bld.err.unsupported_capability':
       'لم يُفعَّل أي مزوّد نماذج ذكاء اصطناعي بعد، لذلك لا يمكن التنفيذ. أعيدوا المحاولة بعد أن تفعّله المنصة.',
     'bld.err.ai_unavailable': 'ميزات الذكاء الاصطناعي متوقفة مؤقتًا من المنصة. يُرجى المحاولة لاحقًا.',
@@ -9200,7 +9214,7 @@ export const messages = {
     'nc.grp.control': 'Control',
     'nc.grp.team': 'Team',
     'nc.grp.organization': 'Organization',
-    'nc.grp.privacy': 'Privacy and data',
+    'nc.grp.privacy': 'Privacy and data residency',
     'nc.grp.portals': 'Portals',
     'nc.grp.account': 'Your account',
     'nc.item.overview': 'Overview',
@@ -10465,6 +10479,16 @@ export const messages = {
     'pv.exp.quota': 'Five exports are already in progress; wait for one to finish.',
     'pv.exp.download': 'Download',
     'pv.exp.empty': 'No exports yet.',
+    'pv.ai.title': 'AI features',
+    'pv.ai.on':
+      'On: your project content may be processed in the United States, where the AI model runs.',
+    'pv.ai.off': 'Off: your content stays in the Kingdom, so the AI builder cannot run.',
+    'pv.ai.note':
+      'The AI model runs in the United States. Turning this on lets only project content be sent to it; your other data stays as it is.',
+    'pv.ai.turnOn': 'Turn on AI features',
+    'pv.ai.turnOff': 'Turn off AI features',
+    'pv.ai.onDone': 'AI features are on. Go back to the builder and start.',
+    'pv.ai.offDone': 'AI features are off.',
     'pv.res.title': 'Data residency',
     'pv.res.help':
       'The default keeps data in the Kingdom. You can only tighten; you cannot go below the floor the platform sets.',
@@ -14491,7 +14515,9 @@ export const messages = {
     'bld.err.insufficient_credits':
       'Your AI credit balance is not enough for this request. Add funds to your wallet and try again.',
     'bld.err.residency_denied':
-      'Your data residency policy does not allow this region for this content.',
+      'AI features are off for your organization: its data residency policy keeps content in the Kingdom, and the AI model runs outside it.',
+    'bld.fix.residency': 'Turn on AI features',
+    'bld.fix.credits': 'Top up your wallet',
     'bld.err.unsupported_capability':
       'No AI model provider is enabled yet, so this cannot run. Try again once the platform enables one.',
     'bld.err.ai_unavailable':

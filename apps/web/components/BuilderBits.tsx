@@ -3,6 +3,7 @@ import { formatDateTime, t, tDynamic, type Locale } from '@nuzm/i18n';
 import { Badge, Banner, Ltr } from '@nuzm/ui';
 import {
   deployTone,
+  problemFix,
   problemKey,
   runTone,
   type BuilderProblem,
@@ -63,6 +64,7 @@ export function ProblemNote({
   problem: BuilderProblem;
   children?: ReactNode;
 }) {
+  const fix = problemFix(problem);
   return (
     <div role="alert" className="nz-error-text">
       <strong>{t(locale, problemKey(problem))}</strong>
@@ -76,6 +78,11 @@ export function ProblemNote({
         </ul>
       )}
       {children}
+      {fix && (
+        <p>
+          <a href={fix.href}>{t(locale, fix.label)}</a>
+        </p>
+      )}
       {problem.traceId && (
         <p className="nz-muted">{t(locale, 'state.error.trace', { traceId: problem.traceId })}</p>
       )}

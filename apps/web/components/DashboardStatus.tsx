@@ -91,6 +91,8 @@ export function DashboardStatus({
   domains: { count: number; capped?: boolean; rows: StatusRow[] } | null;
   sites: { count: number; capped?: boolean; rows: StatusRow[] } | null;
 }) {
+  // every resource module hidden (flags off, or no access): draw no resources group, never an empty box
+  const hasResources = Boolean(servers || domains || sites);
   const resources = (
     <>
       {servers && (
@@ -136,9 +138,11 @@ export function DashboardStatus({
   );
   return (
     <section className="nzc-status" data-layout={layout} aria-label={t(locale, 'ds.title')}>
-      <p className="nzc-status-title" aria-hidden="true">
-        {t(locale, 'ds.title')}
-      </p>
+      {hasResources && (
+        <p className="nzc-status-title" aria-hidden="true">
+          {t(locale, 'ds.title')}
+        </p>
+      )}
       {(layout === 'column' || attention.length > 0) && (
         <section className="nzc-status-card nzc-status-attention" aria-labelledby="ds-attention">
           <header>
@@ -171,7 +175,8 @@ export function DashboardStatus({
           )}
         </section>
       )}
-      {layout === 'row' ? <div className="nzc-status-group">{resources}</div> : resources}
+      {hasResources &&
+        (layout === 'row' ? <div className="nzc-status-group">{resources}</div> : resources)}
       {activity}
     </section>
   );

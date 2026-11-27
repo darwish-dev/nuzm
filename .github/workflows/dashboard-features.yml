@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       organization_slug:
-        description: Organization whose dashboard features should be enabled
+        description: Organization whose dashboard features should be enabled, or --all-organizations for the platform default (every organization, including new registrations)
         required: true
         type: string
 permissions: { contents: read }
@@ -21,7 +21,7 @@ jobs:
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           ORGANIZATION_SLUG: ${{ inputs.organization_slug }}
         run: |
-          [[ "$ORGANIZATION_SLUG" =~ ^[a-z0-9][a-z0-9-]{1,62}$ ]] || exit 2
+          [[ "$ORGANIZATION_SLUG" == "--all-organizations" || "$ORGANIZATION_SLUG" =~ ^[a-z0-9][a-z0-9-]{1,62}$ ]] || exit 2
           install -m 700 -d ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key

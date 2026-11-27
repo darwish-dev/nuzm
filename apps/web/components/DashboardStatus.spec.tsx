@@ -28,6 +28,19 @@ describe('dashboard status column', () => {
     expect(screen.getByText(t('en', 'ds.attention.none'))).toBeTruthy();
     expect(container.querySelectorAll('.nzc-status-card')).toHaveLength(1); // no module cards
   });
+  it('draws no empty resources box or heading when every resource module is hidden (row layout)', () => {
+    const { container } = render(<DashboardStatus {...props} layout="row" />);
+    expect(container.querySelector('.nzc-status-group')).toBeNull();
+    expect(container.querySelector('.nzc-status-title')).toBeNull();
+  });
+  it('keeps the resources heading and group when at least one module is shown (row layout)', () => {
+    const { container } = render(
+      <DashboardStatus {...props} layout="row" domains={{ count: 0, rows: [] }} />,
+    );
+    expect(container.querySelector('.nzc-status-group')).not.toBeNull();
+    expect(container.querySelector('.nzc-status-title')?.textContent).toBe(t('en', 'ds.title'));
+    expect(screen.getByText(t('en', 'ds.empty.domains'))).toBeTruthy();
+  });
   it('lists what needs attention with a link each, and counts it', () => {
     render(
       <DashboardStatus

@@ -98,6 +98,10 @@ admin)
   [ "${AGREE_LE_TOS:-}" = "yes" ] || die "Let's Encrypt's subscriber agreement (https://letsencrypt.org/repository/) must be accepted by you: rerun with AGREE_LE_TOS=yes"
   conf_dir_included || die "/etc/nginx/conf.d is not included by nginx.conf"
   getent hosts "$ADMIN_HOST" >/dev/null || die "$ADMIN_HOST has no DNS record yet"
+  # This VPS has IP-specific hosting-panel vhosts: wildcard listeners would lose traffic to them.
+  ADMIN_IP="${NUZM_ADMIN_BIND_IP:-$(getent ahostsv4 "$ADMIN_HOST" | awk 'NR == 1 { print $1 }')}"
+  [[ "$ADMIN_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "no IPv4 address for $ADMIN_HOST"
+  ip -4 addr show | grep -Fq "inet $ADMIN_IP/" || die "$ADMIN_IP is not a local server address"
   if [ ! -e "$CONF_DIR/nuzm-app-admin.conf" ] && nginx_dump | grep -E 'server_name' | grep -q "$ADMIN_HOST"; then
     die "$ADMIN_HOST is already served by another nginx config; not touching it"
   fi
@@ -108,7 +112,7 @@ admin)
   cat > "$F" <<EOF
 # Managed by infra/deploy/nginx-https.sh (admin). Step 1: answer the certificate challenge.
 server {
-  listen 80; listen [::]:80;
+  listen $ADMIN_IP:80;
   server_name $ADMIN_HOST;
   location /.well-known/acme-challenge/ { root $WEBROOT; }
   location / { return 301 https://\$host\$request_uri; }
@@ -122,13 +126,13 @@ EOF
   cat > "$F" <<EOF
 # Managed by infra/deploy/nginx-https.sh (admin). Admin console on 127.0.0.1:3001.
 server {
-  listen 80; listen [::]:80;
+  listen $ADMIN_IP:80;
   server_name $ADMIN_HOST;
   location /.well-known/acme-challenge/ { root $WEBROOT; }
   location / { return 301 https://\$host\$request_uri; }
 }
 server {
-  listen 443 ssl http2; listen [::]:443 ssl http2;
+  listen $ADMIN_IP:443 ssl;
   server_name $ADMIN_HOST;
   ssl_certificate     /etc/letsencrypt/live/$ADMIN_HOST/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/$ADMIN_HOST/privkey.pem;
@@ -145,8 +149,9 @@ server {
 EOF
   apply "rm -f $F"
   say "result"
-  echo "https://$ADMIN_HOST (via this server) -> $(status_code -k --resolve "$ADMIN_HOST:443:127.0.0.1" "https://$ADMIN_HOST/") (502 is normal until the admin app has been deployed)"
-  certbot renew --dry-run 2>&1 | tail -3
+  curl --noproxy '*' -fsS -o /dev/null --resolve "$ADMIN_HOST:443:$ADMIN_IP" "https://$ADMIN_HOST/ar/login" || die "admin HTTPS check failed"
+  echo "https://$ADMIN_HOST/ar/login: HTTPS certificate and page check passed"
+  certbot renew --cert-name "$ADMIN_HOST" --dry-run 2>&1 | tail -3
   ;;
 
 www)

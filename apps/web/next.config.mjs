@@ -36,7 +36,8 @@ const nextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
   // The staff sign-in lives in the admin console on its own origin; these paths point there so nobody has to remember the port.
   async redirects() {
-    const admin = process.env.ADMIN_ORIGIN ?? 'http://127.0.0.1:3001';
+    const admin =
+      process.env.ADMIN_ORIGIN ?? (dev ? 'http://127.0.0.1:3001' : 'https://admin.nuzm.dev');
     return [
       { source: '/admin', destination: `${admin}/ar/login`, permanent: false },
       { source: '/:locale(ar|en)/admin', destination: `${admin}/:locale/login`, permanent: false },

@@ -1,4 +1,6 @@
+import { once } from 'node:events';
 import { join } from 'node:path';
+import type { Worker as NodeWorker } from 'node:worker_threads';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { analyzeCss, analyzeDart, analyzeFlutterTheme, analyzeTokensJson } from '@nuzm/domain';
 import { handle } from './parser-thread';
@@ -11,6 +13,19 @@ import {
 } from './parser-sandbox';
 import { analyzeThemeConfig } from './theme-config';
 import { analyzeTsFile } from './ts-file';
+
+// Every thread the sandbox starts, so a test can wait for a thread's real exit instead of guessing how long it takes.
+const spawned = vi.hoisted(() => [] as NodeWorker[]);
+vi.mock('node:worker_threads', async (importOriginal) => {
+  const m = await importOriginal<typeof import('node:worker_threads')>();
+  class TrackedWorker extends m.Worker {
+    constructor(...args: ConstructorParameters<typeof m.Worker>) {
+      super(...args);
+      spawned.push(this);
+    }
+  }
+  return { ...m, Worker: TrackedWorker };
+});
 
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
@@ -213,8 +228,12 @@ describe('limits and failure containment (fixture threads)', () => {
 
   it('never reuses a thread that died while idle', async () => {
     const sb = hostile('die-after-first', { threads: 1, timeoutMs: 2000 });
+    const first = spawned.length;
     expect(await sb.parse(ts('1'))).toMatchObject({ ok: true });
-    await new Promise((r) => setTimeout(r, 200)); // the thread exits by itself
+    // the thread exits by itself; wait for its 'exit' event (the sandbox's own listener runs first and marks the slot dead)
+    expect(spawned.length).toBe(first + 1);
+    const w = spawned[first]!;
+    if (w.threadId !== -1) await once(w, 'exit');
     // a dead idle slot is replaced: the next file is answered by a new thread, not lost to the corpse
     expect(await sb.parse(ts('2'))).toMatchObject({ ok: true });
     expect(sb.stats().threadsStarted).toBe(2);

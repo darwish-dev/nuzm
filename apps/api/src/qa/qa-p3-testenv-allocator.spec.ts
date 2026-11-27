@@ -55,6 +55,17 @@ const acquire = (root: string, owner: string, extra: string[] = []): Lease => {
   const all = file.map((f) => JSON.parse(readFileSync(join(root, 'registry', f), 'utf8')) as Lease);
   return all.find((l) => l.owner === owner)!;
 };
+/** A port inside the allocator range (default 54400-54999) that no lease in `root` holds: leases get random ports from that range, so a fixed "free" port collides now and then. */
+const unleasedPort = (root: string): number => {
+  const dir = join(root, 'registry');
+  const taken = new Set(
+    (existsSync(dir) ? readdirSync(dir) : [])
+      .filter((f) => f.startsWith('lease-'))
+      .map((f) => (JSON.parse(readFileSync(join(dir, f), 'utf8')) as Lease).port),
+  );
+  for (let p = 54777; p <= 54999; p++) if (!taken.has(p)) return p;
+  throw new Error('no unleased port left in the allocator range');
+};
 const url = (port: number, host = '127.0.0.1') => `postgres://nuzm_admin@${host}:${port}/nuzm_test`;
 const guard = (root: string, env: Record<string, string>) => {
   const code = `import('${join(DIR, 'guard.mjs').replace(/\\/g, '/')}').then((m)=>{try{m.assertTestDatabase();console.log('OK')}catch(e){console.log('REFUSED '+(e.code||'')+' '+e.message)}})`;
@@ -160,7 +171,7 @@ describe.skipIf(!available)(
         [url(5433), 'port_protected', envA],
         ['postgres://nuzm_admin@127.0.0.1/nuzm_test', 'port_protected', envA], // the default port 5432
         ['postgres://nuzm_admin@127.0.0.1:054329/nuzm_test', 'port_protected', envA], // leading zero
-        [url(54777), 'port_not_leased', envA],
+        [url(unleasedPort(root)), 'port_not_leased', envA],
         [url(54341), 'port_protected', envA], // the Master's own dev database port (legacy session range 54330-54369, protected since the DEFECT-19 fix)
         [url(54330), 'port_protected', envA],
         [url(54369), 'port_protected', envA],
@@ -222,11 +233,12 @@ describe.skipIf(!available)(
       expect(cli(root, ['check-url', url(a.port)], ci).code).toBe(3);
       expect(cli(root, ['check-url', url(54341)], ci).out).toContain('port_protected');
       expect(cli(root, ['check-url', url(54329)], ci).code).toBe(3);
-      expect(cli(root, ['check-url', url(54777)], { ...ci, ...envA }).code).toBe(3); // inside a leased shell the CI policy does not apply
-      const free = cli(root, ['check-url', url(54777)], ci);
+      const unleased = unleasedPort(root);
+      expect(cli(root, ['check-url', url(unleased)], { ...ci, ...envA }).code).toBe(3); // inside a leased shell the CI policy does not apply
+      const free = cli(root, ['check-url', url(unleased)], ci);
       expect(free.code, free.out).toBe(0);
       expect(free.out).toContain('CI policy');
-      expect(cli(root, ['check-url', url(54777)], { CI: 'true' }).code).toBe(3); // CI alone is not the policy
+      expect(cli(root, ['check-url', url(unleased)], { CI: 'true' }).code).toBe(3); // CI alone is not the policy
     });
     // ---- (5) no default database: static review of the sources that name the owner's development cluster
     const FALLBACK_FILES = [

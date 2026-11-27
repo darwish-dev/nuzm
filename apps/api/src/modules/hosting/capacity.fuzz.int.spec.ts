@@ -147,19 +147,31 @@ describe('AC-M06-02 capacity fuzz', () => {
   }, 900_000);
 
   it('a direct SQL attempt to violate the invariant is rejected by the database', async () => {
+    // A fresh node with no allocations: reserved = 0 < sellable on every dimension. The fuzz above can leave a NODES[] row at
+    // reserved = sellable, and then `reserved + 1` trips the CHECK before the deferred trigger ever runs.
+    const node = uuidv7();
+    await env.sql(
+      `INSERT INTO hosting.nodes (id, name, compute_instance_id, region, data_region, status, health, runtimes) VALUES ($1,'fuzz-direct-sql','inst-direct-sql','r','SA','active','healthy','["php:8.3"]')`,
+      [node],
+    );
+    for (const dim of ['cpu_millicores', 'memory_mb', 'disk_mb', 'sites'])
+      await env.sql(
+        `INSERT INTO hosting.node_capacity (node_id, dim, physical, sellable) VALUES ($1,$2,100,100)`,
+        [node, dim],
+      );
     const c = new Client({ connectionString: env.adminUrl });
     await c.connect();
     try {
       await expect(
         c.query(
           `UPDATE hosting.node_capacity SET reserved = sellable + 1 WHERE node_id = $1 AND dim = 'sites'`,
-          [NODES[0]],
+          [node],
         ),
       ).rejects.toThrow(/node_capacity_invariant/);
       await expect(
         c.query(
           `UPDATE hosting.node_capacity SET reserved = reserved + 1 WHERE node_id = $1 AND dim = 'cpu_millicores'`,
-          [NODES[0]],
+          [node],
         ),
       ).rejects.toThrow(/capacity ledger broken/);
     } finally {

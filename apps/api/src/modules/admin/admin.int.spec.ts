@@ -464,6 +464,7 @@ describe('impersonation', () => {
   });
 });
 
+const GIVEN_PW = 'a long enough passphrase 2026';
 describe('create customers and organizations (admin tools)', () => {
   it('creates a customer account with a generated temporary password that signs in; a given password is used as is; never a platform user', async () => {
     await h.elevate(adm.root!);
@@ -493,7 +494,7 @@ describe('create customers and organizations (admin tools)', () => {
 
     const given = await admin('root', 'POST', '/v1/admin/users', {
       email: 'given.password@example.test',
-      password: 'a-long-enough-passphrase-1',
+      password: GIVEN_PW,
     });
     expect(given.statusCode).toBe(201);
     expect(given.json().temporaryPassword).toBeUndefined();

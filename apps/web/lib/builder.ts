@@ -412,6 +412,14 @@ const PROBLEM_KEYS: Record<string, MessageKey> = {
 export const failureReasonKey = (code: string | null | undefined): MessageKey | null =>
   code && PROBLEM_KEYS[code] ? PROBLEM_KEYS[code]! : null;
 
+/** Where the customer fixes a problem themselves, when the console has a screen for it (shown as a link under the message). */
+const PROBLEM_FIXES: Record<string, { href: string; label: MessageKey }> = {
+  residency_denied: { href: '/privacy#residency', label: 'bld.fix.residency' },
+  insufficient_credits: { href: '/billing/payments#wallet', label: 'bld.fix.credits' },
+};
+export const problemFix = (p: Pick<BuilderProblem, 'code'>) =>
+  (p.code && PROBLEM_FIXES[p.code]) || null;
+
 /** Localized message for a problem: by code first, then by status. Never the raw server text. */
 export function problemKey(p: BuilderProblem): MessageKey {
   if (p.code && PROBLEM_KEYS[p.code]) return PROBLEM_KEYS[p.code]!;

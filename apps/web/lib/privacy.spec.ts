@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aiAllowed,
+  aiPolicy,
   exportTone,
   formatCountries,
   parseCountries,
@@ -92,5 +94,42 @@ describe('tones', () => {
     expect(exportTone('succeeded')).toBe('success');
     expect(exportTone('expired')).toBe('danger');
     expect(exportTone('pending')).toBe('warn');
+  });
+});
+
+describe('AI features switch', () => {
+  it('is on only when US is listed for customer content', () => {
+    expect(aiAllowed('allow_listed', { 'customer-content': ['US'] })).toBe(true);
+    expect(aiAllowed('allow_listed', { personal: ['US'] })).toBe(false);
+    expect(aiAllowed('unrestricted_with_assessment', {})).toBe(false);
+    expect(aiAllowed('in_kingdom_only', { 'customer-content': ['US'] })).toBe(false);
+  });
+  it('turning on lists US for customer content and keeps the other allowed countries', () => {
+    expect(aiPolicy('in_kingdom_only', {}, true)).toEqual({
+      mode: 'allow_listed',
+      allowedCountriesByClass: { 'customer-content': ['US'] },
+    });
+    expect(aiPolicy('unrestricted_with_assessment', { personal: ['AE'] }, true)).toEqual({
+      mode: 'allow_listed',
+      allowedCountriesByClass: { 'customer-content': ['US'] },
+    });
+    expect(
+      aiPolicy('allow_listed', { personal: ['AE'], 'customer-content': ['BH', 'US'] }, true),
+    ).toEqual({
+      mode: 'allow_listed',
+      allowedCountriesByClass: { personal: ['AE'], 'customer-content': ['BH', 'US'] },
+    });
+  });
+  it('turning off removes only US, and goes back to in-Kingdom when nothing is left', () => {
+    expect(aiPolicy('allow_listed', { 'customer-content': ['US'] }, false)).toEqual({
+      mode: 'in_kingdom_only',
+      allowedCountriesByClass: {},
+    });
+    expect(
+      aiPolicy('allow_listed', { personal: ['AE'], 'customer-content': ['BH', 'US'] }, false),
+    ).toEqual({
+      mode: 'allow_listed',
+      allowedCountriesByClass: { personal: ['AE'], 'customer-content': ['BH'] },
+    });
   });
 });

@@ -12,6 +12,8 @@ import {
   parseCountries,
   requestBody,
   type DsrType,
+  aiAllowed,
+  aiPolicy,
   type ResidencyMode,
 } from '../lib/privacy';
 import { NoticeText } from './Feedback';
@@ -218,6 +220,65 @@ export function ExportRequestButton({ locale }: { locale: Locale }) {
 }
 
 /** UI-M05-05 (residency): view and tighten the policy. Sends the version it showed as If-Match; the API refuses to loosen the platform floor. */
+/** The one-click "AI features" switch on top of the residency policy: a customer turns AI on without learning modes or country codes. */
+export function AiRegionSwitch(p: {
+  locale: Locale;
+  version: number;
+  mode: ResidencyMode;
+  countries: Record<string, string[]>;
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const on = aiAllowed(p.mode, p.countries);
+  const [busy, setBusy] = useState(false);
+  const [n, setN] = useState<Notice>(null);
+  async function flip() {
+    setBusy(true);
+    setN(null);
+    const r = await browserApi().PUT('/v1/compliance/residency-policy', {
+      params: p.version > 0 ? { header: { 'If-Match': `"${p.version}"` } } : {},
+      body: aiPolicy(p.mode, p.countries, !on),
+    });
+    setBusy(false);
+    if (!r.response.ok) {
+      const code = (r.error as { code?: string } | undefined)?.code;
+      return setN({
+        tone: 'error',
+        text:
+          code === 'policy_below_floor'
+            ? t(p.locale, 'pv.res.below')
+            : r.response.status === 412
+              ? t(p.locale, 'pv.res.stale')
+              : errorText(p.locale, r.response.status, code),
+      });
+    }
+    setN({ tone: 'ok', text: t(p.locale, on ? 'pv.ai.offDone' : 'pv.ai.onDone') });
+    router.refresh();
+  }
+  return (
+    <section className="nz-card" aria-labelledby="rs-ai" style={{ maxInlineSize: 560 }}>
+      <h2 className="nz-h2" id="rs-ai">
+        {t(p.locale, 'pv.ai.title')}
+      </h2>
+      <p>{t(p.locale, on ? 'pv.ai.on' : 'pv.ai.off')}</p>
+      <p className="nz-muted">{t(p.locale, 'pv.ai.note')}</p>
+      {p.canEdit ? (
+        <Button
+          type="button"
+          variant={on ? 'secondary' : 'primary'}
+          disabled={busy}
+          onClick={() => void flip()}
+        >
+          {t(p.locale, on ? 'pv.ai.turnOff' : 'pv.ai.turnOn')}
+        </Button>
+      ) : (
+        <p className="nz-muted">{t(p.locale, 'pv.res.readOnly')}</p>
+      )}
+      <NoticeText notice={n} />
+    </section>
+  );
+}
+
 export function ResidencyForm(p: {
   locale: Locale;
   version: number;

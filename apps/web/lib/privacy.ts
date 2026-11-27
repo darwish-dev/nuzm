@@ -51,6 +51,31 @@ export const formatCountries = (m: Record<string, string[]>) =>
     .map(([k, v]) => `${k}=${v.join(',')}`)
     .join('; ');
 
+/**
+ * The one-switch "AI features" choice of the residency screen. The AI model runs in the United States, so AI features need the organization to
+ * allow customer content in US; everything else in the policy is kept.
+ */
+export const AI_CLASS = 'customer-content';
+export const AI_COUNTRY = 'US';
+export const aiAllowed = (mode: ResidencyMode, countries: Record<string, string[]>) =>
+  mode === 'allow_listed' && (countries[AI_CLASS] ?? []).includes(AI_COUNTRY);
+
+/** The policy body after switching AI features on or off: on lists US for customer content; off removes it (back to in-Kingdom when nothing is left). */
+export function aiPolicy(
+  mode: ResidencyMode,
+  countries: Record<string, string[]>,
+  on: boolean,
+): { mode: ResidencyMode; allowedCountriesByClass: Record<string, string[]> } {
+  const kept = mode === 'allow_listed' ? { ...countries } : {};
+  const list = (kept[AI_CLASS] ?? []).filter((c) => c !== AI_COUNTRY);
+  if (on) kept[AI_CLASS] = [...list, AI_COUNTRY];
+  else if (list.length > 0) kept[AI_CLASS] = list;
+  else delete kept[AI_CLASS];
+  if (Object.keys(kept).length === 0)
+    return { mode: 'in_kingdom_only', allowedCountriesByClass: {} };
+  return { mode: 'allow_listed', allowedCountriesByClass: kept };
+}
+
 /** A subject reference as typed by an administrator: opaque ids only (never an email or a name). */
 export const validSubject = (v: string) => /^[A-Za-z0-9:_.-]{1,128}$/.test(v.trim());
 

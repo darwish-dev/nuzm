@@ -30,6 +30,7 @@ import {
   nextUndo,
   outlineOf,
   pageSeoOp,
+  problemFix,
   problemKey,
   problemOf,
   pushEdit,
@@ -157,6 +158,18 @@ describe('problems', () => {
     );
     expect(problemKey(r(503, { code: 'ai_unavailable' }))).toBe('bld.err.ai_unavailable');
     expect(problemKey(r(422, { code: 'quota_exceeded' }))).toBe('bld.err.quota_exceeded');
+  });
+  it('points the customer at the screen that fixes it, when there is one', () => {
+    expect(problemFix(r(403, { code: 'residency_denied' }))).toEqual({
+      href: '/privacy#residency',
+      label: 'bld.fix.residency',
+    });
+    expect(problemFix(r(402, { code: 'insufficient_credits' }))).toEqual({
+      href: '/billing/payments#wallet',
+      label: 'bld.fix.credits',
+    });
+    expect(problemFix(r(409, { code: 'run_active' }))).toBeNull();
+    expect(problemFix(r(500, {}))).toBeNull();
   });
   it('falls back by status, and 403 without a code is the generic forbidden text', () => {
     expect(problemKey(r(403, {}))).toBe('state.forbidden.title');

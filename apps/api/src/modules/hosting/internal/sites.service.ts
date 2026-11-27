@@ -4,7 +4,7 @@ import type { Db, OperationsService } from '@nuzm/platform';
 import type { ResidencyEvaluator } from '@nuzm/domain';
 import type { AuditSink } from '../../../common/audit';
 import { ProblemException } from '../../../common/errors';
-import { decodeTimeCursor, encodeTimeCursor } from '../../../common/pagination';
+import { cursorTimeSql, decodeTimeCursor, encodeTimeCursor } from '../../../common/pagination';
 import type { EntitlementService } from '../../billing';
 import type { OrderService } from '../../commerce';
 import { CapacityService } from './capacity.service';
@@ -433,7 +433,7 @@ export class SitesService {
     return this.db.withOrg(orgId, async (c) => {
       const rows = (
         await c.query(
-          `${SELECT} WHERE s.org_id = $1 AND s.status <> 'deleted' AND ($2::text IS NULL OR s.status = $2)
+          `${SELECT.replace('SELECT s.*', `SELECT s.*, ${cursorTimeSql('s.created_at')} AS cursor_t`)} WHERE s.org_id = $1 AND s.status <> 'deleted' AND ($2::text IS NULL OR s.status = $2)
              AND ($3::timestamptz IS NULL OR (s.created_at, s.id) < ($3::timestamptz, $4::uuid)) ORDER BY s.created_at DESC, s.id DESC LIMIT $5`,
           [orgId, q.status ?? null, cur?.t ?? null, cur?.id ?? null, q.limit + 1],
         )
@@ -445,7 +445,7 @@ export class SitesService {
         items,
         nextCursor:
           rows.length > q.limit && last
-            ? encodeTimeCursor(last.created_at as Date, last.id as string)
+            ? encodeTimeCursor(last.cursor_t as string, last.id as string)
             : null,
       };
     });
@@ -714,7 +714,7 @@ export class SitesService {
     const out = await this.db.withPlatformScope(async (c) => {
       const rows = (
         await c.query(
-          `${STAFF_SELECT}
+          `${STAFF_SELECT.replace('SELECT s.*', `SELECT s.*, ${cursorTimeSql('s.created_at')} AS cursor_t`)}
             WHERE ($1::uuid IS NULL OR s.org_id = $1) AND ($2::text IS NULL OR s.status = $2) AND ($3::text IS NULL OR s.name ILIKE '%' || $3 || '%' OR s.node_name = $3)
               AND ($4::timestamptz IS NULL OR (s.created_at, s.id) < ($4::timestamptz, $5::uuid)) AND ($7::uuid IS NULL OR s.node_id = $7) ORDER BY s.created_at DESC, s.id DESC LIMIT $6`,
           [
@@ -734,7 +734,7 @@ export class SitesService {
         items: await this.decorate(c, page, true),
         nextCursor:
           rows.length > q.limit && last
-            ? encodeTimeCursor(last.created_at as Date, last.id as string)
+            ? encodeTimeCursor(last.cursor_t as string, last.id as string)
             : null,
       };
     });
